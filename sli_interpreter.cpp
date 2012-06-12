@@ -48,15 +48,17 @@ namespace sli3
 	types_.push_back(new SymbolType(this,"symboltype",sli3::nametype));
 	types_.push_back(new StringType(this,"stringtype",sli3::stringtype));
 	types_.push_back(new ArrayType(this,"arraytype",sli3::arraytype));
+	types_.push_back(new LitprocedureType(this,"litproceduretype",sli3::litproceduretype));
 	types_.push_back(new ProcedureType(this,"proceduretype",sli3::proceduretype));
-	types_.push_back(new XProcedureType(this,"xproceduretype",sli3::xproceduretype));
 	types_.push_back(new DictionaryType(this,"dictionarytype",sli3::dictionarytype));
 	types_.push_back(new FunctionType(this,"functiontype",sli3::functiontype));
     }
 
     void SLIInterpreter::push(const Token &t)
     {
+      std::cout << operand_stack_.size() << '\n';
       operand_stack_.push(t);
+      operand_stack_.dump(std::cerr);
     }
 
     template<>
@@ -103,25 +105,33 @@ namespace sli3
     template<>
     TokenRef SLIInterpreter::new_token<sli3::integertype>()
     {
-	Token t(types_[sli3::integertype]);
+	TokenRef t(types_[sli3::integertype]);
 	t.data_.long_val= 0;
-	return TokenRef(t);
+	return t;
     }
 
     template<>
     TokenRef SLIInterpreter::new_token<sli3::doubletype>()
     {
-	Token t(types_[sli3::doubletype]);
+	TokenRef t(types_[sli3::doubletype]);
 	t.data_.double_val= 0;
-	return TokenRef(t);
+	return t;
     }
 
     template<>
     TokenRef SLIInterpreter::new_token<sli3::arraytype>()
     {
-	Token t(types_[sli3::arraytype]);
+	TokenRef t(types_[sli3::arraytype]);
 	t.data_.array_val= new TokenArray();
-	return TokenRef(t);
+	return t;
+    }
+
+    template<>
+    TokenRef SLIInterpreter::new_token<sli3::litproceduretype>()
+    {
+	TokenRef t(types_[sli3::litproceduretype]);
+	t.data_.array_val= new TokenArray() ;
+	return t;
     }
 
     template<>

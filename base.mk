@@ -43,6 +43,7 @@ OBJS= 	sli_main.o\
 	sli_dictstack.o\
 	sli_charcode.o\
 	sli_scanner.o\
+	sli_parser.o\
 	sli_interpreter.o
 
 SOURCES = ${OBJS:.o=.cpp}

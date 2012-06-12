@@ -27,8 +27,8 @@ namespace sli3
     symboltype,
     stringtype,
     arraytype,
+    litproceduretype,
     proceduretype,
-    xproceduretype,
     dictionarytype,
     functiontype,
     num_sli_types
@@ -76,7 +76,7 @@ namespace sli3
     virtual void execute(Token&)
     {} // Default action.
     
-    std::string const& gettypename() const
+    std::string const& get_typename() const
       {
 	return name_;
       }

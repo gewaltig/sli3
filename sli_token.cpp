@@ -159,10 +159,10 @@ namespace sli3
 	return not operator==(t);
     }
 
-    std::string Token::gettypename() const
+    std::string Token::get_typename() const
     {
 	if (type_)
-	    return type_->gettypename();
+	    return type_->get_typename();
 	return "/nulltype";
     }
 

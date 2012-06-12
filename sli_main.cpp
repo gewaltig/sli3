@@ -1,6 +1,7 @@
 #include "sli_interpreter.h"
 #include "sli_token.h"
 #include "sli_dictionary.h"
+#include "sli_parser.h"
 #include <iostream>
 
 int main()
@@ -24,6 +25,14 @@ int main()
     engine.push(engine.new_token<sli3::arraytype>());
     engine.push(engine.new_token<sli3::dictionarytype>());
     engine.push(engine.new_token<sli3::stringtype>(std::string("Hello World")));
-
+    sli3::Parser parse(std::cin);
+    for(int i=0; i<10; ++i)
+      {
+	std::cerr << "sli3 >";
+	sli3::Token t;
+	parse(engine,t);
+	engine.push(t);
+      }
+    
     return 0;
 }
