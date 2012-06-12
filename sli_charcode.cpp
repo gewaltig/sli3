@@ -15,7 +15,7 @@
  */
 
 #include "sli_charcode.h"
-
+#include <cassert>
 namespace sli3
 {
   CharCode::CharCode(size_t n, size_t def)

@@ -21,13 +21,15 @@
 
 */
 #include "sli_token.h"
-#include "charcode.h"
+#include "sli_name.h"
+#include "sli_charcode.h"
 
 #include <iostream>
 #include <string>
 
 namespace sli3
 {
+  class SLIInterpreter;
 
   class Scanner 
   {
@@ -155,7 +157,7 @@ namespace sli3
     /**
      * Scan input until the next Token.
      */
-    bool     operator()(Token&);
+    bool     operator()(SLIInterpreter &, Token&);
     
     /**
      * Issue an error message.
@@ -186,7 +188,7 @@ namespace sli3
       old_context.clear();
     }
   };
-
+}
 # endif
 
 

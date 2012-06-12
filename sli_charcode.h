@@ -25,7 +25,6 @@
 /* class CharCode                                              */
 /***************************************************************/
 #include <vector>
-#include <cassert>
 
 namespace sli3
 {
