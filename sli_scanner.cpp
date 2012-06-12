@@ -19,6 +19,7 @@
 */
 #include "sli_scanner.h"
 #include "sli_token.h"
+#include "sli_interpreter.h"
 
 #include <cmath>
 #include <sstream>
@@ -479,35 +480,35 @@ namespace sli3
     trans[asteriskst][asterisk]=asteriskst; // changed from ccommentst, 25.8.1995
 } 
 
-void Scanner::source(std::istream* in_s)
-{
-  if(in != in_s)
-  {
-    in=in_s;
-    line=0;
-    col=0;
-    old_context.clear();
-    context.clear();
-    context.reserve(255);
-  }
-}
-
-bool Scanner::operator()(Token& t)
-{
-    static const int base=10;
-    ScanStates state=start;
-    std::string s; s.reserve(255);
-    context.reserve(255);
-
-    unsigned char c='\0';
-    unsigned char sgc='\0';
-
-    long l=0L;
-    double d=0.0;
-    int sg=1;
-    int e=0;
-    int parenth=0;    // to handle PS parenthesis in strings
-    double p=1.;
+    void Scanner::source(std::istream* in_s)
+    {
+	if(in != in_s)
+	{
+	    in=in_s;
+	    line=0;
+	    col=0;
+	    old_context.clear();
+	    context.clear();
+	    context.reserve(255);
+	}
+    }
+    
+    bool Scanner::operator()(SLIInterpreter &sli, Token& t)
+    {
+	static const int base=10;
+	ScanStates state=start;
+	std::string s; s.reserve(255);
+	context.reserve(255);
+	
+	unsigned char c='\0';
+	unsigned char sgc='\0';
+	
+	long l=0L;
+	double d=0.0;
+	int sg=1;
+	int e=0;
+	int parenth=0;    // to handle PS parenthesis in strings
+	double p=1.;
 
     
     t.clear();
@@ -561,16 +562,15 @@ bool Scanner::operator()(Token& t)
 
       case aheadintst :
       {
-	IntegerDatum id(l);
-	t=id;
-	if(c != endoln && c != endof)
-	{
-	  in->unget();
-	  --col;
-	}
-
-        ds.clear();
-	state=end;
+	  t=sli.new_token<sli3::integertype>(l);
+	  if(c != endoln && c != endof)
+	  {
+	      in->unget();
+	      --col;
+	  }
+	  
+	  ds.clear();
+	  state=end;
       }
       break;
 
@@ -612,16 +612,15 @@ bool Scanner::operator()(Token& t)
         // traditional
         // Token doubletoken(new DoubleDatum(d * std::pow((double)base,es*e)));
 
-        Token doubletoken(new DoubleDatum( std::atof(ds.c_str())  ));
-        ds.clear();
-     
-	t.move(doubletoken);
-	if(c != endoln && c != endof)
-	{
-	  in->unget();
-	  --col;
-	}
-	state=end;
+	  t=sli.new_token<sli3::doubletype>(std::atof(ds.c_str())  );
+	  ds.clear();
+	  
+	  if(c != endoln && c != endof)
+	  {
+	      in->unget();
+	      --col;
+	  }
+	  state=end;
       }
       break;
 
@@ -656,121 +655,119 @@ bool Scanner::operator()(Token& t)
 	}
 	else
 	{
-	  Token temptoken(new StringDatum(s));
-	  t.move(temptoken);
-	  state=end;
+	    t=sli.new_token<sli3::stringtype>(s);
+	    state=end;
 	}
 	break;
       case sgalphast  :
-	assert(sgc=='+' || sgc=='-');
-	s.append(1,sgc);
-	state=alphast;
+	  assert(sgc=='+' || sgc=='-');
+	  s.append(1,sgc);
+	  state=alphast;
       case literalst  :
       case stringst   :
       case alphast    :                    // let's optimize this at some point
-	s.append(1,c);  // string of fixed length sl
-	break;              // append to s every sl characters
+	  s.append(1,c);  // string of fixed length sl
+	  break;              // append to s every sl characters
       case newlinest  : 
-	s.append("\n");  
-	state=stringst;
-	break;
+	  s.append("\n");  
+	  state=stringst;
+	  break;
       case tabulatorst: 
-	s.append("\t");
-	state=stringst;
-	break;
+	  s.append("\t");
+	  state=stringst;
+	  break;
       case backslashcst: 
-	s.append("\\");
-	state=stringst;
-	break;
+	  s.append("\\");
+	  state=stringst;
+	  break;
       case oparenthcst: 
-	s.append("(");
-	state=stringst;
-	break;
+	  s.append("(");
+	  state=stringst;
+	  break;
       case cparenthcst: 
-	s.append(")");
-	state=stringst;
-	break;
+	  s.append(")");
+	  state=stringst;
+	  break;
       case aheadsgst  : 
-	s.append(1,sgc);                  
+	  s.append(1,sgc);                  
       case aheadalphst:
       {
-	if(c != endoln && c != endof)
-	{
-	  in->unget();
-	  --col;
-	}
-	NameDatum nd(s);
-	t=nd;
+	  if(c != endoln && c != endof)
+	  {
+	      in->unget();
+	      --col;
+	  }
+	  t=sli.new_token<sli3::nametype>(Name(s));
       }
       state=end;
       break;
       
       case aheadlitst :
       {
-	if(c != endoln && c != endof)
-	{
-	  in->unget();
-	  --col;
-	}
-	LiteralDatum nd(s);
-	t=nd;
-	state=end;
+	  if(c != endoln && c != endof)
+	  {
+	      in->unget();
+	      --col;
+	  }
+
+	  t=sli.new_token<sli3::literaltype>(Name(s));
+	  state=end;
       }
       break;
       
       case openbracest:
       {
-	t=BeginProcedureSymbol;
-	state=end;
+	  t=sli.new_token<sli3::symboltype>(BeginProcedureSymbol);
+	  state=end;
       }
       break;
       
       case openbracketst:
       {
-	t=BeginArraySymbol;
-	state=end;
+	  t=sli.new_token<sli3::symboltype>(BeginArraySymbol);
+	  state=end;
       }
       break;
       
       case closebracest:
       {
-	t=EndProcedureSymbol;
-	state=end;
+	  t=sli.new_token<sli3::symboltype>(EndProcedureSymbol);
+	  state=end;
       }
       break;
       
       case closebracketst:
       {
-	t=EndArraySymbol;
-	state=end;
+	  t=sli.new_token<sli3::symboltype>(EndArraySymbol);
+	  state=end;
       }
       break;
       
       case eofst      :
       {
-	t=EndSymbol;
-	state=end;
+	  t=sli.new_token<sli3::symboltype>(EndSymbol);
+	  state=end;
       }
       break;
       
       case error : 
-	print_error("");
-	break;
+	  print_error("");
+	  break;
       default:
-	break;
-	
+	  break;
+	  
       }
     } while ((state!=error) && (state!=end));
     return(state==end);
-}
-
-void Scanner::print_error(const char *msg)
-{
-  std::cout << "% parser: At line " << line << " position " << col << ".\n"
-	    << "% parser: Syntax Error: " << msg << "\n";
-  std::cout<< "% parser: Context preceding the error follows:\n" 
-	   << old_context << std::endl
-	   << context << std::endl;
-}
-
+    }
+    
+    void Scanner::print_error(const char *msg)
+    {
+	std::cout << "% parser: At line " << line << " position " << col << ".\n"
+		  << "% parser: Syntax Error: " << msg << "\n";
+	std::cout<< "% parser: Context preceding the error follows:\n" 
+		 << old_context << std::endl
+		 << context << std::endl;
+    }
+    
 }

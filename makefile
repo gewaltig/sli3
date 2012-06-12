@@ -41,6 +41,8 @@ OBJS= 	sli_main.o\
 	sli_dictionary.o\
 	sli_exceptions.o\
 	sli_dictstack.o\
+	sli_charcode.o\
+	sli_scanner.o\
 	sli_interpreter.o
 
 SOURCES = ${OBJS:.o=.cpp}
@@ -78,10 +80,12 @@ sli_main.o: sli_main.cpp sli_interpreter.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -100,7 +104,7 @@ sli_main.o: sli_main.cpp sli_interpreter.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -182,7 +186,7 @@ sli_array.o: sli_array.cpp sli_array.h /usr/include/c++/4.2.1/typeinfo \
   /usr/include/sys/_structs.h /usr/include/sys/_select.h \
   /usr/include/c++/4.2.1/bits/cpu_defines.h \
   /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   sli_token.h /usr/include/c++/4.2.1/iostream \
   /usr/include/c++/4.2.1/ostream /usr/include/c++/4.2.1/ios \
   /usr/include/c++/4.2.1/iosfwd /usr/include/c++/4.2.1/bits/c++locale.h \
@@ -191,7 +195,7 @@ sli_array.o: sli_array.cpp sli_array.h /usr/include/c++/4.2.1/typeinfo \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -206,6 +210,8 @@ sli_array.o: sli_array.cpp sli_array.h /usr/include/c++/4.2.1/typeinfo \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -280,11 +286,11 @@ sli_token.o: sli_token.cpp sli_token.h /usr/include/c++/4.2.1/iostream \
   /usr/include/c++/4.2.1/clocale /usr/include/locale.h \
   /usr/include/_locale.h /usr/include/c++/4.2.1/cstring \
   /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -300,6 +306,8 @@ sli_token.o: sli_token.cpp sli_token.h /usr/include/c++/4.2.1/iostream \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -381,10 +389,12 @@ sli_type.o: sli_type.cpp sli_type.h /usr/include/c++/4.2.1/string \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -403,7 +413,7 @@ sli_type.o: sli_type.cpp sli_type.h /usr/include/c++/4.2.1/string \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -474,10 +484,12 @@ sli_arraytype.o: sli_arraytype.cpp sli_arraytype.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -496,7 +508,7 @@ sli_arraytype.o: sli_arraytype.cpp sli_arraytype.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -580,10 +592,12 @@ sli_stringtype.o: sli_stringtype.cpp sli_stringtype.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -602,7 +616,7 @@ sli_stringtype.o: sli_stringtype.cpp sli_stringtype.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -686,10 +700,12 @@ sli_integertype.o: sli_integertype.cpp sli_integertype.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -708,7 +724,7 @@ sli_integertype.o: sli_integertype.cpp sli_integertype.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -779,10 +795,12 @@ sli_nametype.o: sli_nametype.cpp sli_nametype.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -801,7 +819,7 @@ sli_nametype.o: sli_nametype.cpp sli_nametype.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -880,11 +898,11 @@ sli_dicttype.o: sli_dicttype.cpp sli_token.h \
   /usr/include/c++/4.2.1/clocale /usr/include/locale.h \
   /usr/include/_locale.h /usr/include/c++/4.2.1/cstring \
   /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -900,6 +918,8 @@ sli_dicttype.o: sli_dicttype.cpp sli_token.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -982,10 +1002,12 @@ sli_functiontype.o: sli_functiontype.cpp sli_functiontype.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1004,7 +1026,7 @@ sli_functiontype.o: sli_functiontype.cpp sli_functiontype.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1096,12 +1118,14 @@ sli_allocator.o: sli_allocator.cpp sli_allocator.h \
   /usr/include/sys/unistd.h /usr/include/sys/select.h \
   /usr/include/sys/_select.h /usr/include/c++/4.2.1/bits/cpu_defines.h \
   /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/c++/4.2.1/string /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/string.h \
   /usr/include/strings.h /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1111,7 +1135,7 @@ sli_allocator.o: sli_allocator.cpp sli_allocator.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1164,11 +1188,11 @@ sli_tokenstack.o: sli_tokenstack.cpp sli_tokenstack.h sli_token.h \
   /usr/include/c++/4.2.1/clocale /usr/include/locale.h \
   /usr/include/_locale.h /usr/include/c++/4.2.1/cstring \
   /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1184,6 +1208,8 @@ sli_tokenstack.o: sli_tokenstack.cpp sli_tokenstack.h sli_token.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1266,9 +1292,11 @@ sli_name.o: sli_name.cpp sli_name.h /usr/include/c++/4.2.1/cassert \
   /usr/include/sys/unistd.h /usr/include/sys/select.h \
   /usr/include/sys/_select.h /usr/include/c++/4.2.1/bits/cpu_defines.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1278,7 +1306,7 @@ sli_name.o: sli_name.cpp sli_name.h /usr/include/c++/4.2.1/cassert \
   /usr/include/c++/4.2.1/clocale /usr/include/locale.h \
   /usr/include/_locale.h /usr/include/c++/4.2.1/cstdio \
   /usr/include/stdio.h /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1367,9 +1395,11 @@ sli_dictionary.o: sli_dictionary.cpp sli_dictionary.h sli_name.h \
   /usr/include/sys/unistd.h /usr/include/sys/select.h \
   /usr/include/sys/_select.h /usr/include/c++/4.2.1/bits/cpu_defines.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1379,7 +1409,7 @@ sli_dictionary.o: sli_dictionary.cpp sli_dictionary.h sli_name.h \
   /usr/include/c++/4.2.1/clocale /usr/include/locale.h \
   /usr/include/_locale.h /usr/include/c++/4.2.1/cstdio \
   /usr/include/stdio.h /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1472,9 +1502,11 @@ sli_exceptions.o: sli_exceptions.cpp config.h sli_exceptions.h sli_name.h \
   /usr/include/sys/unistd.h /usr/include/sys/select.h \
   /usr/include/sys/_select.h /usr/include/c++/4.2.1/bits/cpu_defines.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1484,7 +1516,7 @@ sli_exceptions.o: sli_exceptions.cpp config.h sli_exceptions.h sli_name.h \
   /usr/include/c++/4.2.1/clocale /usr/include/locale.h \
   /usr/include/_locale.h /usr/include/c++/4.2.1/cstdio \
   /usr/include/stdio.h /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1571,10 +1603,12 @@ sli_dictstack.o: sli_dictstack.cpp sli_interpreter.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1593,7 +1627,7 @@ sli_dictstack.o: sli_dictstack.cpp sli_interpreter.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1676,10 +1710,12 @@ sli_interpreter.o: sli_interpreter.cpp sli_interpreter.h sli_type.h \
   /usr/include/c++/4.2.1/bits/stringfwd.h \
   /usr/include/c++/4.2.1/bits/char_traits.h \
   /usr/include/c++/4.2.1/cstring /usr/include/c++/4.2.1/cstddef \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
   /usr/include/string.h /usr/include/strings.h \
   /usr/include/c++/4.2.1/bits/stl_algobase.h \
   /usr/include/c++/4.2.1/climits \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/limits.h \
   /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/syslimits.h \
   /usr/include/limits.h /usr/include/machine/limits.h \
@@ -1698,7 +1734,7 @@ sli_interpreter.o: sli_interpreter.cpp sli_interpreter.h sli_type.h \
   /usr/include/locale.h /usr/include/_locale.h \
   /usr/include/c++/4.2.1/cstdio /usr/include/stdio.h \
   /usr/include/c++/4.2.1/cstdarg \
-  /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
   /usr/include/c++/4.2.1/bits/c++io.h /usr/include/c++/4.2.1/bits/gthr.h \
   /usr/include/c++/4.2.1/bits/gthr-default.h /usr/include/pthread.h \
   /usr/include/pthread_impl.h /usr/include/sched.h /usr/include/time.h \
@@ -1767,4 +1803,4 @@ sli_interpreter.o: sli_interpreter.cpp sli_interpreter.h sli_type.h \
   /usr/include/c++/4.2.1/bits/vector.tcc sli_dictstack.h \
   /usr/include/c++/4.2.1/list /usr/include/c++/4.2.1/bits/stl_list.h \
   /usr/include/c++/4.2.1/bits/list.tcc sli_nametype.h sli_dicttype.h \
-  sli_functiontype.h
+  sli_functiontype.h sli_string.h sli_stringtype.h

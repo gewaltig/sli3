@@ -14,78 +14,79 @@
  *
  */
 
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef SLI_PARSER_H
+#define SLI_PARSER_H
 /* 
     SLI's parser.
 */
 
+#include "sli_token.h"
+#include "sli_tokenstack.h"
 #include <typeinfo>
 #include <iostream>
-#include "token.h"
-#include "tokenstack.h"
 
-
-class Scanner;
-
-class Parser 
+namespace sli3
 {
-    Scanner* s;
-    
-    Token arraytoken;
-    Token proctoken;
-    TokenStack ParseStack; 
-    
-    enum ParseResult   {
-                     tokencontinue,
-                     scancontinue,
-                     tokencompleted,
-                     noopenproc,
-                     endprocexpected,
-                     noopenarray,
-                     endarrayexpected,
-                     unexpectedeof
-    };
-
-    void init(std::istream &);
-    
-public:    
-    Parser(void);
-    Parser(std::istream &);
-    
-    bool operator()(Token&);
-    bool readToken(std::istream &is, Token &t)
-    {
-        s->source(&is);
-        return operator()(t);
-    }
- 
-    bool readSymbol(std::istream &is, Token &t)
-    {
-        s->source(&is);
-        return s->operator()(t);
-    }
-
-    Scanner const* scan(void) const
-    {
-        return s;
-    }
-    
-  void clear_context()
+  class Scanner;
+  class SLIInterpreter;
+  class Parser 
   {
-    if(s !=NULL)
-    {
-      s->clear_context();
-    }
-  }
-};
-
-bool operator==(Parser const &, Parser const &);
-
-std::ostream& operator<<(std::ostream&, const Parser&);
-
-
-
+      Scanner* s;
+      
+      Token arraytoken;
+      Token proctoken;
+      TokenStack ParseStack; 
+      
+      enum ParseResult   {
+	  tokencontinue,
+	  scancontinue,
+	  tokencompleted,
+	  noopenproc,
+	  endprocexpected,
+	  noopenarray,
+	  endarrayexpected,
+	  unexpectedeof
+      };
+      
+      void init(std::istream &);
+      
+  public:    
+      Parser(void);
+      Parser(std::istream &);
+      
+      bool operator()(SLIInterpreter &, Token&);
+      bool readToken(SLIInterpreter &sli, std::istream &is, Token &t)
+	  {
+	      s->source(sli, &is);
+	      return operator()(sli, t);
+	  }
+      
+      bool readSymbol(SLIInterpreter &sli, std::istream &is, Token &t)
+	  {
+	      s->source(sli, &is);
+	      return s->operator()(sli, t);
+	  }
+      
+      Scanner const* scan(void) const
+	  {
+	      return s;
+	  }
+      
+      void clear_context()
+	  {
+	      if(s !=NULL)
+	      {
+		  s->clear_context();
+	      }
+	  }
+  };
+    
+    bool operator==(Parser const &, Parser const &);
+    
+    std::ostream& operator<<(std::ostream&, const Parser&);
+    
+}
+    
 
 #endif
 
