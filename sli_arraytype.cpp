@@ -21,24 +21,24 @@ namespace sli3
 	
     }
 
-    std::ostream& ProcedureType::print(std::ostream& out, const Token &t) const
+    std::ostream& LitprocedureType::print(std::ostream& out, const Token &t) const
     {
 	if (t.data_.array_val !=0)
 	{
-	    return out << '{' << *t.data_.array_val << '}';
+	  return out << "{{" << *t.data_.array_val << "}}";
 	}
 	else
-	    return out << "{\0}";
+	    return out << "{{\0}}";
 	
     }
 
-  void ProcedureType::execute(Token &t)
+  void LitprocedureType::execute(Token &t)
     {
-      t.type_=sli_->get_type(sli3::xproceduretype);
+      t.type_=sli_->get_type(sli3::proceduretype);
       
     }
  
-  void XProcedureType::execute(Token &t)
+  void ProcedureType::execute(Token &t)
   {
       std::cerr << "executing\n";
   }

@@ -112,6 +112,9 @@ namespace sli3
       TokenRef SLIInterpreter::new_token<sli3::arraytype>();
 
     template<>
+      TokenRef SLIInterpreter::new_token<sli3::litproceduretype>();
+
+    template<>
       TokenRef SLIInterpreter::new_token<sli3::dictionarytype>();
 
     template<>

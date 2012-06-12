@@ -67,7 +67,7 @@ void Dictionary::info(std::ostream &out) const
 	where != data.end() ; ++ where)
     {
       out  << std::setw(25) << where->first 
-	   << std::setw(20) << where->second.gettypename()
+	   << std::setw(20) << where->second.get_typename()
 	   << where->second
 	   << std::endl;
     }

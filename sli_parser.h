@@ -22,6 +22,9 @@
 
 #include "sli_token.h"
 #include "sli_tokenstack.h"
+#include "sli_name.h"
+#include "sli_tokenstack.h"
+#include "sli_scanner.h"
 #include <typeinfo>
 #include <iostream>
 
@@ -32,11 +35,9 @@ namespace sli3
   class Parser 
   {
       Scanner* s;
-      
-      Token arraytoken;
-      Token proctoken;
-      TokenStack ParseStack; 
-      
+      TokenStack stack_; 
+      Name open_array_;
+      Name close_array_;
       enum ParseResult   {
 	  tokencontinue,
 	  scancontinue,
@@ -57,13 +58,13 @@ namespace sli3
       bool operator()(SLIInterpreter &, Token&);
       bool readToken(SLIInterpreter &sli, std::istream &is, Token &t)
 	  {
-	      s->source(sli, &is);
+	      s->source(&is);
 	      return operator()(sli, t);
 	  }
       
       bool readSymbol(SLIInterpreter &sli, std::istream &is, Token &t)
 	  {
-	      s->source(sli, &is);
+	      s->source(&is);
 	      return s->operator()(sli, t);
 	  }
       

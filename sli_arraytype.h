@@ -53,21 +53,21 @@ namespace sli3
     std::ostream & print(std::ostream&, const Token &) const;
   };
 
-  class ProcedureType: public ArrayType
+  class LitprocedureType: public ArrayType
   {
   public:
-  ProcedureType(SLIInterpreter *sli, char const name[], sli_typeid type)
+  LitprocedureType(SLIInterpreter *sli, char const name[], sli_typeid type)
     :ArrayType(sli, name, type){}
     std::ostream & print(std::ostream&, const Token &) const;
 
     void execute(Token &);
   };
 
-  class XProcedureType: public ProcedureType
+  class ProcedureType: public LitprocedureType
   {
   public:
-  XProcedureType(SLIInterpreter *sli, char const name[], sli_typeid type)
-    :ProcedureType(sli, name, type){}
+  ProcedureType(SLIInterpreter *sli, char const name[], sli_typeid type)
+    :LitprocedureType(sli, name, type){}
     
     void execute(Token &);
 

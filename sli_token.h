@@ -75,9 +75,10 @@ namespace sli3
 	
 	bool operator==(const Token&) const;
 	bool operator!=(const Token&) const;
-	
+
 	bool is_of_type(sli3::sli_typeid) const;
-	std::string gettypename() const;
+	std::string get_typename() const;
+
 	std::ostream & print(std::ostream &) const;
 	
 	SLIType *type_; //!< If NULL, the datum is unused.	
