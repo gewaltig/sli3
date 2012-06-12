@@ -23,6 +23,15 @@ namespace sli3
       std::ostream & print(std::ostream&, const Token &) const;
   };
 
+  class SymbolType: public NameType
+  {
+  public:
+      SymbolType(SLIInterpreter *sli, char const name[], sli_typeid type)
+	  :NameType(sli, name, type){}
+
+      std::ostream & print(std::ostream&, const Token &) const;
+  };
+
 
 }
 

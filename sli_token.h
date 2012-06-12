@@ -22,6 +22,7 @@ namespace sli3
     class TokenArray;
     class SLIFunction;
     class Dictionary;
+    class SLIString;
 
     class Token
     {
@@ -89,6 +90,7 @@ namespace sli3
 	    TokenArray *array_val;
 	    SLIFunction *func_val;
 	    Dictionary *dict_val;
+	    SLIString  *string_val;
 	    void  *data_val;    //! Pointer to external resources or function. 
 	} data_;
     };

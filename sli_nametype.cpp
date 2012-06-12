@@ -22,4 +22,10 @@ namespace sli3
 	Name myname(t.data_.name_val);
 	return out << '/'<< myname.toString(); 
     }
+
+    std::ostream & SymbolType::print(std::ostream& out, const Token &t) const
+    {
+	Name myname(t.data_.name_val);
+	return out << "//"<< myname.toString(); 
+    }
 }

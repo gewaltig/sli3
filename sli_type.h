@@ -24,7 +24,8 @@ namespace sli3
     booltype,
     literaltype,
     nametype,
-    /* stringtype, */
+    symboltype,
+    stringtype,
     arraytype,
     proceduretype,
     xproceduretype,

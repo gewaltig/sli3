@@ -147,7 +147,7 @@ template<class D>
 class lockPtr
 {  
     
-  PointerObject *obj;
+  RefObject *obj;
 
  public:
   

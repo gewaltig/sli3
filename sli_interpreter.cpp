@@ -2,6 +2,10 @@
 #include "sli_nametype.h"
 #include "sli_dicttype.h"
 #include "sli_functiontype.h"
+#include "sli_string.h"
+#include "sli_stringtype.h"
+
+
 namespace sli3
 {
 
@@ -41,6 +45,8 @@ namespace sli3
 	types_.push_back(new BoolType(this,"booltype",sli3::booltype));
 	types_.push_back(new LiteralType(this,"nametype",sli3::literaltype));
 	types_.push_back(new NameType(this,"nametype",sli3::nametype));
+	types_.push_back(new SymbolType(this,"symboltype",sli3::nametype));
+	types_.push_back(new StringType(this,"stringtype",sli3::stringtype));
 	types_.push_back(new ArrayType(this,"arraytype",sli3::arraytype));
 	types_.push_back(new ProcedureType(this,"proceduretype",sli3::proceduretype));
 	types_.push_back(new XProcedureType(this,"xproceduretype",sli3::xproceduretype));
@@ -153,6 +159,30 @@ namespace sli3
 	Token t(types_[sli3::nametype]);
 	t.data_.name_val= n.toIndex();;
 	return TokenRef(t);
+    }
+
+    template<>
+    TokenRef SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &n)
+    {
+	Token t(types_[sli3::literaltype]);
+	t.data_.name_val= n.toIndex();;
+	return TokenRef(t);
+    }
+
+    template<>
+    TokenRef SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &n)
+    {
+	Token t(types_[sli3::symboltype]);
+	t.data_.name_val= n.toIndex();;
+	return TokenRef(t);
+    }
+
+    template<>
+    TokenRef SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &s)
+    {
+	TokenRef t(types_[sli3::stringtype]);
+	t.data_.string_val= new SLIString(s) ;
+	return t;
     }
 
 }

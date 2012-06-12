@@ -23,6 +23,7 @@ int main()
 
     engine.push(engine.new_token<sli3::arraytype>());
     engine.push(engine.new_token<sli3::dictionarytype>());
+    engine.push(engine.new_token<sli3::stringtype>(std::string("Hello World")));
 
     return 0;
 }
