@@ -30,6 +30,7 @@ OBJS= 	sli_main.o\
 	sli_token.o\
 	sli_type.o\
 	sli_arraytype.o\
+	sli_stringtype.o\
 	sli_integertype.o\
 	sli_nametype.o\
 	sli_dicttype.o\

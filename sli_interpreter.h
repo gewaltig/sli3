@@ -125,6 +125,12 @@ namespace sli3
 
     template<>
       TokenRef SLIInterpreter::new_token<sli3::nametype,Name>(Name const &);
+    template<>
+      TokenRef SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &);
+    template<>
+      TokenRef SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &);
+    template<>
+      TokenRef SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &);
     
 }
 #endif
