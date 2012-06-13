@@ -21,6 +21,10 @@
 
 namespace sli3
 {
+std::string InvalidToken::message()
+{
+    return "Token needs an valid pointer to a SLIType object.";
+}
 std::string DivisionByZero::message()
 {
     return "You cannot divide by zero.";

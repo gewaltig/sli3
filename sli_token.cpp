@@ -166,6 +166,13 @@ namespace sli3
 	return "/nulltype";
     }
 
+    void Token::execute()
+    {
+	if(type_==0)
+	    throw InvalidToken();
+	type_->execute(*this);
+    }
+
     std::ostream & operator<<(std::ostream &out, const Token &t)
     {
 	return t.print(out);
