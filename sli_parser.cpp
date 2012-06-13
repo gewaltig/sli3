@@ -59,11 +59,12 @@ Parser::Parser(void)
     
 }
 
+inline
   bool contains_symbol(Token const &t, Name n)
   {
     if( !t.is_valid())
       return false;
-
+    
     return t.type_->is_type(sli3::symboltype) and
       t.data_.name_val == n.toIndex();
   }
@@ -86,11 +87,10 @@ Parser::Parser(void)
         
 	if (ok) 
 	  {
-	    
-	    if (contains_symbol(t,s->BeginProcedureSymbol))
+	      if (contains_symbol(t,s->BeginProcedureSymbol))
 	      {
-		stack_.push(sli.new_token<sli3::litproceduretype>());
-		result=scancontinue;
+		  stack_.push(sli.new_token<sli3::litproceduretype>());
+		  result=scancontinue;
 	      }
 	    else if (contains_symbol(t,s->BeginArraySymbol))
 	      {
@@ -99,16 +99,17 @@ Parser::Parser(void)
 	      }
 	    else if (contains_symbol(t, s->EndProcedureSymbol))
 	      {
+		  std::cerr << "End Proc\n";
 		if (!stack_.empty())
-		  {
+		{
 		    t=stack_.top();
 		    if (t.is_of_type(sli3::litproceduretype))
-		      {
+		    {
 			stack_.pop();
 			result=tokencontinue;
-		      }
+		    }
 		    else result=endarrayexpected;
-		  }
+		}
 		else result=noopenproc;
 	      }
 	    else if (contains_symbol(t,s->EndArraySymbol))

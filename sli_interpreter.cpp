@@ -45,7 +45,7 @@ namespace sli3
 	types_.push_back(new BoolType(this,"booltype",sli3::booltype));
 	types_.push_back(new LiteralType(this,"nametype",sli3::literaltype));
 	types_.push_back(new NameType(this,"nametype",sli3::nametype));
-	types_.push_back(new SymbolType(this,"symboltype",sli3::nametype));
+	types_.push_back(new SymbolType(this,"symboltype",sli3::symboltype));
 	types_.push_back(new StringType(this,"stringtype",sli3::stringtype));
 	types_.push_back(new ArrayType(this,"arraytype",sli3::arraytype));
 	types_.push_back(new LitprocedureType(this,"litproceduretype",sli3::litproceduretype));
