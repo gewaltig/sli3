@@ -84,11 +84,11 @@ namespace sli3
       line(0),
       col(0),
       space(32),tab(9),endoln(10),cr(13),endof(4), ds(),
-      BeginArraySymbol("/BeginArraySymbol"), // these symbol-names cannot be entered
-      EndArraySymbol("/EndArraySymbol"),     // by keyboard! This is important to ensure
-      BeginProcedureSymbol("/BeginProcedureSymbol"), // the integrity of the scanner/parser
-      EndProcedureSymbol("/EndProcedureSymbol"),     // interaction: Non-terminal symbols
-      EndSymbol("/EndSymbol")
+      BeginArraySymbol("BeginArraySymbol"), // these symbol-names cannot be entered
+      EndArraySymbol("EndArraySymbol"),     // by keyboard! This is important to ensure
+      BeginProcedureSymbol("BeginProcedureSymbol"), // the integrity of the scanner/parser
+      EndProcedureSymbol("EndProcedureSymbol"),     // interaction: Non-terminal symbols
+      EndSymbol("EndSymbol")
   {
     
     for(size_t s = start; s < lastscanstate; ++s)

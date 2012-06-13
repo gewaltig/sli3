@@ -86,6 +86,11 @@ namespace sli3
       return id_ == id;
     }
 
+    unsigned int get_typeid() const
+    {
+      return id_;
+    }
+
     virtual bool compare(Token const &t1, Token const& t2) const=0;
     virtual std::ostream& print(std::ostream &, const Token &) const=0;
 
