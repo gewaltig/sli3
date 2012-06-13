@@ -31,6 +31,13 @@ namespace sli3
     proceduretype,
     dictionarytype,
     functiontype,
+    trietype,
+    istreamtype,
+    xistreamtype,
+    ostreamtype,
+    intvectortype,
+    doublevectortype,
+    iteratortype,
     num_sli_types
   };
 
@@ -81,7 +88,7 @@ namespace sli3
 	return name_;
       }
 
-    bool is_type(sli_typeid id) const
+    bool is_type(unsigned int id) const
     {
       return id_ == id;
     }
@@ -97,7 +104,7 @@ namespace sli3
  protected:
     SLIInterpreter *sli_;
     std::string name_;
-    sli_typeid id_;            
+    unsigned int id_;            
   };
   
   

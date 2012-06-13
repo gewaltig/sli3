@@ -54,11 +54,7 @@ Problems:
  * If the cache does not have an entry, the dictionary stack is searched and
  * the name/token combination is added to the cache. 
  */ 
-#ifndef DICTSTACK_CACHE
-#define DICTSTACK_CACHE 1
-#endif
 
-//#undef DICTSTACK_CACHE
 namespace sli3
 {
 class DictionaryStack
@@ -66,10 +62,8 @@ class DictionaryStack
 private:
     std::list<Dictionary *> d;
     Dictionary *base_;
-#ifdef DICTSTACK_CACHE
     std::vector<const Token *> cache_;
     std::vector<const Token *> basecache_;
-#endif
 
 public:
   DictionaryStack();
@@ -77,7 +71,6 @@ public:
   ~DictionaryStack();
 
     
-#ifdef DICTSTACK_CACHE
   /**
    * Add a token to the cache.
    */
@@ -134,11 +127,8 @@ public:
       cache_[i]=0;
   }
 
-#endif
-
   bool lookup(Name n, Token &result)
   { 
-#ifdef DICTSTACK_CACHE
     Name::handle_t key=n.toIndex();
     if (key<cache_.size())
       {
@@ -149,7 +139,6 @@ public:
 	    return true;
 	  }
       }
-#endif
 
     std::list<Dictionary *>::const_iterator i=d.begin();
     
@@ -158,9 +147,7 @@ public:
 	TokenMap::const_iterator where =(*i)->find(n);
 	if(where!=(*i)->end())
 	  {
-#ifdef DICTSTACK_CACHE
 	    cache_token(n,&(where->second)); // Update the cache 
-#endif
 	    result= where->second;
 	    return true;
 	  }
@@ -169,46 +156,45 @@ public:
     return false;
   }
 
-  Token lookup2(Name n)
+  void lookup2(Name n, Token &result)
   { 
-    Token result;
-    if (lookup(n,result))
-      return result;
-    else
+    if (! lookup(n,result))
       throw UndefinedName(n.toString());
   }
   
+  bool known(Name n)
+  {
+    Token result;
+    return lookup(n,result);
+  }
+
   /** Lookup a name searching only the bottom level dictionary.
    *  If the Name is not found,
    *  @a VoidToken is returned.
    */
-  bool baselookup(const Name n, Token &result) // lookup in a specified
+  bool baselookup(Name n, Token &result) // lookup in a specified
   {                                           // base dictionary
-#ifdef DICTSTACK_CACHE
-      Name::handle_t key=n.toIndex();
-      if (key<basecache_.size())
-	{
-	  const Token *ct=basecache_[key];
-	  if(ct)
-	    {
-	      result=*ct;
-	      return true;
-	    }
-	}
-#endif
-      TokenMap::const_iterator where =base_->find(n);
-      
-      if ( where != base_->end() )
-	{
-#ifdef DICTSTACK_CACHE
-	  cache_token(n, &(where->second)); // Update the cache
-	  basecache_token(n, &(where->second)); // and the basecache
-#endif
-	  result= where->second;
-	  return true;
-	}
-      else
-	return false;
+    Name::handle_t key=n.toIndex();
+    if (key<basecache_.size())
+      {
+	const Token *ct=basecache_[key];
+	if(ct)
+	  {
+	    result=*ct;
+	    return true;
+	  }
+      }
+    TokenMap::const_iterator where =base_->find(n);
+    
+    if ( where != base_->end() )
+      {
+	cache_token(n, &(where->second)); // Update the cache
+	basecache_token(n, &(where->second)); // and the basecache
+	result= where->second;
+	return true;
+      }
+    else
+      return false;
   }
 
 
@@ -221,11 +207,6 @@ public:
    */
   void def(Name , const Token &);
 
-  /** Bind a Token to a Name in the top level dictionary.
-   *  The Token is moved.
-   */
-  void def_move(Name, Token &);
-
   /** Unbind a previously defined Name from its token. Seach in all dictionaries.
    */
   void undef(Name );
@@ -235,11 +216,6 @@ public:
    */
   void basedef(Name n, const Token &t);
 
-  /** Bind a Token to a Name in the bottom level dictionary.
-   *  The Token is moved.
-   */
-  void basedef_move(Name n, Token &t);
-  
   /**
    * This function must be called once to initialize the systemdict cache.
    */
@@ -280,12 +256,8 @@ void DictionaryStack::def(Name n, const Token &t)
   // dictionary stack must contain at least one dictionary
   // VoidToken is an illegal value for t.
   //
-#ifdef DICTSTACK_CACHE
   cache_token(n,&((*d.begin())->insert(n,t)));
-#endif
-#ifndef DICTSTACK_CACHE
-        (**d.begin())[n]=t;
-#endif
+  (**d.begin())[n]=t;
 }
 
 

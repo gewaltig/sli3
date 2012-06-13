@@ -103,6 +103,17 @@ public:
   {}
 };
 
+ class InvalidToken: public SLIException
+{
+public:
+  virtual ~InvalidToken() throw() {}
+  
+ InvalidToken()
+   : SLIException("InvalidToken")
+  {}
+  std::string message();
+};
+  
 class DivisionByZero: public SLIException
 {
  public:

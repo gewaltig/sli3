@@ -48,6 +48,10 @@ namespace sli3
       access_flag_(false)
 	  {}
 
+      operator Token &()
+      { return *this;
+      }
+
     bool accessed() const
     {
       return access_flag_;
@@ -148,8 +152,8 @@ public:
    *       dictionary read-out is set on the Token in the dictionary,
    *       not its copy.  
    */
-  const Token & lookup(const Name &n) const;
-  const Token & lookup2(const Name &n) const; //throws UndefinedName
+  bool lookup(Name, Token &);
+  Token & lookup(Name n); //throws UndefinedName
   bool known(const Name &) const;
   
   Token & insert(const Name &n, const Token &t);
@@ -280,26 +284,29 @@ public:
   static const Token VoidToken;
 };
 
-inline
-const Token& Dictionary::lookup(const Name &n) const
-{
-  TokenMap::const_iterator where = find(n);
-  if(where != end())
-    return (*where).second;
-  else
-    return Dictionary::VoidToken;
-}
-
-inline
-const Token& Dictionary::lookup2(const Name &n) const
-{      
-  TokenMap::const_iterator where = find(n);
-  if(where != end())
-    return (*where).second;
-  else
-    throw UndefinedName(n.toString());
-}
-
+ inline
+   bool Dictionary::lookup(Name n, Token &result)
+   {
+     TokenMap::iterator where = find(n);
+     if(where != end())
+       {
+	 result= (*where).second;
+	 return true;
+       }
+     else
+       return false;
+   }
+ 
+ inline
+   Token& Dictionary::lookup(Name n)
+ {      
+   TokenMap::iterator where = find(n);
+   if(where != end())
+     return (*where).second;
+   else
+     throw UndefinedName(n.toString());
+ }
+ 
 inline
 bool Dictionary::known(const Name &n) const
 {

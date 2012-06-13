@@ -71,17 +71,6 @@ void DictionaryStack::basedef( Name n, const Token &t)
 }
 
 
-void DictionaryStack::basedef_move( Name n, Token &t)
-{
-#ifdef DICTSTACK_CACHE
-    clear_token_from_cache(n);
-    basecache_token(n,&(base_->insert_move(n,t)));
-#endif
-#ifndef DICTSTACK_CACHE
-    base_->insert_move(n, t);
-#endif
-}
-
 
 void DictionaryStack::pop(void)
 { 

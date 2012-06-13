@@ -79,6 +79,8 @@ namespace sli3
 	bool is_of_type(sli3::sli_typeid) const;
 	std::string get_typename() const;
 
+	void execute();
+
 	std::ostream & print(std::ostream &) const;
 	
 	SLIType *type_; //!< If NULL, the datum is unused.	
