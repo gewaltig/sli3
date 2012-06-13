@@ -149,7 +149,10 @@ namespace sli3
 	template <class T>
 	T& top();
 
-	Token &top();
+	Token &top()
+	    {
+		return operand_stack_.top();
+	    }
 
 	Token const &top() const
 	    {
@@ -163,13 +166,38 @@ namespace sli3
 	    {
 		operand_stack_.pop(n);
 	    }
-	    
+
+	Token& pick(size_t);
+
 	Token& index(size_t);
 
 	Token const& index(size_t i) const
 	    {
 		return index(i);
 	    }
+
+
+	void estack_pop(size_t n=1)
+	    {
+		execution_stack_.pop(n);
+	    }
+
+
+	Token & estack_top(size_t n=1)
+	    {
+		return execution_stack_.top();
+	    }
+
+	Token & estack_pick(size_t n=0)
+	    {
+		return execution_stack_.pick(n);
+	    }
+
+	void estack_push(const Token &t)
+	    {
+		execution_stack_.push(t);
+	    }
+
 
 	/**
 	 * Fill token with an object of the specified type.
@@ -381,7 +409,7 @@ namespace sli3
     }
 
     inline
-    void SLIInterpreter::lookup2(Name n, Token & t)
+    void SLIInterpreter::lookup2(Name n, Token &t)
     {
 	dictionary_stack_.lookup2(n, t);
     }
