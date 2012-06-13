@@ -2,6 +2,7 @@
 #include "sli_token.h"
 #include "sli_dictionary.h"
 #include "sli_parser.h"
+#include "sli_tokenutils.h"
 #include <iostream>
 
 int main()
@@ -23,6 +24,8 @@ int main()
     engine.push(sli3::Name("Hello"));
 
     engine.push(engine.new_token<sli3::arraytype>());
+    sli3::TokenArray *d=sli3::token_value<sli3::arraytype,sli3::TokenArray*>(engine.top());
+    std::cerr << *d << '\n';
     engine.push(engine.new_token<sli3::dictionarytype>());
     engine.push(engine.new_token<sli3::stringtype>(std::string("Hello World")));
     sli3::Parser parse(std::cin);
