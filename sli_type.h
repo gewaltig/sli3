@@ -51,7 +51,7 @@ namespace sli3
     
   public:
     
-    SLIType(SLIInterpreter *, char const[], sli_typeid);
+    SLIType(SLIInterpreter *, char const[], sli_typeid, bool=true);
     
     virtual refcount_t add_reference(Token const&) const
     {
@@ -98,13 +98,32 @@ namespace sli3
       return id_;
     }
 
+    void require_type(unsigned int id)
+    {
+      if(id != id_)
+	raise_type_mismatch_(id);
+    }
+
+    bool is_executable() const
+    {
+      return executable_;
+    }
+
     virtual bool compare(Token const &t1, Token const& t2) const=0;
     virtual std::ostream& print(std::ostream &, const Token &) const=0;
 
+    virtual std::ostream& pprint(std::ostream &out, const Token &t) const
+      {
+	return print(out, t);
+      }
+
  protected:
+    void raise_type_mismatch_(unsigned int) const;
+
     SLIInterpreter *sli_;
     std::string name_;
-    unsigned int id_;            
+    unsigned int id_;
+    bool executable_;
   };
   
   
