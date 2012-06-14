@@ -22,141 +22,143 @@
 #include "sli_array.h"
 #include "sli_string.h"
 
-void IlookupFunction::execute(SLIInterpreter *i) const
+namespace sli3
 {
+  void IlookupFunction::execute(SLIInterpreter *i) const
+  {
     i->estack_pop(2);
-}
-
-
-void IiterateFunction::backtrace(SLIInterpreter *i, int p) const
-{
-    assert(
-  ProcedureDatum const *pd= dynamic_cast<ProcedureDatum *>(i->EStack.pick(p+2).datum());   
-  assert(pd != NULL);
-
-  IntegerDatum   *id= dynamic_cast<IntegerDatum *>(i->EStack.pick(p+1).datum());
-  assert(id !=NULL);
-
-  std::cerr << "In procedure:" << std::endl;
+  }
   
-  pd->list(std::cerr,"   ",id->get()-1);
-  std::cerr << std::endl;
-}
-
-void IiterateFunction::execute(SLIInterpreter *i) const
-{
-/* 
-   This function is responsible for executing a procedure
-   object. Iiterate expects the procedure to execute as first
-   and the iteration counter as second argument.
-
-   Like in all internal function, no error checking is done.
-   
-   */
-
-/* Stack Layout:
-      3       2       1
-   <proc>  <pos>   %iterate
-*/
-
-    ProcedureDatum const *pd= static_cast<ProcedureDatum *>(i->EStack.pick(2).datum());   
-    long &pos=static_cast<IntegerDatum *>(i->EStack.pick(1).datum())->get();
-
-   while( pd->index_is_valid(pos))
-   {
-       const Token &t=pd->get(pos);
-       ++pos;
-       if( t->is_executable())
-       {
-	   i->EStack.push(t);
-	   return;
-       }
-       i->OStack.push(t);
-   }
-   
-   i->EStack.pop(3);
-   i->dec_call_depth();
-}
-
-void IloopFunction::execute(SLIInterpreter *i) const
-{
-        // stack: mark procedure n   %loop
-        // level:  4      3      2     1
+  
+  void IiterateFunction::backtrace(SLIInterpreter *i, int p) const
+  {
+    /*
+      assert(i->estack_pick(p+2).is_of_type(sli3::proceduretype));
+      TokenArray *proc=estack_pick(p+2).data_.array_val;
+      assert(i->estack_pick(p+1).is_of_type(sli3::integertypetype));
+      long pos= i->estack_pick(p+1).data_.long_val;
+      
+      std::cerr << "In procedure:" << std::endl;
+      
+      proc->list(std::cerr,"   ",pos-1);
+      std::cerr << std::endl;
+    */
+  }
+  
+  void IiterateFunction::execute(SLIInterpreter *i) const
+  {
+    /* 
+       This function is responsible for executing a procedure
+       object. Iiterate expects the procedure to execute as first
+       and the iteration counter as second argument.
+       
+       Like in all internal function, no error checking is done.
+       
+    */
     
-    ProcedureDatum
-        const *proc= static_cast<ProcedureDatum *>(i->EStack.pick(2).datum()); 
-    long &pos=static_cast<IntegerDatum *>(i->EStack.pick(1).datum())->get();
-
+    /* Stack Layout:
+       3       2       1
+       <proc>  <pos>   %iterate
+    */
+    
+    TokenArray *proc= i->estack_pick(2).data_.array_val;   
+    long &pos=i->estack_pick(1).data_.long_val;
+    
     while( proc->index_is_valid(pos))
-    {
+      {
+	const Token &t=proc->get(pos);
+	++pos;
+	if( t.is_executable())
+	  {
+	    i->estack_push(t);
+	    return;
+	  }
+	i->push(t);
+      }
+    
+    i->estack_pop(3);
+    i->dec_call_depth();
+  }
+  
+  void IloopFunction::execute(SLIInterpreter *i) const
+  {
+    // stack: mark procedure n   %loop
+    // level:  4      3      2     1
+    
+    TokenArray *proc= i->estack_pick(2).data_.array_val;   
+    long &pos=i->estack_pick(1).data_.long_val;
+    
+    while( proc->index_is_valid(pos))
+      {
 	const Token &t(proc->get(pos));
 	++pos;
 	if( t->is_executable())
-	{
-	    i->EStack.push(t);
+	  {
+	    i->estack_push(t);
 	    return;
-	}
-
-	i->OStack.push(t);
-    }
-   
-    pos =0;
-}
-
-void IloopFunction::backtrace(SLIInterpreter *i, int p) const
-{
-  ProcedureDatum const *pd= dynamic_cast<ProcedureDatum *>(i->EStack.pick(p+2).datum());   
-  assert(pd !=NULL);
-
-  IntegerDatum   *id= dynamic_cast<IntegerDatum *>(i->EStack.pick(p+1).datum());
-  assert(id != NULL);
-
-  std::cerr << "During loop:" << std::endl;
-  
-  pd->list(std::cerr,"   ",id->get()-1);
-  std::cerr <<std::endl;
-
-}
-
-
-/**********************************************/
-/* %repeat                                    */
-/*  call: mark  count proc  n %repeat         */
-/*  pick   5      4     3   2    1            */        
-/**********************************************/
-void IrepeatFunction::execute(SLIInterpreter *i) const
-{
-    ProcedureDatum
-         *proc= static_cast<ProcedureDatum *>(i->EStack.pick(2).datum());
+	  }
+	
+	i->push(t);
+      }
     
-   long &pos=static_cast<IntegerDatum *>(i->EStack.pick(1).datum())->get();
-   while( proc->index_is_valid(pos))
-   {
-       const Token &t=proc->get(pos);
-       ++pos;
-       if( t->is_executable())
-       {
-	   i->EStack.push(t);
-	   return;
-       }
-       i->OStack.push(t);
-   }
-   
-   long &lc=static_cast<IntegerDatum *>(i->EStack.pick(3).datum())->get();
-   if( lc > 0 )
-   {
-       pos=0;     // reset procedure iterator
-       --lc;
-   }
-   else
-   {
-       i->EStack.pop(5);
-       i->dec_call_depth();
-    }
-}
+    pos =0;
+  }
+  
+  void IloopFunction::backtrace(SLIInterpreter *i, int p) const
+  {
+    /*
+      ProcedureDatum const *pd= dynamic_cast<ProcedureDatum *>(i->EStack.pick(p+2).datum());   
+      assert(pd !=NULL);
+      
+      IntegerDatum   *id= dynamic_cast<IntegerDatum *>(i->EStack.pick(p+1).datum());
+      assert(id != NULL);
+      
+      std::cerr << "During loop:" << std::endl;
+      
+      pd->list(std::cerr,"   ",id->get()-1);
+      std::cerr <<std::endl;
+    */
+  }
+  
+  
+  /**********************************************/
+  /* %repeat                                    */
+  /*  call: mark  count proc  n %repeat         */
+  /*  pick   5      4     3   2    1            */        
+  /**********************************************/
+  void IrepeatFunction::execute(SLIInterpreter *i) const
+  {
+    TokenArray *proc= i->estack_pick(2).data_.array_val;   
+    long &pos=i->estack_pick(1).data_.long_val;
+    
+    while( proc->index_is_valid(pos))
+      {
+	const Token &t=proc->get(pos);
+	++pos;
+	if( t->is_executable())
+	  {
+	    i->estack_push(t);
+	    return;
+	  }
+	i->push(t);
+      }
+    
+    long &lc=i->estack_pick(3).data_.long_val;
+    if( lc > 0 )
+      {
+	pos=0;     // reset procedure iterator
+	--lc;
+      }
+    else
+      {
+	i->estack_pop(5);
+	i->dec_call_depth();
+      }
+  }
 
 void IrepeatFunction::backtrace(SLIInterpreter *i, int p) const
 {
+  /*
   IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack.pick(p+3).datum());
   assert(count != NULL);
 
@@ -170,7 +172,7 @@ void IrepeatFunction::backtrace(SLIInterpreter *i, int p) const
   
   pd->list(std::cerr,"   ",id->get()-1);
   std::cerr <<std::endl;
-
+  */
 }
 
 /*****************************************************/
@@ -180,55 +182,45 @@ void IrepeatFunction::backtrace(SLIInterpreter *i, int p) const
 /*****************************************************/
 void IforFunction::execute(SLIInterpreter *i) const
 {
-    
-    IntegerDatum *proccount=
-        static_cast<IntegerDatum *>(i->EStack.pick(1).datum());
-    
-    ProcedureDatum
-        const *proc= static_cast<ProcedureDatum *>(i->EStack.pick(2).datum());
-    
-    long &pos=proccount->get();
-
-    while( proc->index_is_valid(pos))
+  TokenArray *proc= i->estack_pick(2).data_.array_val;   
+  long &pos=i->estack_pick(1).data_.long_val;
+ 
+  while( proc->index_is_valid(pos))
     {
-	const Token &t= proc->get(pos);
-	++pos;
-	if( t->is_executable())
+      const Token &t= proc->get(pos);
+      ++pos;
+      if( t->is_executable())
 	{
-	    i->EStack.push(t);
-	    return;
+	  i->estack_push(t);
+	  return;
 	}
-	i->OStack.push(t);
-      }
+      i->push(t);
+    }
+  
+
+  long &count=i->estack_pick(3).data_.long_val;
+  long &lim=i->estack_pick(4).data_.long_val;
+  long &inc=i->estack_pick(4).data_.long_val;
         
-    IntegerDatum *count=
-	static_cast<IntegerDatum *>(i->EStack.pick(3).datum());
-    
-    IntegerDatum *lim  =
-	static_cast<IntegerDatum *>(i->EStack.pick(4).datum());
-    
-    IntegerDatum *inc  =
-	static_cast<IntegerDatum *>(i->EStack.pick(5).datum());
-    
-    
-    if(( (inc->get()> 0) && (count->get() <= lim->get())) ||
-       ( (inc->get()< 0) && (count->get() >= lim->get())))
-    {
+    if(( (inc> 0) && (count <= lim)) ||
+       ( (inc< 0) && (count >= lim)))
+      {
 	pos=0; // reset procedure interator
         
-	i->OStack.push(i->EStack.pick(3)); // push counter to user
-	(count->get()) += (inc->get());    // increment loop counter
+	i->push(i->estack_pick(3)); // push counter to user
+	count += inc;    // increment loop counter
     }
     else
     {
-	i->EStack.pop(7);
+	i->estack_pop(7);
 	i->dec_call_depth();
     }
 }
 
 void IforFunction::backtrace(SLIInterpreter *i, int p) const
 {
-  IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack.pick(p+3).datum());
+  /* 
+ IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack.pick(p+3).datum());
   assert(count!=NULL);
   ProcedureDatum const *pd= static_cast<ProcedureDatum *>(i->EStack.pick(p+2).datum());   
   assert(pd != NULL);
@@ -239,7 +231,7 @@ void IforFunction::backtrace(SLIInterpreter *i, int p) const
   
   pd->list(std::cerr,"   ",id->get()-1);
   std::cerr <<std::endl;
-
+  */
 }
 
 /*********************************************************/
@@ -249,56 +241,47 @@ void IforFunction::backtrace(SLIInterpreter *i, int p) const
 /*********************************************************/
 void IforallarrayFunction::execute(SLIInterpreter *i) const
 {
-    
-    IntegerDatum *proccount=
-        static_cast<IntegerDatum *>(i->EStack.pick(1).datum());
-    
-    ProcedureDatum
-        const *proc= static_cast<ProcedureDatum *>(i->EStack.pick(2).datum());
- 
-    long &pos=proccount->get();
+  TokenArray *proc= i->estack_pick(2).data_.array_val;   
+  long &pos=i->estack_pick(1).data_.long_val;
 
-    while( proc->index_is_valid(pos))
+  while( proc->index_is_valid(pos))
     {
-	const Token &t= proc->get(pos);
-	++pos;
-	if( t->is_executable())
+      const Token &t= proc->get(pos);
+      ++pos;
+      if( t.is_executable())
 	{
-	    i->EStack.push(t);
-	    return;
+	  i->estack_push(t);
+	  return;
 	}
-	i->OStack.push(t);
+      i->push(t);
     }
  
-   IntegerDatum *count=
-	static_cast<IntegerDatum *>(i->EStack.pick(3).datum());
-     ArrayDatum *ad  =
-	static_cast<ArrayDatum *>(i->EStack.pick(4).datum());
+  TokenArray *ad= i->estack_pick(4).data_.array_val;   
+  long &idx=i->estack_pick(3).data_.long_val;
         
-    long &idx=count->get();
-    
-    if(ad->index_is_valid(idx))
+  if(ad->index_is_valid(idx))
     {
-	pos=0; // reset procedure interator
-        
-	i->OStack.push(ad->get(idx)); // push counter to user
-	++idx;
+      pos=0; // reset procedure interator
+      
+      i->push(ad->get(idx)); // push counter to user
+      ++idx;
     }
-    else
+  else
     {
-	i->EStack.pop(6);
-	i->dec_call_depth();
+      i->estack_pop(6);
+      i->dec_call_depth();
     }
 }
 
 
 void IforallarrayFunction::backtrace(SLIInterpreter *i, int p) const
 {
+  /*
   IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack.pick(p+3).datum());
   assert(count!=NULL);
 
   std::cerr << "During forall (array) at iteration " << count->get() << "." << std::endl;
-
+  */
 }
 
 
@@ -309,6 +292,7 @@ void IforallarrayFunction::backtrace(SLIInterpreter *i, int p) const
 /*********************************************************/
 void IforalliterFunction::execute(SLIInterpreter *i) const
 {
+  /*
   IteratorDatum *iter=
     static_cast<IteratorDatum *>(i->EStack.pick(2).datum());
 
@@ -333,14 +317,16 @@ void IforalliterFunction::execute(SLIInterpreter *i) const
       i->EStack.pop(4);
       i->dec_call_depth();
     }
+  */
 }
 
 void IforalliterFunction::backtrace(SLIInterpreter *i, int p) const
 {
+  /*
   IteratorDatum   *iter= static_cast<IteratorDatum *>(i->EStack.pick(p+2).datum());
 
   std::cerr << "During forall (iterator) at iteration " << iter->pos() << "." << std::endl;
-
+  */
 }
 
 
@@ -352,21 +338,17 @@ void IforalliterFunction::backtrace(SLIInterpreter *i, int p) const
 /*********************************************************/
 void IforallindexedarrayFunction::execute(SLIInterpreter *i) const
 {
-    IntegerDatum *count=
-        static_cast<IntegerDatum *>(i->EStack.pick(2).datum());
-    IntegerDatum *limit=
-        static_cast<IntegerDatum *>(i->EStack.pick(3).datum());
-     
-    long &cnt=count->get();
-    if( cnt< limit->get())
-    {
-      ArrayDatum *obj=
-	static_cast<ArrayDatum *>(i->EStack.pick(4).datum());
+  long &count = i->estack_pick(2).data_.long_val;
+  long &limit = i->estack_pick(3).data_.long_val;
 
-      i->OStack.push(obj->get(cnt));  // push element to user
-      i->OStack.push_by_pointer(new IntegerDatum(cnt));            // push index to user
-      ++cnt;
-      i->EStack.push(i->EStack.pick(1));
+  if( count< limit)
+    {
+      TokenArray *obj=i->estack_pick(4).data_.array_val;
+
+      i->(obj->get(count));  // push element to user
+      i->push(count);        // push index to user
+      ++count;
+      i->estack_push(i->estack_pick(1));
       // if(i->step_mode())
       // {
       // 	std::cerr << "forallindexed:"
@@ -379,7 +361,7 @@ void IforallindexedarrayFunction::execute(SLIInterpreter *i) const
     }
     else
     {
-      i->EStack.pop(6);
+      i->estack_pop(6);
       i->dec_call_depth();
     }
 
@@ -387,20 +369,22 @@ void IforallindexedarrayFunction::execute(SLIInterpreter *i) const
 
 void IforallindexedarrayFunction::backtrace(SLIInterpreter *i, int p) const
 {
+  /*
   IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack.pick(p+2).datum());
   assert(count!=NULL);
 
   std::cerr << "During forallindexed (array) at iteration " << count->get()-1 << "." << std::endl;
-
+  */
 }
 
 void IforallindexedstringFunction::backtrace(SLIInterpreter *i, int p) const
 {
+  /*
   IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack.pick(p+2).datum());
   assert(count!=NULL);
 
   std::cerr << "During forallindexed (string) at iteration " << count->get()-1 << "." << std::endl;
-
+  */
 }
 
 /*********************************************************/
@@ -410,33 +394,30 @@ void IforallindexedstringFunction::backtrace(SLIInterpreter *i, int p) const
 /*********************************************************/
 void IforallindexedstringFunction::execute(SLIInterpreter *i) const
 {
-    IntegerDatum *count=
-        static_cast<IntegerDatum *>(i->EStack.pick(2).datum());
-    IntegerDatum *limit=
-        static_cast<IntegerDatum *>(i->EStack.pick(3).datum());
-    
-    if(count->get() < limit->get())
-    {
-      StringDatum const *obj=
-	static_cast<StringDatum *>(i->EStack.pick(4).datum());
+  long &count=i->estack_pick(2).data_.long_val;
+  long &limit=i->estack_pick(3).data_.long_val;
 
-      i->OStack.push((*obj)[count->get()]);  // push element to user
-      i->OStack.push(count->get());          // push index to user
-      ++(count->get());
-      i->EStack.push(i->EStack.pick(1));
+  if(count < limit)
+    {
+      SLITstring *obj= i->estack_pick(4).data_.string_val;
+      
+      i->push((*obj)[count]);  // push element to user
+      i->push(count);          // push index to user
+      ++count;
+      i->estack_push(i->estack_pick(1));
       if(i->step_mode())
       {
 	std::cerr << "forallindexed:"
-		  << " Limit: " << limit->get()
-		  << " Pos: " << count->get()
+		  << " Limit: " << limit
+		  << " Pos: " << count
 		  << " Iterator: "; 
-	i->OStack.pick(1).pprint(std::cerr);
+	i->pick(1).pprint(std::cerr);
 	std::cerr << std::endl;
       }
     }
     else
     {
-      i->EStack.pop(6);	    
+      i->estack_pop(6);	    
       i->dec_call_depth();
     }
 
@@ -444,11 +425,12 @@ void IforallindexedstringFunction::execute(SLIInterpreter *i) const
 
 void IforallstringFunction::backtrace(SLIInterpreter *i, int p) const
 {
+  /*
   IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack.pick(p+2).datum());
   assert(count!=NULL);
 
   std::cerr << "During forall (string) at iteration " << count->get()-1 << "." << std::endl;
-
+  */
 }
 /*********************************************************/
 /* %forallstring                                         */
@@ -457,33 +439,31 @@ void IforallstringFunction::backtrace(SLIInterpreter *i, int p) const
 /*********************************************************/
 void IforallstringFunction::execute(SLIInterpreter *i) const
 {
-    IntegerDatum *count=
-        static_cast<IntegerDatum *>(i->EStack.pick(2).datum());
-    IntegerDatum *limit=
-        static_cast<IntegerDatum *>(i->EStack.pick(3).datum());
-    
-    if(count->get() < limit->get())
+  long &count=i->estack_pick(2).data_.long_val;
+  long &limit=i->estack_pick(3).data_.long_val;
+
+  if(count < limit)
     {
-      StringDatum const *obj=
-	static_cast<StringDatum *>(i->EStack.pick(4).datum());
-      i->OStack.push_by_pointer(new IntegerDatum((*obj)[count->get()]));  // push element to user
-      ++(count->get());
-      i->EStack.push(i->EStack.pick(1));
+      SLIString const *obj= i->estack_pick(4).data_.string_val;
+      i->push<long>((*obj)[count]);  // push element to user
+      ++count;
+      i->estack_push(i->estack_pick(1));
       if(i->step_mode())
       {
 	std::cerr << "forall:"
-		  << " Limit: " << limit->get()
-		  << " Pos: " << count->get()
+		  << " Limit: " << limit
+		  << " Pos: " << count
 		  << " Iterator: "; 
-	i->OStack.top().pprint(std::cerr);
+	i->top().pprint(std::cerr);
 	std::cerr << std::endl;
       }
     }
     else
     {
-      i->EStack.pop(6);
+      i->estack_pop(6);
       i->dec_call_depth();
     }
 
 }
 
+}
