@@ -24,8 +24,14 @@ int main()
     engine.push(sli3::Name("Hello"));
 
     engine.push(engine.new_token<sli3::arraytype>());
-    sli3::TokenArray *d=sli3::token_value<sli3::arraytype,sli3::TokenArray*>(engine.top());
-    std::cerr << *d << '\n';
+    sli3::Token t=engine.top();
+    t.require_type(sli3::arraytype);
+    sli3::TokenArray *d= t.data_.array_val;
+    d->reserve(10);
+    for(int i=0;i<10;++i)
+	d->push_back(engine.new_token<sli3::integertype>(i));
+    std::cerr << '[' << (*d) << "]\n";
+    engine.push(t);
     engine.push(engine.new_token<sli3::dictionarytype>());
     engine.push(engine.new_token<sli3::stringtype>(std::string("Hello World")));
     sli3::Parser parse(std::cin);

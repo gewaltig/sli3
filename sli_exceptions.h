@@ -133,6 +133,18 @@ class DivisionByZero: public SLIException
    * @ingroup SLIExceptions
    */
 
+class ArgumentType: public InterpreterError
+{
+  int where; // Number of the parameter that was wrong.
+ public:
+ ArgumentType(int w)
+   : InterpreterError("ArgumentType"),
+    where(w){}
+  
+  std::string message();
+
+};
+
 class TypeMismatch: public InterpreterError //SLIException
 {
   std::string expected_;
@@ -155,7 +167,7 @@ public:
         provided_(providedType)
       {}
   
-  std::string message();
+      std::string message();
 };
 
 class SystemSignal: public InterpreterError
@@ -190,17 +202,6 @@ public:
 
 };
 
-class ArgumentType: public InterpreterError
-{
-  int where; // Number of the parameter that was wrong.
- public:
- ArgumentType(int w)
-   : InterpreterError("ArgumentType"),
-    where(w){}
-  
-  std::string message();
-
-};
 
 // -------------------- Dict Error -------------------------
   /**

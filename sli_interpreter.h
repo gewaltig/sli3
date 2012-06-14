@@ -98,21 +98,19 @@ namespace sli3
 	 *  The first occurrence is reported. If the Name is not found,
 	 *  an UndefinedName exceptiopn is thrown.
 	 */
-	void lookup2(Name n, Token &);
+	Token& lookup(Name n);
 	
 	/** Lookup a name searching only the bottom level dictionary.
 	 *  If the Name is not found,
 	 *  @a false is returned.
 	 */
 	bool baselookup(Name n, Token &);
+
+	Token& baselookup(Name n);
 	
 	/** Test for a name searching all dictionaries on the stack.
 	 */
 	bool known(Name);
-	
-	/** Test for a name in the bottom level dictionary.
-	 */
-	bool baseknown(Name);
 	
 	/** Bind a Token to a Name.
 	 *  The token is copied. This can be an expensive operation for large
@@ -176,6 +174,25 @@ namespace sli3
 		return index(i);
 	    }
 
+	/**
+	 * Checks whether the operand stack holds at least n values.
+	 * If the operand stack load is less than n, a StackUnderflow excetion is thrown.
+	 */
+	void require_stack_load(int n) const
+	    {
+		if(operand_stack_.load()<n)
+		    throw StackUnderflow(n, operand_stack_.load() );
+	    }
+
+	/**
+	 * Checks whether the operand stack holds a specific type at level l.
+	 * If not, a TypeMismatch is thrown.
+	 */
+	void require_stack_type(int l, unsigned int t_id) const
+	    {
+		operand_stack_.pick(l).require_type(t_id);
+	    }
+
 
 	void estack_pop(size_t n=1)
 	    {
@@ -203,12 +220,12 @@ namespace sli3
 	 * Fill token with an object of the specified type.
 	 */
 	template <sli_typeid, class T>
-	  TokenRef new_token(T const&);
-
+	Token new_token(T const&);
+	
 	template <sli_typeid>
-	  TokenRef new_token();
+	Token new_token();
 
-	SLIType* get_type(sli_typeid id) const
+	SLIType* get_type(unsigned int id) const
 	{
 	  return types_.at(id);
 	}
@@ -343,16 +360,18 @@ namespace sli3
 	Dictionary *error_dict_;
 	Parser *parser_;
 
+    public:
 	TokenStack operand_stack_;
 	TokenStack execution_stack_;
+    private:
 	DictionaryStack dictionary_stack_;
 	sli3::pool token_memory;       //!< Memory allocator for token
 	std::vector<std::string> message_tag_;
 	std::vector<SLIType *> types_; // must be last, so it is deleted last
     };
 
-    template<>
-    void SLIInterpreter::push<TokenRef>(TokenRef);
+//    template<>
+//    void SLIInterpreter::push<TokenRef>(TokenRef);
 
     template<>
     void SLIInterpreter::push<int>(int);
@@ -367,39 +386,46 @@ namespace sli3
     void SLIInterpreter::push<Name>(Name);
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::integertype>();
+    void SLIInterpreter::push<TokenArray&>(TokenArray&);
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::doubletype>();
+      Token SLIInterpreter::new_token<sli3::integertype>();
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::arraytype>();
+      Token SLIInterpreter::new_token<sli3::doubletype>();
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::litproceduretype>();
+      Token SLIInterpreter::new_token<sli3::arraytype>();
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::dictionarytype>();
+      Token SLIInterpreter::new_token<sli3::litproceduretype>();
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::integertype,int>(int const&);
+      Token SLIInterpreter::new_token<sli3::dictionarytype>();
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::integertype,long>(long const &);
+      Token SLIInterpreter::new_token<sli3::integertype,int>(int const&);
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::doubletype,double>(double const &);
-    template<>
-      TokenRef SLIInterpreter::new_token<sli3::booltype,bool>(bool const &);
+      Token SLIInterpreter::new_token<sli3::integertype,long>(long const &);
 
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::nametype,Name>(Name const &);
+      Token SLIInterpreter::new_token<sli3::doubletype,double>(double const &);
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &);
+      Token SLIInterpreter::new_token<sli3::booltype,bool>(bool const &);
+
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &);
+      Token SLIInterpreter::new_token<sli3::nametype,Name>(Name const &);
     template<>
-      TokenRef SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &);
+      Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &);
+    template<>
+      Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &);
+    template<>
+    Token SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &);
+    template<>
+    Token SLIInterpreter::new_token<sli3::arraytype,sli3::TokenArray>(sli3::TokenArray const&);
+    template<>
+    Token SLIInterpreter::new_token<sli3::proceduretype,sli3::TokenArray>(sli3::TokenArray const&);
     
 
     inline
@@ -409,15 +435,15 @@ namespace sli3
     }
 
     inline
-    void SLIInterpreter::lookup2(Name n, Token &t)
+    Token& SLIInterpreter::lookup(Name n)
     {
-	dictionary_stack_.lookup2(n, t);
+	return dictionary_stack_.lookup(n);
     }
 
     inline
-    bool SLIInterpreter::baselookup(Name n, Token &t)
+    Token& SLIInterpreter::baselookup(Name n)
     {
-	return dictionary_stack_.baselookup(n,t);
+	return dictionary_stack_.baselookup(n);
     }
 
     inline
@@ -425,13 +451,6 @@ namespace sli3
     {
 	Token t;
 	return dictionary_stack_.lookup(n,t);
-    }
-
-    inline
-    bool SLIInterpreter::baseknown(Name n) 
-    {
-	Token t;
-	return dictionary_stack_.baselookup(n,t);
     }
 
     inline

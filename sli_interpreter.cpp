@@ -509,14 +509,6 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
 /* Template specializations only beyond this point */
 
     template<>
-    void SLIInterpreter::push<TokenRef>(TokenRef t)
-    {
-      std::cout << operand_stack_.size() << '\n';
-      operand_stack_.push(t);
-      operand_stack_.dump(std::cerr);
-    }
-
-    template<>
     void SLIInterpreter::push<int>(int l)
     {
       std::cout << operand_stack_.size() << '\n';
@@ -550,102 +542,112 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::integertype>()
+    void SLIInterpreter::push<TokenArray&>(TokenArray& a)
     {
-	TokenRef t(types_[sli3::integertype]);
+	operand_stack_.push(types_[sli3::arraytype]);
+	operand_stack_.top().data_.array_val= &a;
+	a.add_reference();
+	operand_stack_.dump(std::cerr);
+    }
+
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::integertype>()
+    {
+	Token t(types_[sli3::integertype]);
 	t.data_.long_val= 0;
 	return t;
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::doubletype>()
+    Token SLIInterpreter::new_token<sli3::doubletype>()
     {
-	TokenRef t(types_[sli3::doubletype]);
+	Token t(types_[sli3::doubletype]);
 	t.data_.double_val= 0;
 	return t;
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::arraytype>()
+    Token SLIInterpreter::new_token<sli3::arraytype>()
     {
-	TokenRef t(types_[sli3::arraytype]);
+	Token t(types_[sli3::arraytype]);
 	t.data_.array_val= new TokenArray();
 	return t;
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::litproceduretype>()
+    Token SLIInterpreter::new_token<sli3::litproceduretype>()
     {
-	TokenRef t(types_[sli3::litproceduretype]);
+	Token t(types_[sli3::litproceduretype]);
 	t.data_.array_val= new TokenArray() ;
 	return t;
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::dictionarytype>()
+    Token SLIInterpreter::new_token<sli3::dictionarytype>()
     {
 	Token t(types_[sli3::dictionarytype]);
 	t.data_.dict_val= new Dictionary();
-	return TokenRef(t);
+	return Token(t);
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::integertype,int>(int const &i)
+    Token SLIInterpreter::new_token<sli3::integertype,int>(int const &i)
     {
 	Token t(types_[sli3::integertype]);
 	t.data_.long_val= i;
-	return TokenRef(t);
+	return Token(t);
     }
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::integertype,long>(long const &l)
+    Token SLIInterpreter::new_token<sli3::integertype,long>(long const &l)
     {
 	Token t(types_[sli3::integertype]);
 	t.data_.long_val= l;
-	return TokenRef(t);
+	return Token(t);
     }
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::doubletype,double>(double const &d)
+    Token SLIInterpreter::new_token<sli3::doubletype,double>(double const &d)
     {
 	Token t(types_[sli3::doubletype]);
 	t.data_.double_val= d;
-	return TokenRef(t);
+	return Token(t);
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::booltype,bool>(bool const &b)
+    Token SLIInterpreter::new_token<sli3::booltype,bool>(bool const &b)
     {
 	Token t(types_[sli3::booltype]);
 	t.data_.bool_val= b;
-	return TokenRef(t);
+	return Token(t);
     }
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::nametype,Name>(Name const &n)
+    Token SLIInterpreter::new_token<sli3::nametype,Name>(Name const &n)
     {
 	Token t(types_[sli3::nametype]);
 	t.data_.name_val= n.toIndex();;
-	return TokenRef(t);
+	return Token(t);
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &n)
+    Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &n)
     {
 	Token t(types_[sli3::literaltype]);
 	t.data_.name_val= n.toIndex();;
-	return TokenRef(t);
+	return Token(t);
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &n)
+    Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &n)
     {
 	Token t(types_[sli3::symboltype]);
 	t.data_.name_val= n.toIndex();;
-	return TokenRef(t);
+	return Token(t);
     }
 
     template<>
-    TokenRef SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &s)
+    Token SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &s)
     {
-	TokenRef t(types_[sli3::stringtype]);
+	Token t(types_[sli3::stringtype]);
 	t.data_.string_val= new SLIString(s) ;
 	return t;
     }

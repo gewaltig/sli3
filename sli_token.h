@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include "sli_type.h"
+#include "sli_exceptions.h"
 
 /** 
  * Struct Datum is the smnallest memory unit. The linked type object decides
@@ -62,13 +63,22 @@ namespace sli3
 	
 	operator int() const;
 	operator long() const;
+	operator long&();
 	operator double() const;
+	operator double&();
 	operator bool() const;
+	operator bool&();
+	operator std::string() const;
+	operator std::string&();
 
-	long &  operator=(long);
-	double& operator=(double);
-        
+	operator std::vector<long>() const;
+	operator std::vector<double>() const;
+	operator std::istream&();
+	operator std::ostream&();
+	operator TokenArray&();
+
 	bool is_valid() const;
+
 	refcount_t references() const;
 	refcount_t add_reference() const;
 	void remove_reference();
@@ -76,12 +86,15 @@ namespace sli3
 	bool operator==(const Token&) const;
 	bool operator!=(const Token&) const;
 
-	bool is_of_type(sli3::sli_typeid) const;
+	bool is_of_type(unsigned int) const;
+	void require_type(unsigned int) const;
+
 	std::string get_typename() const;
 
 	void execute();
 
 	std::ostream & print(std::ostream &) const;
+	std::ostream & pprint(std::ostream &) const;
 	
 	SLIType *type_; //!< If NULL, the datum is unused.	
 	union value
@@ -101,11 +114,18 @@ namespace sli3
     std::ostream & operator<<(std::ostream& , const Token&);
 
     inline
-    bool Token::is_of_type(sli3::sli_typeid id) const
+    bool Token::is_of_type(unsigned int id) const
     {
 	return type_ and type_->is_type(id);
     }
 
+    inline
+      void Token::require_type(unsigned int id) const
+    {
+      if(not type_)
+	throw InvalidToken();
+      type_->require_type(id);
+    }
 
     class TokenRef: public Token
     {

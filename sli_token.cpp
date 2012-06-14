@@ -1,6 +1,7 @@
 #include "sli_token.h"
 #include "sli_type.h"
 #include "sli_exceptions.h"
+#include "sli_string.h"
 namespace sli3
 {
 
@@ -91,56 +92,81 @@ namespace sli3
 
     Token::operator int() const
     {
-	if(type_ && type_->is_type(sli3::integertype))
-	    return data_.long_val;
-	else
-	    throw TypeMismatch();
+	require_type(sli3::integertype);
+	return data_.long_val;
     }
 
+ 
     Token::operator long() const
     {
-	if(type_ && type_->is_type(sli3::integertype))
-	    return data_.long_val;
-	else
-	    throw TypeMismatch();
+	require_type(sli3::integertype);
+	return data_.long_val;
     }
 
-    Token::operator double() const
+    Token::operator long&() 
     {
-	if(type_ && type_->is_type(sli3::doubletype))
-	    return data_.double_val;
- 	else
-	    throw TypeMismatch();
-   }
+	require_type(sli3::integertype);
+	return data_.long_val;
+    }
+
+   Token::operator double&()
+    {
+	require_type(sli3::doubletype);
+	return data_.double_val;
+    }
+
+   Token::operator double() const
+    {
+	require_type(sli3::doubletype);
+	return data_.double_val;
+    }
 
     Token::operator bool() const
     {
-	if(type_ && type_->is_type(sli3::booltype))
-	    return data_.bool_val;
- 	else
-	    throw TypeMismatch();
-   }
-
-    long& Token::operator=(long val)
-    {
-	if(type_ && type_->is_type(sli3::integertype))
-	    return data_.long_val=val;
-  	else
-	    throw TypeMismatch();
+	require_type(sli3::booltype);
+	return data_.bool_val;
     }
 
-    double& Token::operator=(double val)
+    Token::operator bool&() 
     {
-	if(type_ && type_->is_type(sli3::doubletype))
-	    return data_.double_val=val;
-  	else
-	    throw TypeMismatch();
+	require_type(sli3::booltype);
+	return data_.bool_val;
+    }
+
+    Token::operator TokenArray&() 
+    {
+  	if( not is_valid())
+	    throw InvalidToken();
+	unsigned int id=type_->get_typeid();
+	if(id==sli3::arraytype or
+	   id==sli3::proceduretype or
+	   id==sli3::litproceduretype)
+	{
+	    return *data_.array_val;
+	}
+	
+	throw TypeMismatch();
+
+    }
+
+    Token::operator std::string&()
+    {
+	require_type(sli3::stringtype);
+	return *data_.string_val;
     }
 
     std::ostream & Token::print(std::ostream &out) const
     {
 	if(type_ != 0)
 	    return type_->print(out,*this);
+	else
+	    return out << "/nulltoken";
+    }
+
+    std::ostream & Token::pprint(std::ostream &out) const
+    {
+	if(type_ != 0)
+	    return type_->pprint(out,*this);
 	else
 	    return out << "/nulltoken";
     }

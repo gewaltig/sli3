@@ -62,8 +62,8 @@ class DictionaryStack
 private:
     std::list<Dictionary *> d;
     Dictionary *base_;
-    std::vector<const Token *> cache_;
-    std::vector<const Token *> basecache_;
+    std::vector<Token *> cache_;
+    std::vector<Token *> basecache_;
 
 public:
   DictionaryStack();
@@ -74,7 +74,7 @@ public:
   /**
    * Add a token to the cache.
    */
-  void cache_token( Name n, const Token *result)
+  void cache_token( Name n, Token *result)
   {
     Name::handle_t key=n.toIndex();
     if (key>=cache_.size())
@@ -82,7 +82,7 @@ public:
     cache_[key]= result;
   }
 
-  void basecache_token(Name n, const Token *result)
+  void basecache_token(Name n, Token *result)
   {
     Name::handle_t key=n.toIndex();
     if (key>=basecache_.size())
@@ -132,7 +132,7 @@ public:
     Name::handle_t key=n.toIndex();
     if (key<cache_.size())
       {
-    	const Token *ct=cache_[key];
+    	Token *ct=cache_[key];
     	if(ct)
 	  {
 	    result=*ct;
@@ -144,7 +144,7 @@ public:
     
     while (i!=d.end())
       {
-	TokenMap::const_iterator where =(*i)->find(n);
+	TokenMap::iterator where =(*i)->find(n);
 	if(where!=(*i)->end())
 	  {
 	    cache_token(n,&(where->second)); // Update the cache 
@@ -156,10 +156,29 @@ public:
     return false;
   }
 
-  void lookup2(Name n, Token &result)
+  Token& lookup(Name n)
   { 
-    if (! lookup(n,result))
-      throw UndefinedName(n.toString());
+    Name::handle_t key=n.toIndex();
+    if (key<cache_.size())
+      {
+    	Token *ct=cache_[key];
+    	if(ct)
+	  return *ct;
+      }
+    
+    std::list<Dictionary *>::const_iterator i=d.begin();
+    
+    while (i!=d.end())
+      {
+	TokenMap::iterator where =(*i)->find(n);
+	if(where!=(*i)->end())
+	  {
+	    cache_token(n,&(where->second)); // Update the cache 
+	    return where->second;
+	  }
+	++i;
+      }
+    throw UndefinedName(n.toString());
   }
   
   bool known(Name n)
@@ -172,29 +191,24 @@ public:
    *  If the Name is not found,
    *  @a VoidToken is returned.
    */
-  bool baselookup(Name n, Token &result) // lookup in a specified
+  Token& baselookup(Name n) // lookup in a specified
   {                                           // base dictionary
     Name::handle_t key=n.toIndex();
     if (key<basecache_.size())
       {
-	const Token *ct=basecache_[key];
+	Token *ct=basecache_[key];
 	if(ct)
-	  {
-	    result=*ct;
-	    return true;
-	  }
+	    return *ct;
       }
-    TokenMap::const_iterator where =base_->find(n);
+    TokenMap::iterator where =base_->find(n);
     
     if ( where != base_->end() )
       {
 	cache_token(n, &(where->second)); // Update the cache
 	basecache_token(n, &(where->second)); // and the basecache
-	result= where->second;
-	return true;
+	return where->second;
       }
-    else
-      return false;
+    throw UndefinedName(n.toString());
   }
 
 
