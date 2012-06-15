@@ -37,13 +37,6 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
   
-  class IsetcallbackFunction: public SLIFunction
-  {
-  public:
-    IsetcallbackFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
   class IiterateFunction: public SLIFunction
   {
   public:
@@ -117,6 +110,8 @@ namespace sli3
     void execute(SLIInterpreter *) const;
     void backtrace(SLIInterpreter *, int) const ;
   };
-  
+ 
+
+ 
 }
 #endif

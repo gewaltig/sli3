@@ -14,15 +14,17 @@ namespace sli3
     {}
 
     Token::Token(Token const& s)
-	:type_(s.type_), data_(s.data_)
+	:type_(s.type_), 
+	 data_(s.data_)
     {
-      if(type_ != 0)
-	type_->add_reference(s);
+	if(type_ != 0)
+	    type_->add_reference(*this);
     }
 
     Token::~Token()
     {
-      clear();
+	if(type_)
+	    type_->remove_reference(*this);
     }
 
     void Token::clear()
@@ -34,21 +36,21 @@ namespace sli3
 
     Token& Token::init(const Token&t)
     {
-      t.add_reference();
-      remove_reference();
-      type_=t.type_;
-      data_=t.data_;
-      return *this;
+	t.add_reference();
+	remove_reference();
+	type_=t.type_;
+	data_=t.data_;
+	return *this;
     }
 
     Token& Token::move( Token&t)
     {
-      t.add_reference();
-      remove_reference();
-      type_=t.type_;
-      data_=t.data_;
-      t.clear();
-      return *this;
+	t.add_reference();
+	remove_reference();
+	type_=t.type_;
+	data_=t.data_;
+	t.clear();
+	return *this;
     }
 
     Token& Token::swap(Token&t)
@@ -185,11 +187,11 @@ namespace sli3
 	return not operator==(t);
     }
 
-    std::string Token::get_typename() const
+    Name Token::get_typename() const
     {
-	if (type_)
-	    return type_->get_typename();
-	return "/nulltype";
+	if(type_ == 0)
+	    throw InvalidToken();
+	return type_->get_typename();
     }
 
     void Token::execute()

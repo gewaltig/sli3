@@ -21,6 +21,6 @@ namespace sli3
 	assert(sli_);
 	SLIType *required=sli_->get_type(id);
 	assert(required);
-	throw TypeMismatch(required->get_typename(), name_);
+	throw TypeMismatch(required->name_.toString(), name_.toString());
     }
 }

@@ -31,7 +31,7 @@ namespace sli3
 	Token();
 	Token(SLIType *);
 	Token(const Token &);
-	~Token();
+	virtual ~Token();
 	
 
 	/** 
@@ -89,10 +89,14 @@ namespace sli3
 	bool is_of_type(unsigned int) const;
 	void require_type(unsigned int) const;
 
-	std::string get_typename() const;
+	Name get_typename() const;
 
 	void execute();
 
+	bool is_executable() const
+	{
+	  return (type_ and type_->is_executable());
+	}
 	std::ostream & print(std::ostream &) const;
 	std::ostream & pprint(std::ostream &) const;
 	

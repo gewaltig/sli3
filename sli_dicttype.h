@@ -30,6 +30,7 @@ namespace sli3
     {
       remove_reference(t);
       t.data_.dict_val=0;
+      t.type_=0;
     }
 
 

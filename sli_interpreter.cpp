@@ -5,6 +5,8 @@
 #include "sli_string.h"
 #include "sli_stringtype.h"
 #include "compose.hpp"
+#include "sli_numerics.h"
+
 /* BeginDocumentation
  Name: Pi - Value of the constant Pi= 3.1415...
  Synopsis:  Pi -> double
@@ -79,9 +81,9 @@ namespace sli3
 	  status_dict_(0),
 	  error_dict_(0),
 	  parser_(0),
+	  mark_name("mark"),
 	  ilookup_name("::lookup"),
 	  ipop_name("::pop"),
-	  isetcallback_name("::setcallback"),
 	  iiterate_name("::executeprocedure"),
 	  iloop_name("::loop"),
 	  irepeat_name("::repeat"),
@@ -99,7 +101,6 @@ namespace sli3
 	  null_name("null"),
 	  true_name("true"),
 	  false_name("false"),
-	  mark_name("mark"),
 	  istopped_name("::stopped"),
 	  systemdict_name("systemdict"),
 	  userdict_name("userdict"),
@@ -136,13 +137,14 @@ namespace sli3
 	  execution_stack_(100)
     {
 	init();
+	std::cerr << mark_name.toIndex() << '\n';
     }
     
     SLIInterpreter::~SLIInterpreter()
     {
 	operand_stack_.clear();
 	execution_stack_.clear();
-
+	dictionary_stack_.clear();
 	for(size_t t=0; t<types_.size();++t)
 	    delete types_[t];
     }
@@ -150,6 +152,8 @@ namespace sli3
     void SLIInterpreter::init()
     {
 	init_types();
+	init_dictionaries();
+	init_internal_functions();
     }
     
     void SLIInterpreter::init_types()
@@ -191,14 +195,17 @@ namespace sli3
     void SLIInterpreter::init_dictionaries()
     {
 	system_dict_= new Dictionary();
-	error_dict_= new Dictionary();
-	user_dict_= new Dictionary();
-	status_dict_= new Dictionary();
+	// error_dict_= new Dictionary();
+	// user_dict_= new Dictionary();
+	// status_dict_= new Dictionary();
 
 	Token dict(types_[sli3::dictionarytype]);
 	dict.data_.dict_val=system_dict_;
+	std::cerr << "sys dict refs =" << system_dict_->references() << '\n';
 	system_dict_->insert(Name("systemdict"),dict);
+	std::cerr << "sys dict refs =" << system_dict_->references() << '\n';
 	dictionary_stack_.push(dict);
+	std::cerr << "sys dict refs =" << system_dict_->references() << '\n';
 	dictionary_stack_.set_basedict();
 	dict.data_.dict_val=error_dict_;
 	system_dict_->insert(Name("errordict"),dict);
@@ -208,6 +215,26 @@ namespace sli3
 	dict.data_.dict_val=status_dict_;
 	system_dict_->insert(Name("statusdict"),dict);
 	dict.type_=0; // This prevents the token data from being cleared.
+    }
+
+    void SLIInterpreter::init_internal_functions(void)
+    {
+	createcommand(ilookup_name,      &ilookupfunction);
+	createcommand(ipop_name,         &ilookupfunction);
+	createcommand(iiterate_name,     &iiteratefunction);
+	createcommand(iloop_name,        &iloopfunction);
+	createcommand(irepeat_name,      &irepeatfunction);
+	createcommand(ifor_name,         &iforfunction);
+	createcommand(iforallarray_name, &iforallarrayfunction);
+	createcommand(iforalliter_name,  &iforalliterfunction);
+	createcommand(iforallindexedstring_name, 
+		      &iforallindexedstringfunction);
+	createcommand(iforallindexedarray_name, 
+		      &iforallindexedarrayfunction);
+	createcommand(iforallstring_name,&iforallstringfunction);
+	
+	createdouble(pi_name, numerics::pi);
+	createdouble(e_name, numerics::e);
     }
 
     int SLIInterpreter::startup()
@@ -298,7 +325,13 @@ namespace sli3
 	
 	return exitcode;
     }
-
+ 
+    void SLIInterpreter::createdouble(Name n, double val)
+    {
+	dictionary_stack_.def(n, new_token<sli3::doubletype>(val));
+    }
+    
+ 
     /** Define a function in the current dictionary.
      *  This function defines a SLI function in the current dictionary. 
      *  Note that you may also pass a string as the first argument, as
@@ -523,6 +556,15 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
 	operand_stack_.push(types_[sli3::integertype]);
 	operand_stack_.top().data_.long_val=l;
 	operand_stack_.dump(std::cerr);
+    }
+
+    template<>
+    void SLIInterpreter::push<char>(char c)
+    {
+      std::cout << operand_stack_.size() << '\n';
+      operand_stack_.push(types_[sli3::integertype]);
+      operand_stack_.top().data_.long_val=c;
+      operand_stack_.dump(std::cerr);
     }
 
     template<>

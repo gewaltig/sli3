@@ -25,18 +25,17 @@
 
 namespace sli3
 {
-const Token Dictionary::VoidToken;
 
 Dictionary::~Dictionary()
 {
 }
 
-const Token& Dictionary::operator[](const char *n) const
+const DictToken& Dictionary::operator[](const char *n) const
 {
   return operator[](Name(n));
 }
 
-Token& Dictionary::operator[](const char *n)
+DictToken& Dictionary::operator[](const char *n)
 {
   return operator[](Name(n));
 }
@@ -54,7 +53,7 @@ void Dictionary::info(std::ostream &out) const
   if(size()>0)
   {
     // copy to vector and sort
-    typedef std::vector<std::pair<Name, Token> >DataVec;
+    typedef std::vector<std::pair<Name, DictToken> >DataVec;
     DataVec data;
     std::copy(begin(), end(), std::inserter(data, data.begin()));
     std::sort(data.begin(), data.end(), DictItemLexicalOrder());
@@ -100,7 +99,7 @@ void Dictionary::add_dict(const std::string& target,
       }
 }
 */
-void Dictionary::remove(const Name& n)
+void Dictionary::remove(Name n)
 {
   TokenMap::iterator it = find(n);
   if ( it != end() )

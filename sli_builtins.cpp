@@ -18,7 +18,7 @@
     Interpreter builtins
 */
 #include "sli_builtins.h"
-#include "sli_interpret.h"
+#include "sli_interpreter.h"
 #include "sli_array.h"
 #include "sli_string.h"
 
@@ -92,7 +92,7 @@ namespace sli3
       {
 	const Token &t(proc->get(pos));
 	++pos;
-	if( t->is_executable())
+	if( t.is_executable())
 	  {
 	    i->estack_push(t);
 	    return;
@@ -135,7 +135,7 @@ namespace sli3
       {
 	const Token &t=proc->get(pos);
 	++pos;
-	if( t->is_executable())
+	if( t.is_executable())
 	  {
 	    i->estack_push(t);
 	    return;
@@ -189,7 +189,7 @@ void IforFunction::execute(SLIInterpreter *i) const
     {
       const Token &t= proc->get(pos);
       ++pos;
-      if( t->is_executable())
+      if( t.is_executable())
 	{
 	  i->estack_push(t);
 	  return;
@@ -345,7 +345,7 @@ void IforallindexedarrayFunction::execute(SLIInterpreter *i) const
     {
       TokenArray *obj=i->estack_pick(4).data_.array_val;
 
-      i->(obj->get(count));  // push element to user
+      i->push(obj->get(count));  // push element to user
       i->push(count);        // push index to user
       ++count;
       i->estack_push(i->estack_pick(1));
@@ -399,7 +399,7 @@ void IforallindexedstringFunction::execute(SLIInterpreter *i) const
 
   if(count < limit)
     {
-      SLITstring *obj= i->estack_pick(4).data_.string_val;
+      SLIString *obj= i->estack_pick(4).data_.string_val;
       
       i->push((*obj)[count]);  // push element to user
       i->push(count);          // push index to user
@@ -465,5 +465,6 @@ void IforallstringFunction::execute(SLIInterpreter *i) const
     }
 
 }
+
 
 }

@@ -87,14 +87,14 @@ void Backtrace_offFunction::execute(SLIInterpreter *i) const
 
 void OStackdumpFunction::execute(SLIInterpreter *i) const
 {
-    i->estack.pop(); // never forget me!!
+    i->estack_pop(); // never forget me!!
 
     i->ostack_dump(std::cout);
 }
 
 void EStackdumpFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop(); // never forget me!!
+    i->estack_pop(); // never forget me!!
 
     i->estack_dump(std::cout);
 }
