@@ -10,6 +10,7 @@
 #include "sli_name.h"
 #include "sli_dictionary.h"
 #include "sli_dictstack.h"
+#include "sli_builtins.h"
 #include<vector>
 #include <deque>
 
@@ -50,6 +51,27 @@ namespace sli3
 	num_exitcodes
     };
 
+   /**
+    * Opcodes for internal functions.
+    * These functions implement loops and other control structures.
+    * Since they are often needed, the interpreter stores them in a table for
+    * fast lookup.
+    */
+    enum opcode
+    {
+	i_pop=0,
+	i_iterate,
+	i_repeat,
+	i_loop,
+	i_for,
+	i_forall,
+	i_forall_array,
+	i_forall_string,
+	i_forall_indexedarray,
+	i_forall_indexedstring,
+	num_opcodes
+    };
+	
     class SLIInterpreter
     {
     public:
@@ -61,6 +83,7 @@ namespace sli3
 	void init_types();
 	void init_dictionaries();
 	void init_message_tags();
+	void init_internal_functions();
 
 	/**
 	 * Initiates the interpreter's startup sequnce.
@@ -84,6 +107,7 @@ namespace sli3
 	 */
 	int execute_(size_t level=0);
 
+	void createdouble(Name , double);
 	void createcommand(Name, SLIFunction *);
 	void createconstant(Name, const Token&);
 
@@ -165,14 +189,16 @@ namespace sli3
 		operand_stack_.pop(n);
 	    }
 
-	Token& pick(size_t);
-
-	Token& index(size_t);
-
-	Token const& index(size_t i) const
+	Token& pick(size_t i)
 	    {
-		return index(i);
+		return operand_stack_.pick(i);
 	    }
+
+	void index(size_t i)
+	    {
+		operand_stack_.index(i);
+	    }
+
 
 	/**
 	 * Checks whether the operand stack holds at least n values.
@@ -215,6 +241,16 @@ namespace sli3
 		execution_stack_.push(t);
 	    }
 
+	void estack_push(sli3::opcode f)
+	    {
+		Token t(types_[sli3::functiontype]);
+		t.data_.func_val=functions_[f];
+		execution_stack_.push(t);
+	    }
+
+	bool step_mode() const {return false;}
+	void inc_call_depth(){}
+	void dec_call_depth(){}
 
 	/**
 	 * Fill token with an object of the specified type.
@@ -279,9 +315,9 @@ namespace sli3
 
 
 	    // Names of basics functions
+	Name mark_name;
 	Name ilookup_name;
 	Name ipop_name;
-	Name isetcallback_name;
 	Name iiterate_name;
 	Name iloop_name;
 	Name irepeat_name;
@@ -303,7 +339,6 @@ namespace sli3
 	Name null_name;
 	Name true_name;
 	Name false_name;
-	Name mark_name;
 	Name istopped_name; 
 	Name systemdict_name;
 	Name userdict_name;
@@ -338,6 +373,17 @@ namespace sli3
 	
 	Token execbarrier_token; 
 	
+	IlookupFunction      ilookupfunction;
+	IiterateFunction     iiteratefunction;
+	IloopFunction        iloopfunction;
+	IrepeatFunction      irepeatfunction;
+	IforFunction         iforfunction;
+	IforallarrayFunction iforallarrayfunction;
+	IforalliterFunction  iforalliterfunction;
+	IforallindexedarrayFunction iforallindexedarrayfunction;
+	IforallindexedstringFunction iforallindexedstringfunction;
+	IforallstringFunction iforallstringfunction;
+
     private:
 	bool is_initialized_;
 	bool debug_mode_;       //!< True, if SLI level debugging is enabled.
@@ -367,7 +413,8 @@ namespace sli3
 	DictionaryStack dictionary_stack_;
 	sli3::pool token_memory;       //!< Memory allocator for token
 	std::vector<std::string> message_tag_;
-	std::vector<SLIType *> types_; // must be last, so it is deleted last
+	std::vector<SLIFunction *> functions_; //!< Table with internal functions.
+	std::vector<SLIType *> types_;         //!< must be last, so it is deleted last
     };
 
 //    template<>
@@ -375,6 +422,9 @@ namespace sli3
 
     template<>
     void SLIInterpreter::push<int>(int);
+
+    template<>
+    void SLIInterpreter::push<char>(char);
 
     template<>
     void SLIInterpreter::push<long>(long);

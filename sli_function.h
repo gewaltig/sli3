@@ -29,35 +29,36 @@ namespace sli3
   class SLIFunction
   {
   public:
-  SLIFunction(Name n):name_(n){}
-    virtual void execute(SLIInterpreter *) const = 0;
-    virtual ~SLIFunction(){}
-
-    /**
-     * Show stack backtrace information on error.
-     * This function tries to extract and display useful
-     * information from the execution stack if an error occurs.
-     * This function should be implemented for all functions which
-     * store administrative information on the execution stack.
-     * Examples are: loops and procedure iterations.
-     * backtrace() is only called, if the interpreter flag
-     * show_backtrace is set.
-     */
-    virtual void backtrace(SLIInterpreter *, int) const
-    {}
-
-    Name get_name() const
-    {
-      return name_;
-    }
-
-    void set_name(Name n)
-    {
-      name_=n;
-    }
-
+      SLIFunction(){}
+      SLIFunction(Name n):name_(n){}
+      virtual void execute(SLIInterpreter *) const = 0;
+      virtual ~SLIFunction(){}
+      
+      /**
+       * Show stack backtrace information on error.
+       * This function tries to extract and display useful
+       * information from the execution stack if an error occurs.
+       * This function should be implemented for all functions which
+       * store administrative information on the execution stack.
+       * Examples are: loops and procedure iterations.
+       * backtrace() is only called, if the interpreter flag
+       * show_backtrace is set.
+       */
+      virtual void backtrace(SLIInterpreter *, int) const
+	  {}
+      
+      Name get_name() const
+	  {
+	      return name_;
+	  }
+      
+      void set_name(Name n)
+	  {
+	      name_=n;
+	  }
+      
   private:
-    Name name_;
+      Name name_;
   };
 }
 #endif

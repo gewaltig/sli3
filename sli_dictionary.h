@@ -35,7 +35,8 @@ namespace sli3
   {
   public:
       DictToken()
-	  :access_flag_(false)
+	  :Token(),
+	   access_flag_(false)
 	  {}
 
       DictToken(const DictToken& t)
@@ -48,30 +49,38 @@ namespace sli3
       access_flag_(false)
 	  {}
 
+      DictToken& operator=(const DictToken&t)
+	  {
+	      access_flag_=t.access_flag_;
+	      Token::operator=(t);
+	      return *this;
+	  }
+
       operator Token &()
-      { return *this;
+      { 
+	  return *this;
       }
 
-    bool accessed() const
-    {
-      return access_flag_;
-    }
-
-    void clear_access_flag() const
-    {
-      access_flag_=false;
-    }
-
-    void set_access_flag() const
-    {
-      access_flag_=true;
-    }
+      bool accessed() const
+	  {
+	      return access_flag_;
+	  }
+      
+      void clear_access_flag() const
+	  {
+	      access_flag_=false;
+	  }
+      
+      void set_access_flag() const
+	  {
+	      access_flag_=true;
+	  }
   private:
       mutable
 	bool access_flag_;
   };
 
-typedef  std::map<Name,DictToken, std::less<Name> > TokenMap;
+typedef  std::map<Name, DictToken, std::less<Name> > TokenMap;
 
 inline bool operator==(const TokenMap & x, const TokenMap &y)
 {
@@ -96,8 +105,8 @@ class Dictionary :private TokenMap
     static bool nocase_compare(char c1, char c2);
 
   public:
-    bool operator() (const std::pair<Name, Token>& lhs, 
-		     const std::pair<Name, Token>& rhs) const
+    bool operator() (const std::pair<Name, DictToken>& lhs, 
+		     const std::pair<Name, DictToken>& rhs) const
       {
 	const std::string& ls = lhs.first.toString();
 	const std::string& rs = rhs.first.toString();
@@ -109,10 +118,15 @@ class Dictionary :private TokenMap
   };
   
 public:
- Dictionary() {}
+ Dictionary():
+     TokenMap(),
+     references_(1), 
+     refs_on_dictstack_(0)
+    {}
+
  Dictionary(const Dictionary &d) 
    : TokenMap(d), 
-   references_(0), 
+   references_(1), 
    refs_on_dictstack_(0) {}
   ~Dictionary();
   
@@ -152,20 +166,19 @@ public:
    *       dictionary read-out is set on the Token in the dictionary,
    *       not its copy.  
    */
-  bool lookup(Name, Token &);
-  Token & lookup(Name n); //throws UndefinedName
-  bool known(const Name &) const;
+  bool lookup(Name, DictToken &);
+  DictToken & lookup(Name n); //throws UndefinedName
+  bool known( Name ) const;
   
-  Token & insert(const Name &n, const Token &t);
-  Token & insert_move(const Name &, Token &);
+  DictToken & insert(Name , Token t);
 
   //! Remove entry from dictionary
-  void remove(const Name& n);  
+  void remove(Name n);  
 
-  const Token& operator[](const Name&) const;
-  Token& operator[](const Name &);
-  const Token& operator[](const char*) const;
-  Token& operator[](const char *);
+  const DictToken& operator[](Name) const;
+  DictToken& operator[](Name );
+  const DictToken& operator[](const char*) const;
+  DictToken& operator[](const char *);
   
   bool empty(void) const { return TokenMap::empty(); }
       
@@ -278,14 +291,13 @@ public:
    */
  
   mutable
-    refcount_t references_;
-  refcount_t refs_on_dictstack_; 
+  refcount_t references_;
+    refcount_t refs_on_dictstack_; 
   bool all_accessed_(std::string&, std::string prefix = std::string()) const;
-  static const Token VoidToken;
 };
 
  inline
-   bool Dictionary::lookup(Name n, Token &result)
+   bool Dictionary::lookup(Name n, DictToken &result)
    {
      TokenMap::iterator where = find(n);
      if(where != end())
@@ -298,7 +310,7 @@ public:
    }
  
  inline
-   Token& Dictionary::lookup(Name n)
+   DictToken& Dictionary::lookup(Name n)
  {      
    TokenMap::iterator where = find(n);
    if(where != end())
@@ -308,7 +320,7 @@ public:
  }
  
 inline
-bool Dictionary::known(const Name &n) const
+bool Dictionary::known(Name n) const
 {
   TokenMap::const_iterator where = find(n);
   if(where != end())
@@ -318,14 +330,14 @@ bool Dictionary::known(const Name &n) const
 }
 
 inline
-Token& Dictionary::insert(const Name &n, const Token &t)  
+DictToken& Dictionary::insert(Name n, Token t)  
 { 
-  return TokenMap::operator[](n) = DictToken(t); 
+    return TokenMap::operator[](n) = DictToken(t); 
 }
 
 
 inline
-const Token& Dictionary::operator[](const Name &n) const
+const DictToken& Dictionary::operator[](Name n) const
 {      
   TokenMap::const_iterator where = find(n);
   if(where != end())
@@ -336,18 +348,11 @@ const Token& Dictionary::operator[](const Name &n) const
 
 
 inline
-Token& Dictionary::operator[](const Name &n)
+DictToken& Dictionary::operator[](Name n)
 {  
   return TokenMap::operator[](n);
 }
 
-inline
-Token& Dictionary::insert_move(const Name &n, Token &t)
-{
-  Token &result=TokenMap::operator[](n);
-  result.move(t);
-  return result;
-}
 
 }
 #endif

@@ -18,7 +18,7 @@
 ## C++ specific flags
 CC=g++
 GDB=-g
-CCFLAGS= $(GDB) -Wall -O2
+CCFLAGS= $(GDB) -Wall
 
 ## Linker flags
 LDLIBS= -lstdc++
@@ -44,7 +44,9 @@ OBJS= 	sli_main.o\
 	sli_charcode.o\
 	sli_scanner.o\
 	sli_parser.o\
-	sli_interpreter.o
+	sli_interpreter.o\
+	sli_numerics.o\
+	sli_builtins.o
 
 SOURCES = ${OBJS:.o=.cpp}
 

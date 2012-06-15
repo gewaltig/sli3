@@ -1,7 +1,7 @@
 #include <string>
 #ifndef SLI_TYPE_H
 #define SLI_TYPE_H
-
+#include "sli_name.h"
 namespace sli3
 {
 
@@ -83,11 +83,11 @@ namespace sli3
     virtual void execute(Token&)
     {} // Default action.
     
-    std::string const& get_typename() const
-      {
-	return name_;
-      }
-
+    Name get_typename() const
+    {
+      return name_;
+    }
+    
     bool is_type(unsigned int id) const
     {
       return id_ == id;
@@ -121,7 +121,7 @@ namespace sli3
     void raise_type_mismatch_(unsigned int) const;
 
     SLIInterpreter *sli_;
-    std::string name_;
+    Name name_;
     unsigned int id_;
     bool executable_;
   };
