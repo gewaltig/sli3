@@ -29,6 +29,19 @@ namespace sli3
   built-in or user supplied functions must be defined
   either in builtins.{h,cc} or in user-defined modules
   *******************************************************/
+  class IparsestdinFunction: public SLIFunction
+  {
+  public:
+    IparsestdinFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  class IparseFunction: public SLIFunction
+  {
+  public:
+    IparseFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
 
   class IlookupFunction: public SLIFunction
   {

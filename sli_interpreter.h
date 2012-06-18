@@ -90,6 +90,7 @@ namespace sli3
 	 */
 	int startup();
 
+	Token read_token(std::istream &);
 	/**
 	 * Execute the commands, supplied as string.
 	 */
@@ -101,7 +102,10 @@ namespace sli3
 	 */
 	int execute(int=0);
 	
-	void raiseerror(std::exception&){}
+	Name get_current_name() const;
+
+	void raiseerror(std::exception&);
+	void raiseerror(Name cmd, Name err);
 	/**
 	 * Execute until execution stack reaches level.
 	 */
@@ -220,37 +224,18 @@ namespace sli3
 	    }
 
 
-	void estack_pop(size_t n=1)
+	TokenStack& OStack()
 	    {
-		execution_stack_.pop(n);
+		return operand_stack_;
 	    }
 
-
-	Token & estack_top(size_t n=1)
+	TokenStack& EStack()
 	    {
-		return execution_stack_.top();
+		return execution_stack_;
 	    }
-
-	Token & estack_pick(size_t n=0)
-	    {
-		return execution_stack_.pick(n);
-	    }
-
-	void estack_push(const Token &t)
-	    {
-		execution_stack_.push(t);
-	    }
-
-	void estack_push(sli3::opcode f)
-	    {
-		Token t(types_[sli3::functiontype]);
-		t.data_.func_val=functions_[f];
-		execution_stack_.push(t);
-	    }
-
+	
+	
 	bool step_mode() const {return false;}
-	void inc_call_depth(){}
-	void dec_call_depth(){}
 
 	/**
 	 * Fill token with an object of the specified type.
@@ -313,9 +298,151 @@ namespace sli3
 	
 	void terminate(int returnvalue=-1);
 
+	void setcycleguard(size_t limit)
+	    {
+		cycle_guard_=true;
+		cycle_restriction_= cycle_count_+ limit;
+	    }
+	
+	void removecycleguard(void)
+	    {
+		cycle_guard_=false;
+	    }
 
-	    // Names of basics functions
+	unsigned long cycles(void) const
+	    {
+		return cycle_count_;
+	    }
+	
+	  /**
+	   * True, if a stack backtrace should be shown on error.
+	   * Whenever an error or stop is raised, the execution stack is 
+	   * unrolled up to the nearest stopped context.
+	   * In this process it is possible to display a stack backtrace 
+	   * which allows the user to diagnose the origin and possible 
+	   * cause of the error.
+	   * For applications which handle themselfs, this backtrace may be
+	   * disturbing. So it is possible to switch this behavior on and 
+	   * off. 
+	   */
+	bool show_backtrace() const
+	    {
+		return show_backtrace_;
+	    }
+	
+	/**
+	 * Switch stack backtrace on.
+	 * Whenever an error or stop is raised, the execution stack is 
+	 * unrolled up to the nearest stopped context.
+	 * In this process it is possible to display a stack backtrace 
+	 * which allows the user to diagnose the origin and possible 
+	 * cause of the error.
+	 * For applications which handle themselfs, this backtrace may be
+	 * disturbing. So it is possible to switch this behavior on and 
+	 * off. 
+	 */
+	void backtrace_on()
+	    { show_backtrace_=true;}
+	
+	
+	/**
+	 * Switch stack backtrace off.
+	 * Whenever an error or stop is raised, the execution stack is 
+	 * unrolled up to the nearest stopped context.
+	 * In this process it is possible to display a stack backtrace 
+	 * which allows the user to diagnose the origin and possible 
+	 * cause of the error.
+	 * For applications which handle themselfs, this backtrace may be
+	 * disturbing. So it is possible to switch this behavior on and 
+	 * off. 
+	 */
+	void backtrace_off()
+	    { show_backtrace_=false;}
+
+	
+	/**
+	 * Increment call depth level.
+	 * The value of call_depth_ is used to control
+	 * the step mode. 
+	 * Step mode is disabled for call_depth_ >= max_call_depth_.
+	 * This gives the user the opportunity to skip over nested 
+	 * calls during debugging.
+	 */
+	void inc_call_depth()
+	    {
+		++call_depth_;
+	    }
+	
+	/**
+	 * Decrement call depth level.
+	 * The value of call_depth_ is used to control
+	 * the step mode. 
+	 * Step mode is disabled for call_depth_ >= max_call_depth_.
+	 * This gives the user the opportunity to skip over nested 
+	 * calls during debugging.
+	 */
+	void dec_call_depth()
+	    {
+		--call_depth_;
+	    }
+	
+	/**
+	 * Set call depth level to a specific value.
+	 * The value of call_depth_ is used to control
+	 * the step mode. 
+	 * Step mode is disabled for call_depth_ >= max_call_depth_.
+	 * This gives the user the opportunity to skip over nested 
+	 * calls during debugging.
+	 */
+	void set_call_depth(int l)
+	    {
+		call_depth_=l;
+	    }
+	
+	/**
+	 * Return current call depth level.
+	 * The value of call_depth_ is used to control
+	 * the step mode. 
+	 * Step mode is disabled for call_depth_ >= max_call_depth_.
+	 * This gives the user the opportunity to skip over nested 
+	 * calls during debugging.
+	 */
+	int get_call_depth() const
+	    {
+		return call_depth_;
+	    }
+	
+	/**
+	 * Set maximal call depth level to a specific value.
+	 * The value of call_depth_ is used to control
+	 * the step mode. 
+	 * Step mode is disabled for call_depth_ >= max_call_depth_.
+	 * This gives the user the opportunity to skip over nested 
+	 * calls during debugging.
+	 */
+	void set_max_call_depth(int d)
+	    {
+		max_call_depth_=d;
+	    }
+	
+	/**
+	 * Return value of maximal call depth level.
+	 * The value of call_depth_ is used to control
+	 * the step mode. 
+	 * Step mode is disabled for call_depth_ >= max_call_depth_.
+	 * This gives the user the opportunity to skip over nested 
+	 * calls during debugging.
+	 */
+	int get_max_call_depth() const
+	    {
+		return max_call_depth_;
+	    }
+	
+	
+	// Names of basics functions
 	Name mark_name;
+	Name iparse_name;
+	Name iparsestdin_name;
 	Name ilookup_name;
 	Name ipop_name;
 	Name iiterate_name;
@@ -331,7 +458,6 @@ namespace sli3
 	Name pi_name;
 	Name e_name;
 	
-	Name iparse_name;
 	Name stop_name;
 	Name end_name;
 	
@@ -373,6 +499,8 @@ namespace sli3
 	
 	Token execbarrier_token; 
 	
+	IparseFunction       iparsefunction;
+	IparsestdinFunction  iparsestdinfunction;
 	IlookupFunction      ilookupfunction;
 	IiterateFunction     iiteratefunction;
 	IloopFunction        iloopfunction;
@@ -391,7 +519,7 @@ namespace sli3
 	bool show_backtrace_;   //!< Show stack-backtrace on error.
 	bool catch_errors_;     //!< Enter debugger on error.
 	bool opt_tailrecursion_;//!< Optimize tailing recursion.
-	bool cycle_guard;
+	bool cycle_guard_;
 
 	size_t  call_depth_;       //!< Current depth of procedure calls.
 	size_t  max_call_depth_;   //!< Depth until which procedure calls are debugged.

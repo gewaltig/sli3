@@ -1,2 +1,4 @@
 *.o
 sli
+test_dictionary
+test_token

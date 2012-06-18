@@ -13,7 +13,7 @@ namespace sli3
 
     std::ostream & IntegerType::print(std::ostream&out, const Token &t) const
     {
-	out << t.data_.long_val;
+	return out << t.data_.long_val;
     }
 
     bool DoubleType::compare(const Token&t1, const Token&t2) const
@@ -25,7 +25,7 @@ namespace sli3
 
     std::ostream & DoubleType::print(std::ostream&out, const Token &t) const
     {
-	out << t.data_.double_val;
+	return out << t.data_.double_val;
     }
 
     bool BoolType::compare(const Token&t1, const Token&t2) const
@@ -37,7 +37,7 @@ namespace sli3
 
     std::ostream & BoolType::print(std::ostream&out, const Token &t) const
     {
-	out << t.data_.bool_val ? "true":"false";
+	return (out <<( t.data_.bool_val ? "true":"false" ));
     }
 
 

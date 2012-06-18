@@ -4,43 +4,52 @@
 namespace sli3
 {
 
-  class NameType: public SLIType
-  {
-  public:
-      NameType(SLIInterpreter *sli, char const name[], sli_typeid type)
-	  :SLIType(sli, name, type){}
-
-      bool compare(const Token&t1, const Token&t2) const;
-      std::ostream & print(std::ostream&, const Token &) const;
-  };
-
-  class MarkType: public SLIType
-  {
-  public:
-      MarkType(SLIInterpreter *sli, char const name[], sli_typeid type)
-	  :SLIType(sli, name, type){}
-
-      bool compare(const Token&t1, const Token&t2) const;
-      std::ostream & print(std::ostream&, const Token &) const;
-  };
-
-  class LiteralType: public NameType
+  class LiteralType: public SLIType
   {
   public:
       LiteralType(SLIInterpreter *sli, char const name[], sli_typeid type)
-	  :NameType(sli, name, type){}
+	:SLIType(sli, name, type){executable_=false;}
 
-      std::ostream & print(std::ostream&, const Token &) const;
+    bool compare(const Token&t1, const Token&t2) const;
+    std::ostream & print(std::ostream&, const Token &) const;
   };
 
-  class SymbolType: public NameType
+  class SymbolType: public LiteralType
   {
   public:
-      SymbolType(SLIInterpreter *sli, char const name[], sli_typeid type)
-	  :NameType(sli, name, type){}
+  SymbolType(SLIInterpreter *sli, char const name[], sli_typeid type)
+    :LiteralType(sli, name, type){}
 
-      std::ostream & print(std::ostream&, const Token &) const;
+    std::ostream & print(std::ostream&, const Token &) const;
   };
+
+  /**
+   * Marks is a special literal. To process it more efficiently,
+   * we devote a special type to it.
+   */
+  class MarkType: public LiteralType
+  {
+  public:
+  MarkType(SLIInterpreter *sli, char const name[], sli_typeid type)
+    :LiteralType(sli, name, type){}
+    
+    std::ostream & print(std::ostream&, const Token &) const;
+  };
+
+  class NameType: public LiteralType
+  {
+  public:
+      NameType(SLIInterpreter *sli, char const name[], sli_typeid type)
+	  :LiteralType(sli, name, type)
+      {executable_ =true;}
+    
+    void execute(Token &);
+
+    std::ostream & print(std::ostream&, const Token &) const;
+  };
+
+
+
 
 
 }

@@ -14,8 +14,8 @@
  *
  */
 
-#ifndef SLICONTROL_H
-#define SLICONTROL_H
+#ifndef SLI_CONTROL_H
+#define SLI_CONTROL_H
 /*
     SLI's control structures
 */
@@ -127,12 +127,6 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
   
-  class IparsestdinFunction: public SLIFunction
-  {
-  public:
-    IparsestdinFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
   
   class StartFunction: public SLIFunction
   {
@@ -415,7 +409,7 @@ namespace sli3
     void execute(SLIInterpreter *) const;
     
   private:
-    bool getinfo_(int, DictionaryDatum&) const;
+    bool getinfo_(int, Dictionary&) const;
   };
   
   class TimeFunction: public SLIFunction

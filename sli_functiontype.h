@@ -12,6 +12,7 @@ namespace sli3
     
     bool compare(const Token&t1, const Token&t2) const;
     std::ostream & print(std::ostream&, const Token &) const;
+    std::ostream & pprint(std::ostream&, const Token &) const;
 
     void execute(Token &);
   };

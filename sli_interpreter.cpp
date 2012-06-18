@@ -6,6 +6,7 @@
 #include "sli_stringtype.h"
 #include "compose.hpp"
 #include "sli_numerics.h"
+#include "sli_parser.h"
 
 /* BeginDocumentation
  Name: Pi - Value of the constant Pi= 3.1415...
@@ -70,11 +71,11 @@ namespace sli3
 	  show_backtrace_(false),
 	  catch_errors_(false),
 	  opt_tailrecursion_(true),
-	  cycle_guard(false),
+	  cycle_guard_(true),
 	  call_depth_(0),
 	  max_call_depth_(10),
 	  cycle_count_(0),
-	  cycle_restriction_(0),
+	  cycle_restriction_(100),
 	  verbosity_level_(M_INFO),
 	  system_dict_(0),
 	  user_dict_(0),
@@ -82,6 +83,8 @@ namespace sli3
 	  error_dict_(0),
 	  parser_(0),
 	  mark_name("mark"),
+	  iparse_name("::parse"),
+	  iparsestdin_name("::parsestdin"),
 	  ilookup_name("::lookup"),
 	  ipop_name("::pop"),
 	  iiterate_name("::executeprocedure"),
@@ -95,7 +98,6 @@ namespace sli3
 	  iforallstring_name("::forall_s"),
 	  pi_name("Pi"),    
 	  e_name("E"),
-	  iparse_name("::parse"),
 	  stop_name("stop"),
 	  end_name("end"),
 	  null_name("null"),
@@ -137,7 +139,7 @@ namespace sli3
 	  execution_stack_(100)
     {
 	init();
-	std::cerr << mark_name.toIndex() << '\n';
+	parser_= new Parser();
     }
     
     SLIInterpreter::~SLIInterpreter()
@@ -152,30 +154,32 @@ namespace sli3
     void SLIInterpreter::init()
     {
 	init_types();
+	init_message_tags();
 	init_dictionaries();
 	init_internal_functions();
     }
     
     void SLIInterpreter::init_types()
     {
-	types_.clear();
+	types_.resize(num_sli_types,0);
 	/*
 	  The order in which these types are created must match the
 	  order in which the lables in the enum typeid (sli_type.h) are
 	  defined.
 	*/
-	types_.push_back(new IntegerType(this,"integertype",sli3::integertype));
-	types_.push_back(new DoubleType(this,"doubletype",sli3::doubletype));
-	types_.push_back(new BoolType(this,"booltype",sli3::booltype));
-	types_.push_back(new LiteralType(this,"nametype",sli3::literaltype));
-	types_.push_back(new NameType(this,"nametype",sli3::nametype));
-	types_.push_back(new SymbolType(this,"symboltype",sli3::symboltype));
-	types_.push_back(new StringType(this,"stringtype",sli3::stringtype));
-	types_.push_back(new ArrayType(this,"arraytype",sli3::arraytype));
-	types_.push_back(new LitprocedureType(this,"litproceduretype",sli3::litproceduretype));
-	types_.push_back(new ProcedureType(this,"proceduretype",sli3::proceduretype));
-	types_.push_back(new DictionaryType(this,"dictionarytype",sli3::dictionarytype));
-	types_.push_back(new FunctionType(this,"functiontype",sli3::functiontype));
+	types_[sli3::integertype]=(new IntegerType(this,"integertype",sli3::integertype));
+	types_[sli3::doubletype]=(new DoubleType(this,"doubletype",sli3::doubletype));
+	types_[sli3::booltype]=(new BoolType(this,"booltype",sli3::booltype));
+	types_[sli3::literaltype]=(new LiteralType(this,"literaltype",sli3::literaltype));
+	types_[sli3::marktype]=(new MarkType(this,"marktype",sli3::marktype));
+	types_[sli3::nametype]=(new NameType(this,"nametype",sli3::nametype));
+	types_[sli3::symboltype]=(new SymbolType(this,"symboltype",sli3::symboltype));
+	types_[sli3::stringtype]=(new StringType(this,"stringtype",sli3::stringtype));
+	types_[sli3::arraytype]=(new ArrayType(this,"arraytype",sli3::arraytype));
+	types_[sli3::litproceduretype]=(new LitprocedureType(this,"litproceduretype",sli3::litproceduretype));
+	types_[sli3::proceduretype]=(new ProcedureType(this,"proceduretype",sli3::proceduretype));
+	types_[sli3::dictionarytype]=(new DictionaryType(this,"dictionarytype",sli3::dictionarytype));
+	types_[sli3::functiontype]=(new FunctionType(this,"functiontype",sli3::functiontype));
     }
 
     void SLIInterpreter::init_message_tags()
@@ -195,9 +199,9 @@ namespace sli3
     void SLIInterpreter::init_dictionaries()
     {
 	system_dict_= new Dictionary();
-	// error_dict_= new Dictionary();
-	// user_dict_= new Dictionary();
-	// status_dict_= new Dictionary();
+	error_dict_= new Dictionary();
+	user_dict_= new Dictionary();
+	status_dict_= new Dictionary();
 
 	Token dict(types_[sli3::dictionarytype]);
 	dict.data_.dict_val=system_dict_;
@@ -219,6 +223,8 @@ namespace sli3
 
     void SLIInterpreter::init_internal_functions(void)
     {
+	createcommand(iparse_name,      &iparsefunction);
+	createcommand(iparsestdin_name,  &iparsestdinfunction);
 	createcommand(ilookup_name,      &ilookupfunction);
 	createcommand(ipop_name,         &ilookupfunction);
 	createcommand(iiterate_name,     &iiteratefunction);
@@ -235,6 +241,7 @@ namespace sli3
 	
 	createdouble(pi_name, numerics::pi);
 	createdouble(e_name, numerics::e);
+	system_dict_->info(std::cerr);
     }
 
     int SLIInterpreter::startup()
@@ -247,6 +254,83 @@ namespace sli3
 	    is_initialized_=true;
 	}
 	return exitcode;
+    }
+
+    Token SLIInterpreter::read_token(std::istream &in)
+    {
+	Token t;
+	if( not parser_->readToken(*this,in, t))
+	    throw SyntaxError();
+	return t;
+    }
+
+    Name SLIInterpreter::get_current_name(void) const
+    {
+	if(execution_stack_.top().is_of_type(sli3::functiontype))
+	    return execution_stack_.top().data_.func_val->get_name();
+//	TrieDatum *trie=dynamic_cast<TrieDatum *>(EStack.top().datum());
+//	if (trie !=NULL)
+//	    return(trie->getname());
+	return interpreter_name;
+    }
+
+    void SLIInterpreter::raiseerror(std::exception &err)
+    {
+	Name caller=get_current_name();
+	
+	assert(error_dict_ != NULL);
+	error_dict_->insert("command",execution_stack_.top()); // store the func/trie that caused the error.
+
+	// SLIException provide addtional information
+	SLIException *  slierr = 
+	    dynamic_cast<SLIException * >(&err);
+	
+	if ( slierr )
+	{
+	    // err is a SLIException
+	    error_dict_->insert(Name("message"), new_token<sli3::stringtype>(slierr->message()));
+	    raiseerror(caller, slierr->what());
+	}
+	else
+	{
+	    // plain std::exception: turn what() output into message
+	    error_dict_->insert(Name("message"), new_token<sli3::stringtype>(std::string(err.what())));
+	    raiseerror(caller, "C++Exception"); 
+	}
+    }
+
+    void SLIInterpreter::raiseerror(Name cmd, Name err)
+    {
+	
+	// All error related symbols are now in their correct dictionary,
+	// the error dictionary $errordict ( see Bug #4)
+	
+	assert(error_dict_ != NULL);
+  
+	if(error_dict_->lookup(newerror_name)== false)
+	{
+	    error_dict_->insert(newerror_name, new_token<sli3::booltype>(true));
+	    error_dict_->insert(errorname_name,new_token<sli3::literaltype>(err));
+	    error_dict_->insert(commandname_name,new_token<sli3::literaltype>(cmd));
+	    if(error_dict_->lookup(recordstacks_name)== true)
+	    {
+		TokenArray old_dict_stack;
+		dictionary_stack_.toArray(*this, old_dict_stack);
+		
+		error_dict_->insert(estack_name, new_token<sli3::arraytype>(execution_stack_.toArray()));
+		error_dict_->insert(ostack_name, new_token<sli3::arraytype>(operand_stack_.toArray()));
+		error_dict_->insert(dstack_name, new_token<sli3::arraytype>(old_dict_stack));
+	    }
+	    
+	    operand_stack_.push(new_token<sli3::literaltype>(cmd));
+	    execution_stack_.push(baselookup(stop_name));        
+	}
+	else // There might be an error in the error-handler
+	{
+	    error_dict_->insert(newerror_name,new_token<sli3::booltype>(false));
+	    raiseerror(Name("raiserror"), BadErrorHandler);
+	    return;
+	}
     }
 
     int SLIInterpreter::execute(const std::string &cmdline)
@@ -263,7 +347,7 @@ namespace sli3
     int SLIInterpreter::execute(int v)
     {
 	startup();
-	execution_stack_.push(new_token<sli3::nametype>(Name("start")));
+	execution_stack_.push(new_token<sli3::nametype>(Name("::parsestdin")));
 	switch(v)
 	{
 	case 0:
@@ -289,14 +373,19 @@ namespace sli3
 	    do { //loop1  this double loop to keep the try/catch outside the inner loop
 		try
 		{ 
-		    while(execution_stack_.load() > exitlevel) // loop 2
+		    while(!sli3::signalflag and  execution_stack_.load() > exitlevel) // loop 2
 		    {
 			++cycle_count_;
+			if(cycle_guard_ and cycle_count_ > cycle_restriction_)
+			{
+			    return 0;
+			} 
 			execution_stack_.top().execute();
 		    }
 		}
 		catch(std::exception &exc)
 		{
+		    message(M_FATAL, "SLIInterpreter","A C++ library exception was caught.");
 		    raiseerror(exc);
 		}
 	    } while(execution_stack_.load() > exitlevel);
@@ -630,7 +719,7 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	Token t(types_[sli3::dictionarytype]);
 	t.data_.dict_val= new Dictionary();
-	return Token(t);
+	return t;
     }
 
     template<>
@@ -638,21 +727,21 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	Token t(types_[sli3::integertype]);
 	t.data_.long_val= i;
-	return Token(t);
+	return t;
     }
     template<>
     Token SLIInterpreter::new_token<sli3::integertype,long>(long const &l)
     {
 	Token t(types_[sli3::integertype]);
 	t.data_.long_val= l;
-	return Token(t);
+	return t;
     }
     template<>
     Token SLIInterpreter::new_token<sli3::doubletype,double>(double const &d)
     {
 	Token t(types_[sli3::doubletype]);
 	t.data_.double_val= d;
-	return Token(t);
+	return t;
     }
 
     template<>
@@ -660,14 +749,14 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	Token t(types_[sli3::booltype]);
 	t.data_.bool_val= b;
-	return Token(t);
+	return t;
     }
     template<>
     Token SLIInterpreter::new_token<sli3::nametype,Name>(Name const &n)
     {
 	Token t(types_[sli3::nametype]);
 	t.data_.name_val= n.toIndex();;
-	return Token(t);
+	return t;
     }
 
     template<>
@@ -675,7 +764,7 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	Token t(types_[sli3::literaltype]);
 	t.data_.name_val= n.toIndex();;
-	return Token(t);
+	return t;
     }
 
     template<>
@@ -683,7 +772,15 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	Token t(types_[sli3::symboltype]);
 	t.data_.name_val= n.toIndex();;
-	return Token(t);
+	return t;
+    }
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::arraytype,TokenArray>(TokenArray const &a)
+    {
+	Token t(types_[sli3::arraytype]);
+	t.data_.array_val= new TokenArray(a);
+	return t;
     }
 
     template<>

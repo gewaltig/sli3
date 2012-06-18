@@ -14,16 +14,13 @@
  *
  */
 
-#ifndef LOCK_PTR_H
-#define LOCK_PTR_H
-
-#ifdef NDEBUG
-#define LOCK_PTR_NDEBUG
-#endif
+#ifndef SLI_LOCKPTR_H
+#define SLILOCKPTR_H
 
 #include <cassert>
 #include <cstddef>
-
+namespace sli3
+{
 /**
 \class lockPTR
 
@@ -327,8 +324,5 @@ class lockPTR
     }
 };
 
-#ifndef LOCK_PTR_NDEBUG
-#undef NDEBUG
-#endif
-
+}
 #endif

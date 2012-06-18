@@ -25,8 +25,7 @@ LDLIBS= -lstdc++
 LDFLAGS= $(GDB) $(LDLIBS) $(LIBREADLINE)
 
 TARGET= sli3
-OBJS= 	sli_main.o\
-	sli_array.o\
+OBJS=	sli_array.o\
 	sli_token.o\
 	sli_type.o\
 	sli_arraytype.o\
@@ -50,13 +49,16 @@ OBJS= 	sli_main.o\
 
 SOURCES = ${OBJS:.o=.cpp}
 
-all:
-	${MAKE} -f base.mk makefile "CFLAGS=${CFLAGS}"
-	${MAKE} ${OBJS}
-	${MAKE} sli
+all: makefile sli test_token test_dictionary
 
-sli: ${OBJS}
-	${CC} -o $@ ${OBJS} ${LDFLAGS}
+sli: ${OBJS} sli_main.o
+	${CC} -o $@ ${OBJS} sli_main.o ${LDFLAGS}
+
+test_token: ${OBJS} test_token.o
+	${CC} -o $@ ${OBJS} $@.o ${LDFLAGS}
+
+test_dictionary: ${OBJS} test_dictionary.o
+	${CC} -o $@ ${OBJS} $@.o ${LDFLAGS}
 
 .cc.o:
 	${CC} ${CFLAGS} -c $*.cc
