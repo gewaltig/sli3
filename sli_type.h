@@ -23,6 +23,7 @@ namespace sli3
     doubletype,
     booltype,
     literaltype,
+    marktype,
     nametype,
     symboltype,
     stringtype,
@@ -31,14 +32,14 @@ namespace sli3
     proceduretype,
     dictionarytype,
     functiontype,
+    num_sli_types,
     trietype,
     istreamtype,
     xistreamtype,
     ostreamtype,
     intvectortype,
     doublevectortype,
-    iteratortype,
-    num_sli_types
+    iteratortype
   };
 
   typedef unsigned int refcount_t;
@@ -79,9 +80,13 @@ namespace sli3
     {
       return 1;
     }
-    
-    virtual void execute(Token&)
-    {} // Default action.
+
+    /**
+     * This action is performed on the token.
+     * Derived types will implement their own semantics here.
+     * execute(t) expects that t resides on top of the execution stack.
+     */    
+    virtual void execute(Token&);
     
     Name get_typename() const
     {
@@ -110,12 +115,9 @@ namespace sli3
     }
 
     virtual bool compare(Token const &t1, Token const& t2) const=0;
-    virtual std::ostream& print(std::ostream &, const Token &) const=0;
 
-    virtual std::ostream& pprint(std::ostream &out, const Token &t) const
-      {
-	return print(out, t);
-      }
+    virtual std::ostream& print(std::ostream &, const Token &) const;
+    virtual std::ostream& pprint(std::ostream &out, const Token &t) const;
 
  protected:
     void raise_type_mismatch_(unsigned int) const;

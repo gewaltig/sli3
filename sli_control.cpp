@@ -23,12 +23,12 @@
 
 //#include "sliconfig.h"
 #include "sli_control.h"
-#include "scanner.h"
-#include "parser.h"
-#include "iostreamdatum.h"
-#include "dictstack.h"
-#include "functiondatum.h"
-#include "sli_processes.h"
+#include "sli_scanner.h"
+#include "sli_parser.h"
+#include "sli_iostreamtype.h"
+#include "sli_dictstack.h"
+#include "sli_functiontype.h"
+//#include "sli_processes.h"
 #include "sli_exceptions.h"
 
 #include <time.h>
@@ -44,6 +44,9 @@
 #else
 #include <strstream>
 #endif
+
+namespace sli3
+{
 
 /*BeginDocumentation
 Name: backtrace_on - enable stack backtrace on error.
@@ -65,7 +68,7 @@ backtrace_off
 void Backtrace_onFunction::execute(SLIInterpreter *i) const
 {
   i->backtrace_on();
-  i->estack_pop();
+  i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -82,21 +85,21 @@ SeeAlso: backtrace_on
 void Backtrace_offFunction::execute(SLIInterpreter *i) const
 {
   i->backtrace_off();
-  i->estack_pop();
+  i->EStack().pop();
 }
 
 void OStackdumpFunction::execute(SLIInterpreter *i) const
 {
-    i->estack_pop(); // never forget me!!
+    i->EStack().pop(); // never forget me!!
 
-    i->ostack_dump(std::cout);
+    i->OStack().dump(std::cout);
 }
 
 void EStackdumpFunction::execute(SLIInterpreter *i) const
 {
-    i->estack_pop(); // never forget me!!
+    i->EStack().pop(); // never forget me!!
 
-    i->estack_dump(std::cout);
+    i->EStack().dump(std::cout);
 }
 
 /*BeginDocumentation
@@ -117,11 +120,11 @@ void LoopFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     i->require_stack_type(0, sli3::proceduretype);
 
-    i->estack_pop();
-    i->estack_push(i->baselookup(i->mark_name));
-    i->estack_push(i->top());
-    i->estack_push(0);
-    i->estack_push(i->baselookup(i->iloop_name));
+    i->EStack().pop();
+    i->EStack().push(i->baselookup(i->mark_name));
+    i->EStack().push(i->top());
+    i->EStack().push(0);
+    i->EStack().push(i->baselookup(i->iloop_name));
     i->inc_call_depth();
     i->pop();
 }
@@ -136,15 +139,15 @@ Remarks: This command does not exit the SLI interpreter! Use quit instead.
 void ExitFunction::execute(SLIInterpreter *i) const
 {
     size_t n=1;
-    size_t l=i->estack_load();
-    while( ( l > n ) && !( i->estack_pick(n++).is_of_type(sli3::marktype)));
+    size_t l=i->EStack().load();
+    while( ( l > n ) && !( i->EStack().pick(n++).is_of_type(sli3::marktype)));
     if( n >= l)
     {
 	i->raiseerror("EStackUnderflow");
 	return;
     }
     i->dec_call_depth();
-    i->estack_pop(n);
+    i->EStack().pop(n);
 }
 
 /*BeginDocumentation
@@ -168,7 +171,7 @@ void IfFunction::execute(SLIInterpreter *i) const
         // OStack: bool proc
         //          1    0
     i->require_stack_load(2);
-    i->estack_pop();
+    i->EStack().pop();
     Token &val=i->pick(1);
     if(val.is_of_type(sli3::booltype) and val.data_.bool_val==true )
     {
@@ -178,7 +181,7 @@ void IfFunction::execute(SLIInterpreter *i) const
 		      << " Executing true branch."
 		      << std::endl;
 	}
-	i->estack_push(i->top());
+	i->EStack().push(i->top());
     }
     i->pop(2);
 }
@@ -207,7 +210,7 @@ void IfelseFunction::execute(SLIInterpreter *i) const
         // OStack: bool tproc fproc
         //          2    1      0
     i->require_stack_load(3);
-    i->estack_pop();
+    i->EStack().pop();
 
     Token &val=i->pick(1);
     if(val.is_of_type(sli3::booltype) and val.data_.bool_val==true )
@@ -218,7 +221,7 @@ void IfelseFunction::execute(SLIInterpreter *i) const
 		      << " Executing true branch."
 		      << std::endl;
 	}
-	i->estack_push(i->top());
+	i->EStack().push(i->top());
 	i->pop(2);
     }
     else
@@ -229,7 +232,7 @@ void IfelseFunction::execute(SLIInterpreter *i) const
 		  << " Executing false branch."
 		  << std::endl;
       }
-      i->estack_push(i->pick(0));
+      i->EStack().push(i->pick(0));
     }
     i->pop(3);
 }
@@ -260,13 +263,13 @@ void RepeatFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::integertype);
 
-    i->estack_pop();
+    i->EStack().pop();
     TokenArray *proc= i->top().data_.array_val;
-    i->estack_push(i->new_token<sli::marktype>());
+    i->EStack().push(i->new_token<sli::marktype>());
     i->estack.pus(i->pick(1));
     i->estack.push(i->pick(0));
-    i->estack_push(proc->size());
-    i->estack_push(i->baselookup(i->irepeat_name));
+    i->EStack().push(proc->size());
+    i->EStack().push(i->baselookup(i->irepeat_name));
     i->inc_call_depth();
     i->pop(2);
 }
@@ -302,8 +305,8 @@ SeeAlso: stop, raiseerror
 void StoppedFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->estack_pop();
-    i->estack_push(i->istopped_name);
+    i->EStack().pop();
+    i->EStack().push(i->istopped_name);
     i->estack.push(i->top());
     i->OStack.pop();
 }
@@ -327,14 +330,14 @@ SeeAlso: stopped, raiseerror
 void StopFunction::execute(SLIInterpreter *i) const
 {
 
-    size_t l=i->estack_load();
+    size_t l=i->EStack().load();
     bool found=false;
     size_t n=1;
     long istopped=i->istopped_name.toIndex();
 
     while( ( l > n ) &&  !(found))
     {
-	Token &t=i->estack_pick(n++);
+	Token &t=i->EStack().pick(n++);
         found= t.is_of_type(sli3::nametype) and t.data_.name_val==istopped;
     }
 
@@ -359,7 +362,7 @@ void StopFunction::execute(SLIInterpreter *i) const
 	
 	if(i->get_debug_mode())
 	{
-	    char c=i->debug_commandline(i->estack_top());
+	    char c=i->debug_commandline(i->EStack().top());
 	    if(c=='i') // in interactive mode, we leave the stack as it is.
 		return;
 	}
@@ -369,12 +372,12 @@ void StopFunction::execute(SLIInterpreter *i) const
     {
 	i->message(30,"stop",
 		   "No stopped context was found! \n");
-	i->estack_clear();
+	i->EStack().clear();
 	return;
     }
 
     i->push(true);    
-    i->estack_pop(n);
+    i->EStack().pop(n);
 }
 
 /*BeginDocumentation
@@ -384,13 +387,13 @@ FirstVersion: 25 Jul 2005, Gewaltig
 
 void CloseinputFunction::execute(SLIInterpreter *i) const
 {
-  size_t l=i->estack_load();
+  size_t l=i->EStack().load();
 
   bool found=false;
   size_t n=1;
 
   while( ( l > n ) &&  !(found))
-    found = i->estack_pick(n++).is_of_type(sli3::xistreamtype);
+    found = i->EStack().pick(n++).is_of_type(sli3::xistreamtype);
 
 /*
   if(i->catch_errors() || ! found)
@@ -413,7 +416,7 @@ void CloseinputFunction::execute(SLIInterpreter *i) const
 
     if(i->get_debug_mode())
     {
-      char c=i->debug_commandline(i->EStack.top());
+      char c=i->debug_commandline(i->EStack().top());
       if(c=='i') // in interactive mode, we leave the stack as it is.
         return;
     }
@@ -423,12 +426,12 @@ void CloseinputFunction::execute(SLIInterpreter *i) const
   {
     i->message(30,"closeinput",
                "No active input file was found. \n  Restarting...");
-    i->estack_clear();
-    i->estack_push((Name("start")));
+    i->EStack().clear();
+    i->EStack().push((Name("start")));
     return;
   }
 
-  i->estack_pop(n);
+  i->EStack().pop(n);
 
 }
 
@@ -466,11 +469,11 @@ void CurrentnameFunction::execute(SLIInterpreter *i) const
     i->estack.pop();
 /*
     size_t n=0; // skip my own name
-    size_t l=i->EStack.load();
+    size_t l=i->EStack().load();
 
         // top level %%lookup must belong to currentname, so
         // remove it and the name.
-    if(i->EStack.top()==i->baselookup(i->ilookup_name))
+    if(i->EStack().top()==i->baselookup(i->ilookup_name))
     {
         assert(l>2);
         n+=2;
@@ -479,66 +482,18 @@ void CurrentnameFunction::execute(SLIInterpreter *i) const
     bool found=false;
 
     while( ( l > n ) && !found)
-        found= i->EStack.pick(n++)==i->baselookup(i->ilookup_name);
+        found= i->EStack().pick(n++)==i->baselookup(i->ilookup_name);
 
     if(found)
     {
-        i->OStack.push(i->EStack.pick(n));
+        i->OStack.push(i->EStack().pick(n));
         i->OStack.push(true);
     }
     else
-        i->EStack.push(false);
+        i->EStack().push(false);
 */
 }
 
-/*BeginDocumentation
-Name: parsestdin - Read and execute tokens from standard input
-Description: parsestdin repeatedly reads and executes SLI commands from
-the standard input stream (cin) until an end-of-file symbol is excountered
-or the command exit is executed.
-
-*/
-void ParsestdinFunction::execute(SLIInterpreter *i) const
-{
-    Token t;
-
-    i->parse->readToken(std::cin, t);
-    if(t.is_of_type(sli3::symboltype))
-        i->EStack.pop();
-    else
-      {
-//        i->EStack.pop();
-        i->EStack.push(t);
-      }
-}
-
-void IparseFunction::execute(SLIInterpreter *i) const
-{
-
-        // Estack: handle  iparse
-        // pick      1         0
-    assert(i->estack_load()>0);
-    assert(i->estack_top().is_of_type(sli3::xistreamtype));
-    
-    std::istream *is= i->estack_top().data_.istream_val;
-    assert(is != NULL);
-
-    Token t;
-    if(i->parse->readToken(**is, t))
-    {
-	if(t.is_of_type(sli3::symboltype))
-	    i->estack_pop(2);
-      else
-        i->EStack_push(t);
-    }
-    else
-    {
-      i->estack_swap();
-      i->estack_pop(); // remove stream-token
-      i->raiseerror("SyntaxError");
-      return;
-    }
-}
 
 void DefFunction::execute(SLIInterpreter *i) const
 {
@@ -551,7 +506,7 @@ void DefFunction::execute(SLIInterpreter *i) const
 
     i->def(name,i->top());
     i->pop(2);
-    i->estack_pop();
+    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -588,7 +543,7 @@ void SetFunction::execute(SLIInterpreter *i) const
 
     i->def(name,i->pick(1));
     i->pop(2);
-    i->estack_pop();
+    i->EStack().pop();
 
     if(i->OStack.load()<2)
 	throw StackUnderflow(2,i->OStack.load());
@@ -613,7 +568,7 @@ void LoadFunction::execute(SLIInterpreter *i) const
     Token contents= i->lookup2(name); // thows an exception if name is undefined
     i->pop();
     i->push(contents);
-    i->estack_pop();
+    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -634,7 +589,7 @@ void LookupFunction::execute(SLIInterpreter *i) const
 
     Name name(i->top().data_.name_val);
 
-    i->estack_pop();
+    i->EStack().pop();
     i->pop();
 
     Token content;
@@ -684,12 +639,12 @@ void ForFunction::execute(SLIInterpreter *i) const
     i->estack.pop();
     TokenArray *proc= i->top().data_.array_val;
 
-    i->estack_push(sli3::marktype);
-    i->estack_push(i->pick(2));      // increment
-    i->estack_push(i->pick(1));      // limit
-    i->estack_push(i->pick(3));      // counter
-    i->estack_push(i->pick(0));      // procedure
-    i->estack_push(proc->size());
+    i->EStack().push(sli3::marktype);
+    i->EStack().push(i->pick(2));      // increment
+    i->EStack().push(i->pick(1));      // limit
+    i->EStack().push(i->pick(3));      // counter
+    i->EStack().push(i->pick(0));      // procedure
+    i->EStack().push(proc->size());
     i->estack.push(i->baselookup(i->ifor_name)); // %for
     i->inc_call_depth();
     i->pop(4);
@@ -764,13 +719,13 @@ void Forall_aFunction::execute(SLIInterpreter *i) const
     ProcedureDatum *proc=
         static_cast<ProcedureDatum *>(i->OStack.top().datum());
     
-    i->EStack.pop();
-    i->EStack.push_by_ref(mark);
-    i->EStack.push_move(i->OStack.pick(1));        // push object
-    i->EStack.push_by_pointer(new IntegerDatum(0));          // push array counter
-    i->EStack.push_by_ref(i->OStack.pick(0));       // push procedure
-    i->EStack.push_by_pointer(new IntegerDatum(proc->size()));          // push procedure counter
-    i->EStack.push_by_ref(forall);
+    i->EStack().pop();
+    i->EStack().push_by_ref(mark);
+    i->EStack().push_move(i->OStack.pick(1));        // push object
+    i->EStack().push_by_pointer(new IntegerDatum(0));          // push array counter
+    i->EStack().push_by_ref(i->OStack.pick(0));       // push procedure
+    i->EStack().push_by_pointer(new IntegerDatum(proc->size()));          // push procedure counter
+    i->EStack().push_by_ref(forall);
     i->OStack.pop(2);
     i->inc_call_depth();
 }
@@ -783,16 +738,16 @@ void Forall_aFunction::execute(SLIInterpreter *i) const
 /******************************/
 void Forall_iterFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
     ProcedureDatum *proc=
         dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
     assert(proc !=NULL);
 
-    i->EStack.push(i->baselookup(i->mark_name));
-    i->EStack.push_move(i->OStack.pick(1));        // push iterator
-    i->EStack.push_move(i->OStack.pick(0));        // push procedure
+    i->EStack().push(i->baselookup(i->mark_name));
+    i->EStack().push_move(i->OStack.pick(1));        // push iterator
+    i->EStack().push_move(i->OStack.pick(0));        // push procedure
 
-    i->EStack.push(i->baselookup(i->iforalliter_name));
+    i->EStack().push(i->baselookup(i->iforalliter_name));
     i->OStack.pop(2);
     i->inc_call_depth();
 }
@@ -841,22 +796,22 @@ BeginDocumentation
 /******************************/
 void Forallindexed_aFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
     ProcedureDatum *proc=
         dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
     assert(proc !=NULL);
 
-    i->EStack.push(i->baselookup(i->mark_name));
-    i->EStack.push_move(i->OStack.pick(1));        // push object
+    i->EStack().push(i->baselookup(i->mark_name));
+    i->EStack().push_move(i->OStack.pick(1));        // push object
 
-    ArrayDatum  *ad= dynamic_cast<ArrayDatum *>(i->EStack.top().datum());
+    ArrayDatum  *ad= dynamic_cast<ArrayDatum *>(i->EStack().top().datum());
     assert(ad !=NULL);
 
-    i->EStack.push(ad->size()); // push limit
-    i->EStack.push(0);          // push initial counter
-    i->EStack.push_move(i->OStack.pick(0));       // push procedure
+    i->EStack().push(ad->size()); // push limit
+    i->EStack().push(0);          // push initial counter
+    i->EStack().push_move(i->OStack.pick(0));       // push procedure
 
-    i->EStack.push(i->baselookup(i->iforallindexedarray_name));
+    i->EStack().push(i->baselookup(i->iforallindexedarray_name));
     i->inc_call_depth();
     i->OStack.pop(2);
 }
@@ -868,22 +823,22 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
 /******************************/
 void Forallindexed_sFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
     ProcedureDatum *proc=
         dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
     assert(proc !=NULL);
 
-    i->EStack.push(i->baselookup(i->mark_name));
-    i->EStack.push_move(i->OStack.pick(1));        // push object
+    i->EStack().push(i->baselookup(i->mark_name));
+    i->EStack().push_move(i->OStack.pick(1));        // push object
 
-    StringDatum  *sd= dynamic_cast<StringDatum *>(i->EStack.top().datum());
+    StringDatum  *sd= dynamic_cast<StringDatum *>(i->EStack().top().datum());
     assert(sd !=NULL);
 
-    i->EStack.push(sd->size()); // push limit
-    i->EStack.push(0);          // push initial counter
-    i->EStack.push_move(i->OStack.pick(0));       // push procedure
+    i->EStack().push(sd->size()); // push limit
+    i->EStack().push(0);          // push initial counter
+    i->EStack().push_move(i->OStack.pick(0));       // push procedure
 
-    i->EStack.push(i->baselookup(i->iforallindexedstring_name));
+    i->EStack().push(i->baselookup(i->iforallindexedstring_name));
     i->inc_call_depth();
     i->OStack.pop(2);
 }
@@ -895,22 +850,22 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
 /******************************/
 void Forall_sFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
     ProcedureDatum *proc=
         dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
     assert(proc !=NULL);
 
-    i->EStack.push(i->baselookup(i->mark_name));
-    i->EStack.push_move(i->OStack.pick(1));        // push object
+    i->EStack().push(i->baselookup(i->mark_name));
+    i->EStack().push_move(i->OStack.pick(1));        // push object
 
-    StringDatum  *sd= dynamic_cast<StringDatum *>(i->EStack.top().datum());
+    StringDatum  *sd= dynamic_cast<StringDatum *>(i->EStack().top().datum());
     assert(sd !=NULL);
 
-    i->EStack.push(new IntegerDatum(sd->size())); // push limit
-    i->EStack.push(new IntegerDatum(0));          // push initial counter
-    i->EStack.push_move(i->OStack.pick(0));       // push procedure
+    i->EStack().push(new IntegerDatum(sd->size())); // push limit
+    i->EStack().push(new IntegerDatum(0));          // push initial counter
+    i->EStack().push_move(i->OStack.pick(0));       // push procedure
 
-    i->EStack.push(i->baselookup(i->iforallstring_name));
+    i->EStack().push(i->baselookup(i->iforallstring_name));
     i->inc_call_depth();
     i->OStack.pop(2);
 }
@@ -966,7 +921,7 @@ void RaiseerrorFunction::execute(SLIInterpreter *i) const
         // pick :  2     1
         // call : /cmd /err raiseerror
 
-    i->EStack.pop();
+    i->EStack().pop();
     Token err;
     Token cmd;
 
@@ -1022,7 +977,7 @@ void PrinterrorFunction::execute(SLIInterpreter *i) const
   i->print_error(i->OStack.top());
 
   i->OStack.pop();
-  i->EStack.pop();
+  i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -1044,7 +999,7 @@ void PrinterrorFunction::execute(SLIInterpreter *i) const
 
 void RaiseagainFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
     i->raiseagain();
 }
 
@@ -1054,7 +1009,7 @@ Synopsis: cycles -> n
 */
 void CyclesFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
     Token cycles(new IntegerDatum(i->cycles()));
 
     i->OStack.push(cycles);
@@ -1101,7 +1056,7 @@ SeeAlso: exit
 */
 void QuitFunction::execute(SLIInterpreter *i) const
 {
-  i->EStack.clear();
+  i->EStack().clear();
 }
 
 /*BeginDocumentation
@@ -1114,8 +1069,8 @@ SeeAlso: cvx
 */
 void ExecFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
-    i->EStack.push_move(i->OStack.top());
+    i->EStack().pop();
+    i->EStack().push_move(i->OStack.top());
     i->OStack.pop();
 }
 
@@ -1130,7 +1085,7 @@ void TypeinfoFunction::execute(SLIInterpreter *i) const
 {
     i->assert_stack_load(1);  
 
-    i->EStack.pop();
+    i->EStack().pop();
     Token tn(new LiteralDatum(i->OStack.top()->gettypename()));
 
     i->OStack.push_move(tn);
@@ -1143,13 +1098,13 @@ void SwitchFunction::execute(SLIInterpreter *i) const
         // exit, the execution of all other objects is
         // terminated.
     Name myname(i->getcurrentname());
-    i->EStack.pop();
+    i->EStack().pop();
 
     Token mark_token(i->baselookup(i->mark_name));
 
-    i->EStack.push(mark_token); // no push_move since token will
+    i->EStack().push(mark_token); // no push_move since token will
                                 // be needed.
-    i->EStack.push(i->baselookup(i->ipop_name));
+    i->EStack().push(i->baselookup(i->ipop_name));
 
     unsigned long depth = i->OStack.load();
     unsigned long pos = 0;
@@ -1161,7 +1116,7 @@ void SwitchFunction::execute(SLIInterpreter *i) const
 
     while( (pos < depth) && ! found )
     {
-        i->EStack.push_move(i->OStack.pick(pos));
+        i->EStack().push_move(i->OStack.pick(pos));
         found =  (i->OStack.pick(++pos) == mark_token);
     }
 
@@ -1181,12 +1136,12 @@ void SwitchdefaultFunction::execute(SLIInterpreter *i) const
   // objects is terminated.
 
   Name myname(i->getcurrentname());        // needed for raiseerror
-  i->EStack.pop();                         // no multiple calls !!!
+  i->EStack().pop();                         // no multiple calls !!!
 
   Token mark_token(i->baselookup(i->mark_name));
 
-  i->EStack.push(mark_token);
-  i->EStack.push(i->baselookup(i->ipop_name));
+  i->EStack().push(mark_token);
+  i->EStack().push(i->baselookup(i->ipop_name));
 
   unsigned long depth = i->OStack.load();
   unsigned long pos = 0;
@@ -1203,7 +1158,7 @@ void SwitchdefaultFunction::execute(SLIInterpreter *i) const
 
     while( (pos < depth) && ! found )
     {
-        i->EStack.push_move(i->OStack.pick(pos));
+        i->EStack().push_move(i->OStack.pick(pos));
         found =  (i->OStack.pick(++pos) == mark_token);
     }
 
@@ -1224,12 +1179,12 @@ void CaseFunction::execute(SLIInterpreter *i) const
     {
        i->OStack.swap();
        i->OStack.pop();
-       i->EStack.pop();
+       i->EStack().pop();
     }
     else if(i->OStack.pick(1) == i->baselookup(i->false_name))
     {
         i->OStack.pop(2);
-        i->EStack.pop();
+        i->EStack().pop();
     }
     else
     {
@@ -1261,12 +1216,12 @@ void CounttomarkFunction::execute(SLIInterpreter *i) const
     {
         Token it(new IntegerDatum(pos-1));
         i->OStack.push_move(it);
-        i->EStack.pop();
+        i->EStack().pop();
     }
     else
     {
         Name myname(i->getcurrentname());
-        i->EStack.pop();
+        i->EStack().pop();
         i->raiseerror(myname,Name("UnmatchedMark"));
     }
 }
@@ -1316,7 +1271,7 @@ void PclocksFunction::execute(SLIInterpreter *i) const
   result.push_back(cutime);
   result.push_back(cstime);
 
-  i->EStack.pop();
+  i->EStack().pop();
   i->OStack.push(result);
 }
 
@@ -1345,7 +1300,7 @@ void PclockspersecFunction::execute(SLIInterpreter *i) const
   }
 
   Token result(cps);
-  i->EStack.pop();
+  i->EStack().pop();
   i->OStack.push(result);
 }
 
@@ -1388,7 +1343,7 @@ void PgetrusageFunction::execute(SLIInterpreter *i) const
     return;
   }
 
-  i->EStack.pop();
+  i->EStack().pop();
   i->OStack.push(self);
   i->OStack.push(children);
 
@@ -1437,7 +1392,7 @@ void TimeFunction::execute(SLIInterpreter *i) const
 {
   long secs = time(0);
   Token tmp( new IntegerDatum(secs));
-  i->EStack.pop();
+  i->EStack().pop();
   i->OStack.push_move(tmp);
 }
 
@@ -1461,7 +1416,7 @@ void Sleep_iFunction::execute(SLIInterpreter *i) const
     select( 0, 0, 0, 0, &tv );
   
   i->OStack.pop();
-  i->EStack.pop(); 
+  i->EStack().pop(); 
 }
 
 /*BeginDocumentation
@@ -1486,7 +1441,7 @@ void Sleep_dFunction::execute(SLIInterpreter *i) const
     select( 0, 0, 0, 0, &tv );
 
   i->OStack.pop();
-  i->EStack.pop(); 
+  i->EStack().pop(); 
 }
 
 
@@ -1500,7 +1455,7 @@ SeeAlso: token
 
 void  Token_sFunction::execute(SLIInterpreter *i) const
 {
-  i->EStack.pop();
+  i->EStack().pop();
   assert(i->OStack.load()>0);
 
   StringDatum *sd= dynamic_cast<StringDatum *>(i->OStack.top().datum());
@@ -1544,7 +1499,7 @@ void  Token_isFunction::execute(SLIInterpreter *i) const
 {
   i->assert_stack_load(1);
 
-  i->EStack.pop();
+  i->EStack().pop();
 
   IstreamDatum *sd= dynamic_cast<IstreamDatum *>(i->OStack.top().datum());
 
@@ -1573,7 +1528,7 @@ SeeAlso: token
 
 void  Symbol_sFunction::execute(SLIInterpreter *i) const
 {
-  i->EStack.pop();
+  i->EStack().pop();
   assert(i->OStack.load()>0);
 
   StringDatum *sd= dynamic_cast<StringDatum *>(i->OStack.top().datum());
@@ -1634,7 +1589,7 @@ void SetGuardFunction::execute(SLIInterpreter *i) const
   assert(count != NULL);
   i->setcycleguard(count->get());
   i->OStack.pop();
-  i->EStack.pop();
+  i->EStack().pop();
 }
 
 
@@ -1656,7 +1611,7 @@ void SetGuardFunction::execute(SLIInterpreter *i) const
 void RemoveGuardFunction::execute(SLIInterpreter *i) const
 {
   i->removecycleguard();
-  i->EStack.pop();
+  i->EStack().pop();
 }
 
 
@@ -1715,7 +1670,7 @@ void DebugOnFunction::execute(SLIInterpreter *i) const
   i->debug_options();
   i->debug_mode_on();
   i->set_max_call_depth(i->get_call_depth()+5);
-  i->EStack.pop();
+  i->EStack().pop();
 }
 
 /*
@@ -1745,7 +1700,7 @@ SeeAlso: debugon, debug
 void DebugOffFunction::execute(SLIInterpreter *i) const
 {
   i->debug_mode_off();
-  i->EStack.pop();
+  i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -1764,10 +1719,10 @@ void DebugFunction::execute(SLIInterpreter *i) const
       return;
     }
 
-    i->EStack.pop();
-    i->EStack.push(new NameDatum("debugoff"));
-    i->EStack.push_move(i->OStack.top());
-    i->EStack.push(new NameDatum("debugon"));
+    i->EStack().pop();
+    i->EStack().push(new NameDatum("debugoff"));
+    i->EStack().push_move(i->OStack.top());
+    i->EStack().push(new NameDatum("debugon"));
     i->OStack.pop();
 }
 
@@ -1778,7 +1733,7 @@ void SetVerbosityFunction::execute(SLIInterpreter *i) const
   assert(count != NULL);
   i->verbosity(count->get());
   i->OStack.pop();
-  i->EStack.pop();
+  i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -1790,13 +1745,13 @@ SeeAlso: setverbosity, message
 void VerbosityFunction::execute(SLIInterpreter *i) const
 {
     Token tmp( new IntegerDatum(i->verbosity()));
-    i->EStack.pop();
+    i->EStack().pop();
     i->OStack.push_move(tmp);
 }
 
 void StartFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.clear();
+    i->EStack().clear();
     i->message(SLIInterpreter::M_ERROR, "Start", "Something went wrong "
       "during initialisation of NEST or one of its modules. Probably "
       "there is a bug in the startup scripts. Please send the output "
@@ -1820,7 +1775,7 @@ void MessageFunction::execute(SLIInterpreter *i) const
 
   i->message(lev->get(),frm->c_str(),msg->c_str());
   i->OStack.pop(3);
-  i->EStack.pop();
+  i->EStack().pop();
 
 }
 
@@ -1831,7 +1786,7 @@ Description: This function does nothing. It is used for benchmark purposes.
 
 void NoopFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
 }
 
 
@@ -1989,4 +1944,6 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("debug", &debugfunction);
   i->createcommand("debugon", &debugonfunction);
   i->createcommand("debugoff", &debugofffunction);
+}
+
 }

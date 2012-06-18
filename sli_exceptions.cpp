@@ -25,6 +25,12 @@ std::string InvalidToken::message()
 {
     return "Token needs an valid pointer to a SLIType object.";
 }
+
+std::string SyntaxError::message()
+{
+    return "The parser encountered some unknown characters.";
+}
+
 std::string DivisionByZero::message()
 {
     return "You cannot divide by zero.";

@@ -28,6 +28,7 @@ namespace sli3
 
 Dictionary::~Dictionary()
 {
+    clear();
 }
 
 const DictToken& Dictionary::operator[](const char *n) const
@@ -62,8 +63,9 @@ void Dictionary::info(std::ostream &out) const
     out << std::setw(25) <<  "Name" << std::setw(20) << "Type" <<  "Value" << std::endl;
     out << "--------------------------------------------------" << std::endl;
       
-    for(DataVec::const_iterator where = data.begin() ; 
-	where != data.end() ; ++ where)
+//    for(DataVec::const_iterator where = data.begin() ; 
+    for(TokenMap::const_iterator where = begin() ; 
+	where !=end() ; ++ where)
     {
       out  << std::setw(25) << where->first 
 	   << std::setw(20) << where->second.get_typename()

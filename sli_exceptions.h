@@ -114,6 +114,15 @@ public:
   std::string message();
 };
   
+ class SyntaxError: public SLIException
+{
+ public:
+  virtual ~SyntaxError() throw() {}
+  SyntaxError()
+    :SLIException("SyntaxError"){}
+
+  std::string message();
+};
 class DivisionByZero: public SLIException
 {
  public:

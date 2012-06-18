@@ -182,6 +182,37 @@ namespace sli3
 	return type_->compare(*this,t);
     }
 
+    bool Token::operator==(int i) const
+    {
+	return type_ and type_->get_typeid()==sli3::integertype and data_.long_val==i;
+    }
+
+    bool Token::operator==(unsigned int i) const
+    {
+	return type_ and type_->get_typeid()==sli3::integertype and static_cast<unsigned int>(data_.long_val)==i;
+    }
+
+    bool Token::operator==(long l) const
+    {
+	return type_ and type_->get_typeid()==sli3::integertype and data_.long_val==l;
+    }
+
+    bool Token::operator==(unsigned long l) const
+    {
+	return type_ and type_->get_typeid()==sli3::integertype and static_cast<unsigned long>(data_.long_val)==l;
+    }
+
+    bool Token::operator==(double d) const
+    {
+	return type_ and type_->get_typeid()==sli3::integertype and data_.double_val==d;
+    }
+
+    bool Token::operator==(bool b) const
+    {
+	return type_ and type_->get_typeid()==sli3::integertype and data_.bool_val==b;
+    }
+
+
     bool Token::operator!=(const Token &t) const
     {
 	return not operator==(t);

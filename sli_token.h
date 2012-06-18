@@ -24,7 +24,9 @@ namespace sli3
     class SLIFunction;
     class Dictionary;
     class SLIString;
-
+    class SLIistream;
+    class SLIostream;
+    
     class Token
     {
     public:
@@ -84,6 +86,14 @@ namespace sli3
 	void remove_reference();
 	
 	bool operator==(const Token&) const;
+	bool operator==(int) const;
+	bool operator==(unsigned int) const;
+	bool operator==(long) const;
+	bool operator==(unsigned long) const;
+	bool operator==(double) const;
+	bool operator==(bool) const;
+
+
 	bool operator!=(const Token&) const;
 
 	bool is_of_type(unsigned int) const;
@@ -111,6 +121,8 @@ namespace sli3
 	    SLIFunction *func_val;
 	    Dictionary *dict_val;
 	    SLIString  *string_val;
+	    SLIistream *istream_val;
+	    SLIostream *ostream_val;
 	    void  *data_val;    //! Pointer to external resources or function. 
 	} data_;
     };

@@ -23,4 +23,22 @@ namespace sli3
 	assert(required);
 	throw TypeMismatch(required->name_.toString(), name_.toString());
     }
+
+    void SLIType::execute(Token &t)
+    {
+	sli_->push(t);
+	sli_->EStack().pop();
+    }
+
+    std::ostream & SLIType::print(std::ostream& out, const Token & t) const
+    {
+	return out << '-' << name_ << '-';
+    }
+
+    std::ostream & SLIType::pprint(std::ostream& out, const Token & t) const
+    {
+	return out << '-' << name_ << " (" << t.data_.func_val << ") -";
+    }
+
+ 
 }

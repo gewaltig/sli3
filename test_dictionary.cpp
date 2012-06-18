@@ -8,10 +8,13 @@
 int main()
 {
     sli3::SLIInterpreter engine;
-    sli3::Dictionary dict=new Dictionary();
+    sli3::Dictionary *dict=new sli3::Dictionary();
     
-    Name n1("A");
-    Name n2("B");
+    sli3::Name n1("A");
+    sli3::Name n2("B");
+    sli3::Name n3("C");
+    sli3::Name n4("D");
+    sli3::Name n5("E");
 
     sli3::Token t1(engine.new_token<sli3::integertype>(10));
     assert(t1.type_ == engine.get_type(sli3::integertype));
@@ -27,7 +30,11 @@ int main()
     assert(dict->known(n1));
     dict->insert(n2,t2);
     assert(dict->known(n2));
-    dict->dump(std::cerr);
+    dict->insert(n3,t2);
+    assert(dict->known(n3));
+    dict->insert(n4,t2);
+    assert(dict->known(n4));
+    dict->info(std::cerr);
 
     return 0;
 

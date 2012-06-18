@@ -11,9 +11,15 @@ namespace sli3
 	return t1.data_.dict_val == t2.data_.dict_val;
     }
 
-    std::ostream & DictionaryType::print(std::ostream& out, const Token &t) const
+    std::ostream & DictionaryType::pprint(std::ostream& out, const Token &t) const
     {
 	assert(t.type_);
 	return out << (*t.data_.dict_val); 
+    }
+
+    std::ostream & DictionaryType::print(std::ostream& out, const Token &t) const
+    {
+	assert(t.type_);
+	return out << "<<...>>"; 
     }
 }
