@@ -99,7 +99,6 @@ inline
 	      }
 	    else if (contains_symbol(t, s->EndProcedureSymbol))
 	      {
-		  std::cerr << "End Proc\n";
 		if (!stack_.empty())
 		{
 		    t=stack_.top();

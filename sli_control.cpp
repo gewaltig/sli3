@@ -173,7 +173,7 @@ void IfFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(2);
     i->EStack().pop();
     Token &val=i->pick(1);
-    if(val.is_of_type(sli3::booltype) and val.data_.bool_val==true )
+    if(val==true )
     {
 	if(i->step_mode())
 	{
@@ -213,7 +213,7 @@ void IfelseFunction::execute(SLIInterpreter *i) const
     i->EStack().pop();
 
     Token &val=i->pick(1);
-    if(val.is_of_type(sli3::booltype) and val.data_.bool_val==true )
+    if(val==true )
     {
 	if(i->step_mode())
 	{
@@ -232,7 +232,7 @@ void IfelseFunction::execute(SLIInterpreter *i) const
 		  << " Executing false branch."
 		  << std::endl;
       }
-      i->EStack().push(i->pick(0));
+      i->EStack().push(i->top());
     }
     i->pop(3);
 }
@@ -266,8 +266,8 @@ void RepeatFunction::execute(SLIInterpreter *i) const
     i->EStack().pop();
     TokenArray *proc= i->top().data_.array_val;
     i->EStack().push(i->new_token<sli::marktype>());
-    i->estack.pus(i->pick(1));
-    i->estack.push(i->pick(0));
+    i->EStack().pus(i->pick(1));
+    i->EStack().push(i->pick(0));
     i->EStack().push(proc->size());
     i->EStack().push(i->baselookup(i->irepeat_name));
     i->inc_call_depth();
@@ -307,7 +307,7 @@ void StoppedFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     i->EStack().pop();
     i->EStack().push(i->istopped_name);
-    i->estack.push(i->top());
+    i->EStack().push(i->top());
     i->OStack.pop();
 }
 
@@ -333,12 +333,11 @@ void StopFunction::execute(SLIInterpreter *i) const
     size_t l=i->EStack().load();
     bool found=false;
     size_t n=1;
-    long istopped=i->istopped_name.toIndex();
 
     while( ( l > n ) &&  !(found))
     {
 	Token &t=i->EStack().pick(n++);
-        found= t.is_of_type(sli3::nametype) and t.data_.name_val==istopped;
+        found= (t == i->istopped_name);
     }
 
     if(i->catch_errors() && ! found)
@@ -466,7 +465,7 @@ Note:
 */
 void CurrentnameFunction::execute(SLIInterpreter *i) const
 {
-    i->estack.pop();
+    i->EStack().pop();
 /*
     size_t n=0; // skip my own name
     size_t l=i->EStack().load();
@@ -636,7 +635,7 @@ void ForFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(2,sli3::integertype);
     i->require_stack_type(3,sli3::integertype);
 
-    i->estack.pop();
+    i->EStack().pop();
     TokenArray *proc= i->top().data_.array_val;
 
     i->EStack().push(sli3::marktype);
@@ -645,7 +644,7 @@ void ForFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->pick(3));      // counter
     i->EStack().push(i->pick(0));      // procedure
     i->EStack().push(proc->size());
-    i->estack.push(i->baselookup(i->ifor_name)); // %for
+    i->EStack().push(i->baselookup(i->ifor_name)); // %for
     i->inc_call_depth();
     i->pop(4);
 }
@@ -716,17 +715,19 @@ void Forall_aFunction::execute(SLIInterpreter *i) const
     static Token mark(i->baselookup(i->mark_name));
     static Token forall(i->baselookup(i->iforallarray_name));
 
-    ProcedureDatum *proc=
-        static_cast<ProcedureDatum *>(i->OStack.top().datum());
+    i->require_stack_load(2);
+    i->require_stack_type(0,sli3::proceduretype);
+    i->require_stack_type(1,sli3::arraytype);
+    TokenArray *proc= i->top().data_.array_val;
     
     i->EStack().pop();
-    i->EStack().push_by_ref(mark);
-    i->EStack().push_move(i->OStack.pick(1));        // push object
-    i->EStack().push_by_pointer(new IntegerDatum(0));          // push array counter
-    i->EStack().push_by_ref(i->OStack.pick(0));       // push procedure
-    i->EStack().push_by_pointer(new IntegerDatum(proc->size()));          // push procedure counter
-    i->EStack().push_by_ref(forall);
-    i->OStack.pop(2);
+    i->EStack().push(sli3::marktype);
+    i->EStack().push(i->pick(1));        // push object
+    i->EStack().push(0);          // push array counter
+    i->EStack().push(i->pick(0));       // push procedure
+    i->EStack().push(proc->size());          // push procedure counter
+    i->EStack().push(forall);
+    i->pop(2);
     i->inc_call_depth();
 }
 
@@ -736,21 +737,21 @@ void Forall_aFunction::execute(SLIInterpreter *i) const
 /*  call: obj proc forall     */
 /*  pick   1    0             */
 /******************************/
-void Forall_iterFunction::execute(SLIInterpreter *i) const
-{
-    i->EStack().pop();
-    ProcedureDatum *proc=
-        dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
-    assert(proc !=NULL);
+// void Forall_iterFunction::execute(SLIInterpreter *i) const
+// {
+//     i->EStack().pop();
+//     ProcedureDatum *proc=
+//         dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
+//     assert(proc !=NULL);
 
-    i->EStack().push(i->baselookup(i->mark_name));
-    i->EStack().push_move(i->OStack.pick(1));        // push iterator
-    i->EStack().push_move(i->OStack.pick(0));        // push procedure
+//     i->EStack().push(i->baselookup(i->mark_name));
+//     i->EStack().push_move(i->OStack.pick(1));        // push iterator
+//     i->EStack().push_move(i->OStack.pick(0));        // push procedure
 
-    i->EStack().push(i->baselookup(i->iforalliter_name));
-    i->OStack.pop(2);
-    i->inc_call_depth();
-}
+//     i->EStack().push(i->baselookup(i->iforalliter_name));
+//     i->OStack.pop(2);
+//     i->inc_call_depth();
+// }
 
 
 /*
@@ -796,24 +797,26 @@ BeginDocumentation
 /******************************/
 void Forallindexed_aFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
-    ProcedureDatum *proc=
-        dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
-    assert(proc !=NULL);
+    i->require_stack_load(2);
+    i->require_stack_type(0,sli3::proceduretype);
+    i->require_stack_type(1,sli3::arraytype);
 
-    i->EStack().push(i->baselookup(i->mark_name));
-    i->EStack().push_move(i->OStack.pick(1));        // push object
+    TokenArray *proc= i->OStack.top().data_.array_val;
+    assert(proc !=0);
 
-    ArrayDatum  *ad= dynamic_cast<ArrayDatum *>(i->EStack().top().datum());
+    i->EStack().push(sli3::marktype);
+    i->EStack().push(i->pick(1));        // push object
+
+    TokenArray  *ad= i->EStack().top().data_.array_val;
     assert(ad !=NULL);
 
     i->EStack().push(ad->size()); // push limit
     i->EStack().push(0);          // push initial counter
-    i->EStack().push_move(i->OStack.pick(0));       // push procedure
-
+    i->EStack().push(i->pick(0));       // push procedure
     i->EStack().push(i->baselookup(i->iforallindexedarray_name));
     i->inc_call_depth();
-    i->OStack.pop(2);
+    i->pop(2);
+    i->EStack().pop();
 }
 
 /******************************/
@@ -823,24 +826,26 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
 /******************************/
 void Forallindexed_sFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
-    ProcedureDatum *proc=
-        dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
-    assert(proc !=NULL);
+    i->require_stack_load(2);
+    i->require_stack_type(0,sli3::proceduretype);
+    i->require_stack_type(1,sli3::stringtype);
 
-    i->EStack().push(i->baselookup(i->mark_name));
-    i->EStack().push_move(i->OStack.pick(1));        // push object
+    TokenArray *proc= i->OStack.top().data_.array_val;
+    assert(proc !=0);
 
-    StringDatum  *sd= dynamic_cast<StringDatum *>(i->EStack().top().datum());
-    assert(sd !=NULL);
+    i->EStack().push(sli3::marktype);
+    i->EStack().push(i->pick(1));        // push object
 
-    i->EStack().push(sd->size()); // push limit
+    SLIString  *strd= i->EStack().top().data_.string_val;
+    assert(strd !=NULL);
+
+    i->EStack().push(strd->size()); // push limit
     i->EStack().push(0);          // push initial counter
-    i->EStack().push_move(i->OStack.pick(0));       // push procedure
-
+    i->EStack().push(i->pick(0));       // push procedure
     i->EStack().push(i->baselookup(i->iforallindexedstring_name));
     i->inc_call_depth();
-    i->OStack.pop(2);
+    i->pop(2);
+    i->EStack().pop();
 }
 
 /******************************/
@@ -850,24 +855,26 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
 /******************************/
 void Forall_sFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
-    ProcedureDatum *proc=
-        dynamic_cast<ProcedureDatum *>(i->OStack.top().datum());
-    assert(proc !=NULL);
+    i->require_stack_load(2);
+    i->require_stack_type(0,sli3::proceduretype);
+    i->require_stack_type(1,sli3::stringtype);
 
-    i->EStack().push(i->baselookup(i->mark_name));
-    i->EStack().push_move(i->OStack.pick(1));        // push object
+    TokenArray *proc= i->OStack.top().data_.array_val;
+    assert(proc !=0);
 
-    StringDatum  *sd= dynamic_cast<StringDatum *>(i->EStack().top().datum());
-    assert(sd !=NULL);
+    i->EStack().push(sli3::marktype);
+    i->EStack().push(i->pick(1));        // push object
 
-    i->EStack().push(new IntegerDatum(sd->size())); // push limit
-    i->EStack().push(new IntegerDatum(0));          // push initial counter
-    i->EStack().push_move(i->OStack.pick(0));       // push procedure
+    SLIString  *strd= i->EStack().top().data_.string_val;
+    assert(strd !=NULL);
 
+    i->EStack().push(strd->size()); // push limit
+    i->EStack().push(0);          // push initial counter
+    i->EStack().push(i->pick(0));       // push procedure
     i->EStack().push(i->baselookup(i->iforallstring_name));
     i->inc_call_depth();
-    i->OStack.pop(2);
+    i->pop(2);
+    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -921,23 +928,14 @@ void RaiseerrorFunction::execute(SLIInterpreter *i) const
         // pick :  2     1
         // call : /cmd /err raiseerror
 
-    i->EStack().pop();
-    Token err;
-    Token cmd;
+    i->require_stack_load(2);
+    i->require_stack_type(0,sli3::literaltype);
+    i->require_stack_type(1,sli3::literaltype);
 
-    i->OStack.pop_move(err);
-    i->OStack.pop_move(cmd);
+    Name errorname(i->top().data_.name_val);
+    Name cmdname(i->pick(1).data_.name_val);
 
-    Name *errorname= dynamic_cast<Name *>(err.datum());
-    Name *cmdname  = dynamic_cast<Name *>(cmd.datum());
-    if(errorname == NULL || cmdname == NULL)
-    {
-      i->message(SLIInterpreter::M_ERROR, "raiseerror","Usage: /command /errorname raiserror");
-      i->raiseerror("ArgumentType");
-      return;
-    }
-
-    i->raiseerror(*cmdname, *errorname);
+    i->raiseerror(cmdname, errorname);
 }
 
 /* BeginDocumentation
@@ -971,13 +969,13 @@ void PrinterrorFunction::execute(SLIInterpreter *i) const
 {
   // The name of the command that raised the error should be 
   // placed at the top of the OStack.
-  i->assert_stack_load(1);
+    i->require_stack_load(1);
 
-  // Call print_error function.
-  i->print_error(i->OStack.top());
+    // Call print_error function.
+    i->print_error(i->top());
 
-  i->OStack.pop();
-  i->EStack().pop();
+    i->pop();
+    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -1010,9 +1008,7 @@ Synopsis: cycles -> n
 void CyclesFunction::execute(SLIInterpreter *i) const
 {
     i->EStack().pop();
-    Token cycles(new IntegerDatum(i->cycles()));
-
-    i->OStack.push(cycles);
+    i->OStack.push(i->cycles());
 }
 
 /*BeginDocumentation
@@ -1069,9 +1065,8 @@ SeeAlso: cvx
 */
 void ExecFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
-    i->EStack().push_move(i->OStack.top());
-    i->OStack.pop();
+    i->EStack().swap(i->OStack.top());
+    i->pop();
 }
 
 /*BeginDocumentation
@@ -1083,12 +1078,10 @@ SeeAlso: typestack, type
 */
 void TypeinfoFunction::execute(SLIInterpreter *i) const
 {
-    i->assert_stack_load(1);  
+    i->require_stack_load(1);  
 
     i->EStack().pop();
-    Token tn(new LiteralDatum(i->OStack.top()->gettypename()));
-
-    i->OStack.push_move(tn);
+    i->OStack.push(i->top().get_typename());
 }
 
 void SwitchFunction::execute(SLIInterpreter *i) const

@@ -157,6 +157,9 @@ namespace sli3
 	init_message_tags();
 	init_dictionaries();
 	init_internal_functions();
+	Token dict(types_[sli3::dictionarytype]);
+	dict.data_.dict_val=user_dict_;
+	dictionary_stack_.push(dict);
     }
     
     void SLIInterpreter::init_types()
@@ -215,7 +218,6 @@ namespace sli3
 	system_dict_->insert(Name("errordict"),dict);
 	dict.data_.dict_val=user_dict_;
 	system_dict_->insert(Name("userdict"),dict);
-	dictionary_stack_.push(dict);
 	dict.data_.dict_val=status_dict_;
 	system_dict_->insert(Name("statusdict"),dict);
 	dict.type_=0; // This prevents the token data from being cleared.

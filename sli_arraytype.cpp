@@ -35,11 +35,15 @@ namespace sli3
   void LitprocedureType::execute(Token &t)
     {
       t.type_=sli_->get_type(sli3::proceduretype);
-      
+      std::cerr << "Changing type to procedure\n";
     }
  
   void ProcedureType::execute(Token &t)
   {
-      std::cerr << "executing\n";
+      std::cerr << "Executing procedure \n";
+      sli_->EStack().push(sli_->new_token<sli3::integertype>(0));
+      sli_->EStack().push(sli_->baselookup(sli_->iiterate_name));
+      sli_->inc_call_depth();
+      sli_->EStack().dump(std::cerr);
   }
 }
