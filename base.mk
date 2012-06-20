@@ -45,7 +45,9 @@ OBJS=	sli_array.o\
 	sli_parser.o\
 	sli_interpreter.o\
 	sli_numerics.o\
-	sli_builtins.o
+	sli_builtins.o\
+	sli_control.o\
+	sli_iostreamtype.o
 
 SOURCES = ${OBJS:.o=.cpp}
 

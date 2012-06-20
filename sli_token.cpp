@@ -212,6 +212,11 @@ namespace sli3
 	return type_ and type_->get_typeid()==sli3::integertype and data_.bool_val==b;
     }
 
+    bool Token::operator==(Name n) const
+    {
+	return type_ and type_->get_typeid()==sli3::nametype and data_.name_val==n.toIndex();
+    }
+
 
     bool Token::operator!=(const Token &t) const
     {

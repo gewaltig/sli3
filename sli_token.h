@@ -86,6 +86,7 @@ namespace sli3
 	void remove_reference();
 	
 	bool operator==(const Token&) const;
+	bool operator==(Name) const;
 	bool operator==(int) const;
 	bool operator==(unsigned int) const;
 	bool operator==(long) const;

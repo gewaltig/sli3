@@ -35,6 +35,8 @@ namespace sli3
   void LitprocedureType::execute(Token &t)
     {
       t.type_=sli_->get_type(sli3::proceduretype);
+      sli_->push(t);
+      sli_->EStack().pop();
     }
  
   void ProcedureType::execute(Token &t)

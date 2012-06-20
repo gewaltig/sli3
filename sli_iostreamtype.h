@@ -1,5 +1,5 @@
-#ifndef SLI_FUNCTIONTYPE_H
-#define SLI_FUNCTIONTYPE_H
+#ifndef SLI_IOSTREAMTYPE_H
+#define SLI_IOSTREAMTYPE_H
 #include "sli_type.h"
 
 namespace sli3
@@ -8,7 +8,8 @@ namespace sli3
   {
   public:
   OstreamType(SLIInterpreter *sli, char const name[], sli_typeid type)
-    :SLIType(sli, name, type){executable_=false;}
+    :SLIType(sli, name, type)
+      {executable_=false;}
     
     bool compare(const Token&t1, const Token&t2) const;
   };
@@ -17,16 +18,18 @@ namespace sli3
   {
   public:
   IstreamType(SLIInterpreter *sli, char const name[], sli_typeid type)
-    :SLIType(sli, name, type){executable_=false;}
+    :SLIType(sli, name, type)
+      {executable_=false;}
     
     bool compare(const Token&t1, const Token&t2) const;
   };
 
-  class XIstreamType: public IStreamType
+  class XIstreamType: public IstreamType
   {
   public:
   XIstreamType(SLIInterpreter *sli, char const name[], sli_typeid type)
-    :IstreamType(sli, name, type){executable_=true;}
+    :IstreamType(sli, name, type)
+      {executable_=true;}
     
     bool compare(const Token&t1, const Token&t2) const;
     void execute(Token &);

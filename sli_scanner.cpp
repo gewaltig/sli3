@@ -655,7 +655,7 @@ namespace sli3
 	}
 	else
 	{
-	    t=sli.new_token<sli3::stringtype>(s);
+	    t=sli.new_token<sli3::stringtype>(&s);
 	    state=end;
 	}
 	break;

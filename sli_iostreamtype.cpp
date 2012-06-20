@@ -1,8 +1,7 @@
 #include "sli_functiontype.h"
 #include "sli_interpreter.h"
-#include "sli_function.h"
 #include "sli_exceptions.h"
-
+#include "sli_iostreamtype.h"
 namespace sli3
 {
 
@@ -32,7 +31,7 @@ namespace sli3
     if(t.data_.istream_val)
     {
 	sli_->EStack().push(t);
-	sli_->EStack().push(sli_->iparse_name);
+	sli_->EStack().push(sli_->new_token<sli3::nametype>(sli_->iparse_name));
     }
     else
 	throw IOError();

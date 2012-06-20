@@ -90,6 +90,8 @@ namespace sli3
 	 */
 	int startup();
 
+	void clear_parser_context();
+
 	Token read_token(std::istream &);
 	/**
 	 * Execute the commands, supplied as string.
@@ -106,6 +108,12 @@ namespace sli3
 
 	void raiseerror(std::exception&);
 	void raiseerror(Name cmd, Name err);
+	void raiseerror(Name);
+	void raiseerror(char const []);
+	void raiseagain();
+	void raisesignal(int);
+
+	void print_error(Token);
 	/**
 	 * Execute until execution stack reaches level.
 	 */
@@ -203,6 +211,10 @@ namespace sli3
 		operand_stack_.index(i);
 	    }
 
+	size_t load() const
+	{
+	  return operand_stack_.load();
+	}
 
 	/**
 	 * Checks whether the operand stack holds at least n values.
@@ -241,7 +253,7 @@ namespace sli3
 	 * Fill token with an object of the specified type.
 	 */
 	template <sli_typeid, class T>
-	Token new_token(T const&);
+	Token new_token(T);
 	
 	template <sli_typeid>
 	Token new_token();
@@ -460,7 +472,8 @@ namespace sli3
 	
 	Name stop_name;
 	Name end_name;
-	
+	Name EndSymbol;
+
 	// Names of symbols and objects
 	Name null_name;
 	Name true_name;
@@ -558,13 +571,25 @@ namespace sli3
     void SLIInterpreter::push<long>(long);
 
     template<>
+    void SLIInterpreter::push<unsigned long>(unsigned long);
+
+    template<>
     void SLIInterpreter::push<double>(double);
+
+   template<>
+    void SLIInterpreter::push<bool>(bool);
 
     template<>
     void SLIInterpreter::push<Name>(Name);
 
     template<>
     void SLIInterpreter::push<TokenArray&>(TokenArray&);
+
+    template<>
+    void SLIInterpreter::push<TokenArray *>(TokenArray *);
+
+   template<>
+    void SLIInterpreter::push<Dictionary *>(Dictionary *);
 
     template<>
       Token SLIInterpreter::new_token<sli3::integertype>();
@@ -582,30 +607,48 @@ namespace sli3
       Token SLIInterpreter::new_token<sli3::dictionarytype>();
 
     template<>
-      Token SLIInterpreter::new_token<sli3::integertype,int>(int const&);
+      Token SLIInterpreter::new_token<sli3::marktype>();
 
     template<>
-      Token SLIInterpreter::new_token<sli3::integertype,long>(long const &);
+      Token SLIInterpreter::new_token<sli3::integertype,int>(int);
 
     template<>
-      Token SLIInterpreter::new_token<sli3::doubletype,double>(double const &);
-    template<>
-      Token SLIInterpreter::new_token<sli3::booltype,bool>(bool const &);
+      Token SLIInterpreter::new_token<sli3::integertype,long>(long);
 
     template<>
-      Token SLIInterpreter::new_token<sli3::nametype,Name>(Name const &);
+      Token SLIInterpreter::new_token<sli3::integertype,unsigned long>(unsigned long);
+
     template<>
-      Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &);
+      Token SLIInterpreter::new_token<sli3::doubletype,double>(double);
     template<>
-      Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &);
+      Token SLIInterpreter::new_token<sli3::booltype,bool>(bool);
+
     template<>
-    Token SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &);
+      Token SLIInterpreter::new_token<sli3::nametype,Name>(Name);
     template<>
-    Token SLIInterpreter::new_token<sli3::arraytype,sli3::TokenArray>(sli3::TokenArray const&);
+      Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name);
     template<>
-    Token SLIInterpreter::new_token<sli3::proceduretype,sli3::TokenArray>(sli3::TokenArray const&);
+      Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name);
+ 
+    template<>
+      Token SLIInterpreter::new_token<sli3::stringtype, std::string>(std::string);
+    template<>
+      Token SLIInterpreter::new_token<sli3::stringtype, std::string *>(std::string *);
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::arraytype,sli3::TokenArray>(sli3::TokenArray);
+    template<>
+    Token SLIInterpreter::new_token<sli3::proceduretype,sli3::TokenArray>(sli3::TokenArray);
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::arraytype,sli3::TokenArray *>(sli3::TokenArray *);
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::proceduretype,sli3::TokenArray *>(sli3::TokenArray *);
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::dictionarytype,sli3::Dictionary *>(sli3::Dictionary *);
     
-
     inline
     bool SLIInterpreter::lookup(Name n, Token &t)
     {

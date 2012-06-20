@@ -7,6 +7,7 @@
 #include "compose.hpp"
 #include "sli_numerics.h"
 #include "sli_parser.h"
+#include "sli_control.h"
 
 /* BeginDocumentation
  Name: Pi - Value of the constant Pi= 3.1415...
@@ -100,6 +101,7 @@ namespace sli3
 	  e_name("E"),
 	  stop_name("stop"),
 	  end_name("end"),
+	  EndSymbol("EndSymbol"),
 	  null_name("null"),
 	  true_name("true"),
 	  false_name("false"),
@@ -243,6 +245,7 @@ namespace sli3
 	
 	createdouble(pi_name, numerics::pi);
 	createdouble(e_name, numerics::e);
+	init_slicontrol(this);
 	system_dict_->info(std::cerr);
     }
 
@@ -256,6 +259,12 @@ namespace sli3
 	    is_initialized_=true;
 	}
 	return exitcode;
+    }
+
+    void SLIInterpreter::clear_parser_context()
+    {
+	if(parser_)
+	    parser_->clear_context();
     }
 
     Token SLIInterpreter::read_token(std::istream &in)
@@ -274,6 +283,18 @@ namespace sli3
 //	if (trie !=NULL)
 //	    return(trie->getname());
 	return interpreter_name;
+    }
+
+    void SLIInterpreter::raiseerror(Name err)
+    {
+	Name caller=get_current_name();
+	execution_stack_.pop();
+	raiseerror(caller, err);
+    }
+
+    void SLIInterpreter::raiseerror(char const err[])
+    {
+	raiseerror(Name(err));
     }
 
     void SLIInterpreter::raiseerror(std::exception &err)
@@ -335,6 +356,103 @@ namespace sli3
 	}
     }
 
+    void SLIInterpreter::raiseagain(void)
+    {
+	assert(error_dict_ != NULL);
+
+	if(error_dict_->known(commandname_name))
+	{
+	    Token cmd_t =error_dict_->lookup(commandname_name);
+	    error_dict_->insert(newerror_name,new_token<sli3::booltype>(true));
+	    operand_stack_.push(cmd_t);
+	    execution_stack_.push(baselookup(stop_name));
+	}
+	else
+	    raiseerror(Name("raiseagain"), BadErrorHandler);
+    }
+
+    void SLIInterpreter::raisesignal(int sig)
+    {
+	Name caller=get_current_name();
+
+	error_dict_->insert(signo_name, new_token<sli3::integertype>(sig));
+  
+	raiseerror(caller,SystemSignal);
+    }
+    
+
+
+
+    void SLIInterpreter::print_error(Token cmd)
+    {
+	// Declare the variables where the information 
+	// about the error is stored.
+	std::string errorname;
+	std::ostringstream msg;
+
+	// Read errorname from dictionary.
+	if(error_dict_->known(errorname_name))
+	{
+	    errorname = std::string(error_dict_->lookup(errorname_name));
+	}
+	
+	// Find the correct message for the errorname.
+	
+	// If errorname is equal to SystemError no message string 
+	// is printed. The if-else branching below follows the 
+	// syntax of the lib/sli/sli-init.sli function
+	// /:print_error
+	if(errorname == "SystemError")
+	{
+	}
+	else if(errorname == "BadErrorHandler")
+	{
+	    msg << ": The error handler of a stopped context "
+		<< "contained itself an error.";
+	}
+	else
+	{
+	    // Read a pre-defined message from dictionary.
+	    if(error_dict_->known(Name("message")))
+	    {
+		msg << error_dict_->lookup(Name("message"));
+		error_dict_->erase(Name("message"));
+	    }
+	    
+	    // Print command information for error command.
+	    if(error_dict_->known(Name("command")))
+	    {
+		Token command = error_dict_->lookup(Name("command"));
+		error_dict_->erase(Name("command"));
+		
+		// Command information is only printed if the
+		// command is of trietype
+		//if(command.datum() != NULL)
+		//{
+		    // if(command->gettypename() ==
+		    //    Name("trietype"))
+		    // {
+		    // 	msg << "\n\nCandidates for " << command
+		    // 	    << " are:\n";
+			
+		    // 	TrieDatum *trie=
+		    // 	    dynamic_cast<TrieDatum *>(command.datum());
+		    // 	assert(trie != NULL);
+			
+		    // 	trie->get().info(msg);
+		    // }
+		//}
+	    }
+	}
+	
+	// Error message header is defined as "$errorname in $cmd"
+	std::string from = std::string(cmd);
+	
+	// Print error.
+	message(M_ERROR, from.c_str(), msg.str().c_str(), errorname.c_str());
+    }
+    
+
     int SLIInterpreter::execute(const std::string &cmdline)
     {
 	int exitcode=startup();
@@ -382,6 +500,7 @@ namespace sli3
 			{
 			    return 0;
 			} 
+			operand_stack_.dump(std::cerr);
 			execution_stack_.top().execute();
 		    }
 		}
@@ -635,10 +754,8 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     template<>
     void SLIInterpreter::push<int>(int l)
     {
-      std::cout << operand_stack_.size() << '\n';
       operand_stack_.push(types_[sli3::integertype]);
       operand_stack_.top().data_.long_val=l;
-      operand_stack_.dump(std::cerr);
     }
 
     template<>
@@ -646,16 +763,20 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	operand_stack_.push(types_[sli3::integertype]);
 	operand_stack_.top().data_.long_val=l;
-	operand_stack_.dump(std::cerr);
     }
 
     template<>
+    void SLIInterpreter::push<unsigned long>(unsigned long ul)
+    {
+	operand_stack_.push(types_[sli3::integertype]);
+	operand_stack_.top().data_.long_val=static_cast<long>(ul);
+    }
+
+     template<>
     void SLIInterpreter::push<char>(char c)
     {
-      std::cout << operand_stack_.size() << '\n';
       operand_stack_.push(types_[sli3::integertype]);
       operand_stack_.top().data_.long_val=c;
-      operand_stack_.dump(std::cerr);
     }
 
     template<>
@@ -663,7 +784,13 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	operand_stack_.push(types_[sli3::doubletype]);
 	operand_stack_.top().data_.double_val=d;
-	operand_stack_.dump(std::cerr);
+    }
+
+    template<>
+    void SLIInterpreter::push<bool>(bool b)
+    {
+	operand_stack_.push(types_[sli3::booltype]);
+	operand_stack_.top().data_.bool_val=b;
     }
 
     template<>
@@ -671,16 +798,27 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     {
 	operand_stack_.push(types_[sli3::nametype]);
 	operand_stack_.top().data_.name_val=n.toIndex();
-	operand_stack_.dump(std::cerr);
     }
 
     template<>
-    void SLIInterpreter::push<TokenArray&>(TokenArray& a)
+    void SLIInterpreter::push<TokenArray const&>(TokenArray const& a)
     {
 	operand_stack_.push(types_[sli3::arraytype]);
-	operand_stack_.top().data_.array_val= &a;
-	a.add_reference();
-	operand_stack_.dump(std::cerr);
+	operand_stack_.top().data_.array_val= new TokenArray(a);
+    }
+
+   template<>
+    void SLIInterpreter::push<TokenArray *>(TokenArray * a)
+    {
+	operand_stack_.push(types_[sli3::arraytype]);
+	operand_stack_.top().data_.array_val= a;
+    }
+
+   template<>
+    void SLIInterpreter::push<Dictionary *>(Dictionary * d)
+    {
+	operand_stack_.push(types_[sli3::dictionarytype]);
+	operand_stack_.top().data_.dict_val= d;
     }
 
 
@@ -725,21 +863,37 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     }
 
     template<>
-    Token SLIInterpreter::new_token<sli3::integertype,int>(int const &i)
+    Token SLIInterpreter::new_token<sli3::marktype>()
+    {
+	Token t(types_[sli3::marktype]);
+	return t;
+    }
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::integertype,int>(int i)
     {
 	Token t(types_[sli3::integertype]);
 	t.data_.long_val= i;
 	return t;
     }
     template<>
-    Token SLIInterpreter::new_token<sli3::integertype,long>(long const &l)
+    Token SLIInterpreter::new_token<sli3::integertype,long>(long l)
     {
 	Token t(types_[sli3::integertype]);
 	t.data_.long_val= l;
 	return t;
     }
+
     template<>
-    Token SLIInterpreter::new_token<sli3::doubletype,double>(double const &d)
+    Token SLIInterpreter::new_token<sli3::integertype,unsigned long>(unsigned long ul)
+    {
+	Token t(types_[sli3::integertype]);
+	t.data_.long_val= static_cast<long>(ul);
+	return t;
+    }
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::doubletype,double>(double d)
     {
 	Token t(types_[sli3::doubletype]);
 	t.data_.double_val= d;
@@ -747,30 +901,30 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     }
 
     template<>
-    Token SLIInterpreter::new_token<sli3::booltype,bool>(bool const &b)
+    Token SLIInterpreter::new_token<sli3::booltype,bool>(bool b)
     {
 	Token t(types_[sli3::booltype]);
 	t.data_.bool_val= b;
 	return t;
     }
     template<>
-    Token SLIInterpreter::new_token<sli3::nametype,Name>(Name const &n)
+    Token SLIInterpreter::new_token<sli3::nametype,Name>(Name n)
     {
 	Token t(types_[sli3::nametype]);
-	t.data_.name_val= n.toIndex();;
+	t.data_.name_val= n.toIndex();
 	return t;
     }
 
     template<>
-    Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name const &n)
+    Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name n)
     {
 	Token t(types_[sli3::literaltype]);
-	t.data_.name_val= n.toIndex();;
+	t.data_.name_val= n.toIndex();
 	return t;
     }
 
     template<>
-    Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name const &n)
+    Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name n)
     {
 	Token t(types_[sli3::symboltype]);
 	t.data_.name_val= n.toIndex();;
@@ -778,7 +932,7 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     }
 
     template<>
-    Token SLIInterpreter::new_token<sli3::arraytype,TokenArray>(TokenArray const &a)
+    Token SLIInterpreter::new_token<sli3::arraytype, TokenArray>(TokenArray a)
     {
 	Token t(types_[sli3::arraytype]);
 	t.data_.array_val= new TokenArray(a);
@@ -786,15 +940,36 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
     }
 
     template<>
-    Token SLIInterpreter::new_token<sli3::stringtype,std::string>(std::string const &s)
+    Token SLIInterpreter::new_token<sli3::arraytype, TokenArray *>(TokenArray * a)
+    {
+	Token t(types_[sli3::arraytype]);
+	t.data_.array_val= a;
+	return t;
+    }
+
+    template<>
+    Token SLIInterpreter::new_token<sli3::stringtype, std::string >(std::string s)
     {
 	Token t(types_[sli3::stringtype]);
 	t.data_.string_val= new SLIString(s) ;
 	return t;
     }
 
+    template<>
+    Token SLIInterpreter::new_token<sli3::stringtype, std::string *>(std::string *s)
+    {
+	Token t(types_[sli3::stringtype]);
+	t.data_.string_val= new SLIString(*s) ;
+	return t;
+    }
 
-
+    template<>
+    Token SLIInterpreter::new_token<sli3::dictionarytype, sli3::Dictionary *>(sli3::Dictionary *d)
+    {
+	Token t(types_[sli3::dictionarytype]);
+	t.data_.dict_val= d;
+	return t;
+    }
 
 
 }
