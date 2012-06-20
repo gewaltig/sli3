@@ -239,7 +239,7 @@ void IforFunction::execute(SLIInterpreter *i) const
 
   long &count=i->EStack().pick(3).data_.long_val;
   long &lim=i->EStack().pick(4).data_.long_val;
-  long &inc=i->EStack().pick(4).data_.long_val;
+  long &inc=i->EStack().pick(5).data_.long_val;
         
     if(( (inc> 0) && (count <= lim)) ||
        ( (inc< 0) && (count >= lim)))
