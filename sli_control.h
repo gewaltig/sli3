@@ -134,21 +134,7 @@ namespace sli3
     StartFunction() {}
     void execute(SLIInterpreter *) const;
   };
-  
-  class ParsestdinFunction: public SLIFunction
-  {
-  public:
-    ParsestdinFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
-  class IparseFunction: public SLIFunction
-  {
-  public:
-    IparseFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
+    
   class DefFunction: public SLIFunction
   {
   public:
@@ -409,7 +395,7 @@ namespace sli3
     void execute(SLIInterpreter *) const;
     
   private:
-    bool getinfo_(int, Dictionary&) const;
+    bool getinfo_(SLIInterpreter *, int, Dictionary*) const;
   };
   
   class TimeFunction: public SLIFunction
