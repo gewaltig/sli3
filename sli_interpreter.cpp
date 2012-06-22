@@ -72,11 +72,11 @@ namespace sli3
 	  show_backtrace_(false),
 	  catch_errors_(false),
 	  opt_tailrecursion_(true),
-	  cycle_guard_(true),
+	  cycle_guard_(false),
 	  call_depth_(0),
 	  max_call_depth_(10),
 	  cycle_count_(0),
-	  cycle_restriction_(100),
+	  cycle_restriction_(0),
 	  verbosity_level_(M_INFO),
 	  system_dict_(0),
 	  user_dict_(0),
@@ -471,76 +471,138 @@ namespace sli3
 	switch(v)
 	{
 	case 0:
-	case 1:
 	    return execute_(); // run the interpreter
+	case 1:
+	    return execute_debug_(); // run the interpreter in debug mode
 	case 2:
 	default:
 	    return -1;
 	}
     }
-
-    int SLIInterpreter::execute_(size_t exitlevel)
-    {
-	int exitcode;
+  
+  int SLIInterpreter::execute_(size_t exitlevel)
+  {
+    int exitcode;
     
-	if(sli3::signalflag !=0)
-	{
-	    return sli3::unknown_error;
-	}
+    if(sli3::signalflag !=0)
+      {
+	return sli3::unknown_error;
+      }
     
-	try
-	{
-	    do { //loop1  this double loop to keep the try/catch outside the inner loop
-		try
-		{ 
-		    while(!sli3::signalflag and  execution_stack_.load() > exitlevel) // loop 2
-		    {
-			++cycle_count_;
-			if(cycle_guard_ and cycle_count_ > cycle_restriction_)
-			{
-			    return 0;
-			} 
-			operand_stack_.dump(std::cerr);
-			execution_stack_.top().execute();
-		    }
-		}
-		catch(std::exception &exc)
+    try
+      {
+	do { //loop1  this double loop to keep the try/catch outside the inner loop
+	  try
+	    { 
+	      while(!sli3::signalflag and  execution_stack_.load() > exitlevel) // loop 2
 		{
-		    message(M_FATAL, "SLIInterpreter","A C++ library exception was caught.");
-		    raiseerror(exc);
+		  ++cycle_count_;
+		  if(cycle_guard_ and cycle_count_ > cycle_restriction_)
+		    {
+		      return 0;
+		    } 
+		  execution_stack_.top().execute();
 		}
-	    } while(execution_stack_.load() > exitlevel);
-	}
-	catch(std::exception &e)
-	{
-	    message(M_FATAL, "SLIInterpreter","A C++ library exception occured.");
-	    operand_stack_.dump(std::cerr);
-	    execution_stack_.dump(std::cerr);
-	    message(M_FATAL, "SLIInterpreter",e.what());
-	    terminate(sli3::exception);
-	}
-	catch(...)
-	{
-	    message(M_FATAL, "SLIInterpreter","An unknown c++ exception occured.");
-	    operand_stack_.dump(std::cerr);
-	    execution_stack_.dump(std::cerr);
-	    terminate(sli3::exception);
-	} 
-	
-	Token &exit_tk=	status_dict_->lookup(Name("exitcode")); // This throws an exception if the entry is not found.
-	exitcode = exit_tk.data_.long_val;
-	
-	if (exitcode != 0)
-	    error_dict_->insert(quitbyerror_name,new_token<sli3::booltype>(true));
-	
-	return exitcode;
-    }
- 
-    void SLIInterpreter::createdouble(Name n, double val)
-    {
-	dictionary_stack_.def(n, new_token<sli3::doubletype>(val));
-    }
+	    }
+	  catch(std::exception &exc)
+	    {
+	      message(M_FATAL, "SLIInterpreter","A C++ library exception was caught.");
+	      raiseerror(exc);
+	    }
+	} while(execution_stack_.load() > exitlevel);
+      }
+    catch(std::exception &e)
+      {
+	message(M_FATAL, "SLIInterpreter","A C++ library exception occured.");
+	operand_stack_.dump(std::cerr);
+	execution_stack_.dump(std::cerr);
+	message(M_FATAL, "SLIInterpreter",e.what());
+	terminate(sli3::exception);
+      }
+    catch(...)
+      {
+	message(M_FATAL, "SLIInterpreter","An unknown c++ exception occured.");
+	operand_stack_.dump(std::cerr);
+	execution_stack_.dump(std::cerr);
+	terminate(sli3::exception);
+      } 
     
+    // Token &exit_tk=	status_dict_->lookup(Name("exitcode")); // This throws an exception if the entry is not found.
+    // exitcode = exit_tk.data_.long_val;
+    
+    // if (exitcode != 0)
+    //   error_dict_->insert(quitbyerror_name,new_token<sli3::booltype>(true));
+    
+    return exitcode;
+  }
+  
+  int SLIInterpreter::execute_debug_(size_t exitlevel)
+  {
+    int exitcode;
+    
+    if(sli3::signalflag !=0)
+      {
+	return sli3::unknown_error;
+      }
+    
+    try
+      {
+	do { //loop1  this double loop to keep the try/catch outside the inner loop
+	  try
+	    { 
+	      while(!sli3::signalflag and  execution_stack_.load() > exitlevel) // loop 2
+		{
+		  ++cycle_count_;
+		  if(cycle_guard_ and cycle_count_ > cycle_restriction_)
+		    {
+		      return 0;
+		    } 
+		  if(operand_stack_.load()>0)
+		    operand_stack_.dump(std::cerr);
+		  execution_stack_.top().execute();
+		}
+	    }
+	  catch(std::exception &exc)
+	    {
+	      message(M_ERROR, "SLIInterpreter","A C++ library exception was caught.");
+	      operand_stack_.dump(std::cerr);
+	      execution_stack_.dump(std::cerr);
+	      message(M_ERROR, "SLIInterpreter",exc.what());
+	      //raiseerror(exc);
+	      execution_stack_.pop();
+	    }
+	} while(execution_stack_.load() > exitlevel);
+      }
+    catch(std::exception &e)
+      {
+	message(M_FATAL, "SLIInterpreter","A C++ library exception occured.");
+	operand_stack_.dump(std::cerr);
+	execution_stack_.dump(std::cerr);
+	message(M_FATAL, "SLIInterpreter",e.what());
+	terminate(sli3::exception);
+      }
+    catch(...)
+      {
+	message(M_FATAL, "SLIInterpreter","An unknown c++ exception occured.");
+	operand_stack_.dump(std::cerr);
+	execution_stack_.dump(std::cerr);
+	terminate(sli3::exception);
+      } 
+    
+    Token &exit_tk=	status_dict_->lookup(Name("exitcode")); // This throws an exception if the entry is not found.
+    exitcode = exit_tk.data_.long_val;
+    
+    if (exitcode != 0)
+      error_dict_->insert(quitbyerror_name,new_token<sli3::booltype>(true));
+    
+    return exitcode;
+  }
+  
+  void SLIInterpreter::createdouble(Name n, double val)
+  {
+    dictionary_stack_.def(n, new_token<sli3::doubletype>(val));
+  }
+  
  
     /** Define a function in the current dictionary.
      *  This function defines a SLI function in the current dictionary. 
@@ -559,6 +621,7 @@ namespace sli3
 	TokenRef t;
 	t.type_=types_[sli3::functiontype];
 	t.data_.func_val= fn;
+	fn->set_name(n);
 	dictionary_stack_.def(n, t);
     }
 
@@ -575,12 +638,6 @@ namespace sli3
 	dictionary_stack_.def(n, val);
     }
     
-    void SLIInterpreter::push(const Token &t)
-    {
-	std::cout << operand_stack_.size() << '\n';
-	operand_stack_.push(t);
-	operand_stack_.dump(std::cerr);
-    }
 
     void SLIInterpreter::set_verbosity(int l)
     {
@@ -749,227 +806,6 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
 
 
 
-/* Template specializations only beyond this point */
-
-    template<>
-    void SLIInterpreter::push<int>(int l)
-    {
-      operand_stack_.push(types_[sli3::integertype]);
-      operand_stack_.top().data_.long_val=l;
-    }
-
-    template<>
-    void SLIInterpreter::push<long>(long l)
-    {
-	operand_stack_.push(types_[sli3::integertype]);
-	operand_stack_.top().data_.long_val=l;
-    }
-
-    template<>
-    void SLIInterpreter::push<unsigned long>(unsigned long ul)
-    {
-	operand_stack_.push(types_[sli3::integertype]);
-	operand_stack_.top().data_.long_val=static_cast<long>(ul);
-    }
-
-     template<>
-    void SLIInterpreter::push<char>(char c)
-    {
-      operand_stack_.push(types_[sli3::integertype]);
-      operand_stack_.top().data_.long_val=c;
-    }
-
-    template<>
-    void SLIInterpreter::push<double>(double d)
-    {
-	operand_stack_.push(types_[sli3::doubletype]);
-	operand_stack_.top().data_.double_val=d;
-    }
-
-    template<>
-    void SLIInterpreter::push<bool>(bool b)
-    {
-	operand_stack_.push(types_[sli3::booltype]);
-	operand_stack_.top().data_.bool_val=b;
-    }
-
-    template<>
-    void SLIInterpreter::push<Name>(Name n)
-    {
-	operand_stack_.push(types_[sli3::nametype]);
-	operand_stack_.top().data_.name_val=n.toIndex();
-    }
-
-    template<>
-    void SLIInterpreter::push<TokenArray const&>(TokenArray const& a)
-    {
-	operand_stack_.push(types_[sli3::arraytype]);
-	operand_stack_.top().data_.array_val= new TokenArray(a);
-    }
-
-   template<>
-    void SLIInterpreter::push<TokenArray *>(TokenArray * a)
-    {
-	operand_stack_.push(types_[sli3::arraytype]);
-	operand_stack_.top().data_.array_val= a;
-    }
-
-   template<>
-    void SLIInterpreter::push<Dictionary *>(Dictionary * d)
-    {
-	operand_stack_.push(types_[sli3::dictionarytype]);
-	operand_stack_.top().data_.dict_val= d;
-    }
-
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::integertype>()
-    {
-	Token t(types_[sli3::integertype]);
-	t.data_.long_val= 0;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::doubletype>()
-    {
-	Token t(types_[sli3::doubletype]);
-	t.data_.double_val= 0;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::arraytype>()
-    {
-	Token t(types_[sli3::arraytype]);
-	t.data_.array_val= new TokenArray();
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::litproceduretype>()
-    {
-	Token t(types_[sli3::litproceduretype]);
-	t.data_.array_val= new TokenArray() ;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::dictionarytype>()
-    {
-	Token t(types_[sli3::dictionarytype]);
-	t.data_.dict_val= new Dictionary();
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::marktype>()
-    {
-	Token t(types_[sli3::marktype]);
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::integertype,int>(int i)
-    {
-	Token t(types_[sli3::integertype]);
-	t.data_.long_val= i;
-	return t;
-    }
-    template<>
-    Token SLIInterpreter::new_token<sli3::integertype,long>(long l)
-    {
-	Token t(types_[sli3::integertype]);
-	t.data_.long_val= l;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::integertype,unsigned long>(unsigned long ul)
-    {
-	Token t(types_[sli3::integertype]);
-	t.data_.long_val= static_cast<long>(ul);
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::doubletype,double>(double d)
-    {
-	Token t(types_[sli3::doubletype]);
-	t.data_.double_val= d;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::booltype,bool>(bool b)
-    {
-	Token t(types_[sli3::booltype]);
-	t.data_.bool_val= b;
-	return t;
-    }
-    template<>
-    Token SLIInterpreter::new_token<sli3::nametype,Name>(Name n)
-    {
-	Token t(types_[sli3::nametype]);
-	t.data_.name_val= n.toIndex();
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name n)
-    {
-	Token t(types_[sli3::literaltype]);
-	t.data_.name_val= n.toIndex();
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name n)
-    {
-	Token t(types_[sli3::symboltype]);
-	t.data_.name_val= n.toIndex();;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::arraytype, TokenArray>(TokenArray a)
-    {
-	Token t(types_[sli3::arraytype]);
-	t.data_.array_val= new TokenArray(a);
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::arraytype, TokenArray *>(TokenArray * a)
-    {
-	Token t(types_[sli3::arraytype]);
-	t.data_.array_val= a;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::stringtype, std::string >(std::string s)
-    {
-	Token t(types_[sli3::stringtype]);
-	t.data_.string_val= new SLIString(s) ;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::stringtype, std::string *>(std::string *s)
-    {
-	Token t(types_[sli3::stringtype]);
-	t.data_.string_val= new SLIString(*s) ;
-	return t;
-    }
-
-    template<>
-    Token SLIInterpreter::new_token<sli3::dictionarytype, sli3::Dictionary *>(sli3::Dictionary *d)
-    {
-	Token t(types_[sli3::dictionarytype]);
-	t.data_.dict_val= d;
-	return t;
-    }
 
 
 }

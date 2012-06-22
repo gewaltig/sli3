@@ -43,7 +43,6 @@ class TokenArray
 
   void allocate(size_t, size_t, size_t, const Token & = Token());
     
-  static size_t allocations;
   void copy_right_to_left(Token *to, Token *from, Token *end)
   {
     while (from>end)
@@ -65,19 +64,35 @@ class TokenArray
   }
 
  public:
+  static size_t allocations;
     
     TokenArray(void)
             :p(NULL),begin_of_free_storage(NULL),
              end_of_free_storage(NULL),
              alloc_block_size(ARRAY_ALLOC_SIZE), 
 	     refs_(1)
-    {};
+    {
+      ++allocations;
+    };
     
     TokenArray(size_t , const Token & = Token(), size_t =  0);
     TokenArray(const TokenArray&);
 
     virtual ~TokenArray();
-    
+
+    /**
+     * This function returns a pointer to a copy of the token array with
+     * just one reference. 
+     */ 
+    TokenArray *detach()
+    {
+      if( refs_ ==1)
+	return this;
+
+      --refs_;
+      return new TokenArray(*this);
+    }
+
     Token * begin() const
     {
         return p;

@@ -18,7 +18,8 @@
 ## C++ specific flags
 CC=g++
 GDB=-g
-CCFLAGS= $(GDB) -Wall
+CCFLAGS= -O2 $(GDB) -Wall
+CXXFLAGS= -O2 $(GDB) -Wall
 
 ## Linker flags
 LDLIBS= -lstdc++
@@ -72,3 +73,10 @@ makefile: base.mk
 	@ echo '# Automatically-generated dependency list:' >> $@
 	@ ${CC} ${CFLAGS} -M ${SOURCES} >> $@
 	@ chmod -w $@
+
+clean:
+	@ echo 'Removing all binary files.'
+	@ rm -f *.o sli test_token test_dictionary
+
+distclean: clean
+	@ rm -f makefile

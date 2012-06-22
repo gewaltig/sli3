@@ -8,6 +8,7 @@
 #include "sli_integertype.h"
 #include "sli_tokenstack.h"
 #include "sli_name.h"
+#include "sli_string.h"
 #include "sli_dictionary.h"
 #include "sli_dictstack.h"
 #include "sli_builtins.h"
@@ -118,6 +119,7 @@ namespace sli3
 	 * Execute until execution stack reaches level.
 	 */
 	int execute_(size_t level=0);
+	int execute_debug_(size_t level=0);
 
 	void createdouble(Name , double);
 	void createcommand(Name, SLIFunction *);
@@ -220,7 +222,7 @@ namespace sli3
 	 * Checks whether the operand stack holds at least n values.
 	 * If the operand stack load is less than n, a StackUnderflow excetion is thrown.
 	 */
-	void require_stack_load(int n) const
+	void require_stack_load(size_t n) const
 	    {
 		if(operand_stack_.load()<n)
 		    throw StackUnderflow(n, operand_stack_.load() );
@@ -260,7 +262,7 @@ namespace sli3
 
 	SLIType* get_type(unsigned int id) const
 	{
-	  return types_.at(id);
+	  return types_[id];
 	}
 
 	bool is_initialized()
@@ -690,6 +692,263 @@ namespace sli3
     void SLIInterpreter::basedef(Name n, Token const &t)
     {
 	dictionary_stack_.basedef(n,t);
+    }
+
+    inline
+    void SLIInterpreter::push(const Token &t)
+    {
+	operand_stack_.push(t);
+    }
+
+    template<>
+    inline
+    void SLIInterpreter::push<int>(int l)
+    {
+      operand_stack_.push(types_[sli3::integertype]);
+      operand_stack_.top().data_.long_val=l;
+    }
+
+    template<>
+    inline
+    void SLIInterpreter::push<long>(long l)
+    {
+	operand_stack_.push(types_[sli3::integertype]);
+	operand_stack_.top().data_.long_val=l;
+    }
+
+     template<>
+    inline
+   void SLIInterpreter::push<unsigned long>(unsigned long ul)
+    {
+	operand_stack_.push(types_[sli3::integertype]);
+	operand_stack_.top().data_.long_val=static_cast<long>(ul);
+    }
+
+     template<>
+    inline
+    void SLIInterpreter::push<char>(char c)
+    {
+      operand_stack_.push(types_[sli3::integertype]);
+      operand_stack_.top().data_.long_val=c;
+    }
+
+    template<>
+    inline
+    void SLIInterpreter::push<double>(double d)
+    {
+	operand_stack_.push(types_[sli3::doubletype]);
+	operand_stack_.top().data_.double_val=d;
+    }
+
+    template<>
+    inline
+    void SLIInterpreter::push<bool>(bool b)
+    {
+	operand_stack_.push(types_[sli3::booltype]);
+	operand_stack_.top().data_.bool_val=b;
+    }
+
+    template<>
+    inline
+    void SLIInterpreter::push<Name>(Name n)
+    {
+	operand_stack_.push(types_[sli3::nametype]);
+	operand_stack_.top().data_.name_val=n.toIndex();
+    }
+
+    template<>
+    inline
+    void SLIInterpreter::push<TokenArray const&>(TokenArray const& a)
+    {
+	operand_stack_.push(types_[sli3::arraytype]);
+	operand_stack_.top().data_.array_val= new TokenArray(a);
+    }
+
+   template<>
+    inline
+    void SLIInterpreter::push<TokenArray *>(TokenArray * a)
+    {
+	operand_stack_.push(types_[sli3::arraytype]);
+	operand_stack_.top().data_.array_val= a;
+    }
+
+   template<>
+    inline
+    void SLIInterpreter::push<Dictionary *>(Dictionary * d)
+    {
+	operand_stack_.push(types_[sli3::dictionarytype]);
+	operand_stack_.top().data_.dict_val= d;
+    }
+
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::integertype>()
+    {
+	Token t(types_[sli3::integertype]);
+	t.data_.long_val= 0;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::doubletype>()
+    {
+	Token t(types_[sli3::doubletype]);
+	t.data_.double_val= 0;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::arraytype>()
+    {
+	Token t(types_[sli3::arraytype]);
+	t.data_.array_val= new TokenArray();
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::litproceduretype>()
+    {
+	Token t(types_[sli3::litproceduretype]);
+	t.data_.array_val= new TokenArray() ;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::dictionarytype>()
+    {
+	Token t(types_[sli3::dictionarytype]);
+	t.data_.dict_val= new Dictionary();
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::marktype>()
+    {
+	Token t(types_[sli3::marktype]);
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::integertype,int>(int i)
+    {
+	Token t(types_[sli3::integertype]);
+	t.data_.long_val= i;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::integertype,long>(long l)
+    {
+	Token t(types_[sli3::integertype]);
+	t.data_.long_val= l;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::integertype,unsigned long>(unsigned long ul)
+    {
+	Token t(types_[sli3::integertype]);
+	t.data_.long_val= static_cast<long>(ul);
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::doubletype,double>(double d)
+    {
+	Token t(types_[sli3::doubletype]);
+	t.data_.double_val= d;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::booltype,bool>(bool b)
+    {
+	Token t(types_[sli3::booltype]);
+	t.data_.bool_val= b;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::nametype,Name>(Name n)
+    {
+	Token t(types_[sli3::nametype]);
+	t.data_.name_val= n.toIndex();
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::literaltype,Name>(Name n)
+    {
+	Token t(types_[sli3::literaltype]);
+	t.data_.name_val= n.toIndex();
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::symboltype,Name>(Name n)
+    {
+	Token t(types_[sli3::symboltype]);
+	t.data_.name_val= n.toIndex();;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::arraytype, TokenArray>(TokenArray a)
+    {
+	Token t(types_[sli3::arraytype]);
+	t.data_.array_val= new TokenArray(a);
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::arraytype, TokenArray *>(TokenArray * a)
+    {
+	Token t(types_[sli3::arraytype]);
+	t.data_.array_val= a;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::stringtype, std::string >(std::string s)
+    {
+	Token t(types_[sli3::stringtype]);
+	t.data_.string_val= new SLIString(s) ;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::stringtype, std::string *>(std::string *s)
+    {
+	Token t(types_[sli3::stringtype]);
+	t.data_.string_val= new SLIString(*s) ;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::dictionarytype, sli3::Dictionary *>(sli3::Dictionary *d)
+    {
+	Token t(types_[sli3::dictionarytype]);
+	t.data_.dict_val= d;
+	return t;
     }
 
 }
