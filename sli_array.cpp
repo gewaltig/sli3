@@ -37,16 +37,17 @@ size_t TokenArray::allocations=0;
         :p(NULL),begin_of_free_storage(NULL),
          end_of_free_storage(NULL),alloc_block_size(ARRAY_ALLOC_SIZE),refs_(1)
     {
-    if(a.p != NULL)
-    {
-        resize(a.size(),a.alloc_block_size,Token());
-        Token *from = a.p;
-        Token *to   = p;
-        
-        while(to < begin_of_free_storage)
-            *to++ = *from++;
+	if(a.p != NULL)
+	{
+	    resize(a.size(),a.alloc_block_size,Token());
+	    Token *from = a.p;
+	    Token *to   = p;
+	    
+	    while(to < begin_of_free_storage)
+		*to++ = *from++;
+	}
+	++allocations;
     }
-}
 
     
 TokenArray::~TokenArray()

@@ -93,8 +93,6 @@ namespace sli3
 	bool operator==(unsigned long) const;
 	bool operator==(double) const;
 	bool operator==(bool) const;
-
-
 	bool operator!=(const Token&) const;
 
 	bool is_of_type(unsigned int) const;
@@ -108,6 +106,7 @@ namespace sli3
 	{
 	  return (type_ and type_->is_executable());
 	}
+
 	std::ostream & print(std::ostream &) const;
 	std::ostream & pprint(std::ostream &) const;
 	
@@ -124,11 +123,163 @@ namespace sli3
 	    SLIString  *string_val;
 	    SLIistream *istream_val;
 	    SLIostream *ostream_val;
-	    void  *data_val;    //! Pointer to external resources or function. 
 	} data_;
     };
     
     std::ostream & operator<<(std::ostream& , const Token&);
+
+
+    inline
+    Token::Token()
+	:type_(0), data_()
+    {}
+
+    inline
+    Token::Token(SLIType *t)
+	:type_(t), data_()
+    {}
+
+    inline
+    Token::Token(Token const& s)
+	:type_(s.type_), 
+	 data_(s.data_)
+    {
+	if(type_ != 0)
+	    type_->add_reference(*this);
+    }
+
+    inline
+    Token::~Token()
+    {
+	if(type_)
+	    type_->remove_reference(*this);
+    }
+
+    inline
+    void Token::clear()
+    {
+	if (type_)
+	    type_->remove_reference(*this);
+	type_=0;
+	data_=value();
+    }
+
+    inline
+    Token& Token::init(const Token&t)
+    {
+	t.add_reference();
+	remove_reference();
+	type_=t.type_;
+	data_=t.data_;
+	return *this;
+    }
+
+    inline
+    Token& Token::move( Token&t)
+    {
+	t.add_reference();
+	remove_reference();
+	type_=t.type_;
+	data_=t.data_;
+	t.clear();
+	return *this;
+    }
+
+    inline
+    Token& Token::swap(Token&t)
+    {
+	SLIType *tmp_type=type_;
+	value   tmp_data=data_;
+
+	type_=t.type_;
+	data_=t.data_;
+	t.type_=tmp_type;
+	t.data_=tmp_data;
+
+	return *this;
+    }
+
+    inline
+    Token& Token::operator=(const Token &t)
+    {
+	return init(t);
+    }
+
+    inline
+    bool Token::is_valid() const
+    {
+	return type_ !=0;
+    }
+    
+    inline
+    refcount_t Token::references() const
+    {
+	return (is_valid()) ? type_->references(*this):1;
+    }
+    
+    inline
+    refcount_t Token::add_reference() const
+    {
+	return (is_valid()) ? type_->add_reference(*this) : 1;
+    }
+
+    inline
+    void Token::remove_reference()
+    {
+	if(is_valid())
+	  type_->remove_reference(*this);
+    }
+
+    inline
+    Token::operator int() const
+    {
+	require_type(sli3::integertype);
+	return data_.long_val;
+    }
+
+ 
+    inline
+    Token::operator long() const
+    {
+	require_type(sli3::integertype);
+	return data_.long_val;
+    }
+
+    inline
+    Token::operator long&() 
+    {
+	require_type(sli3::integertype);
+	return data_.long_val;
+    }
+
+    inline
+   Token::operator double&()
+    {
+	require_type(sli3::doubletype);
+	return data_.double_val;
+    }
+
+    inline
+   Token::operator double() const
+    {
+	require_type(sli3::doubletype);
+	return data_.double_val;
+    }
+
+    inline
+    Token::operator bool() const
+    {
+	require_type(sli3::booltype);
+	return data_.bool_val;
+    }
+
+    inline
+    Token::operator bool&() 
+    {
+	require_type(sli3::booltype);
+	return data_.bool_val;
+    }
+
 
     inline
     bool Token::is_of_type(unsigned int id) const
@@ -143,6 +294,15 @@ namespace sli3
 	throw InvalidToken();
       type_->require_type(id);
     }
+
+    inline
+    void Token::execute()
+    {
+      if(type_==0)
+	throw InvalidToken();
+      type_->execute(*this);
+    }
+
 
     class TokenRef: public Token
     {

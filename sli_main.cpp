@@ -13,8 +13,10 @@ int main()
  	      << "long: " << sizeof(long) <<'\n'
 	      << "Token: " << sizeof(sli3::Token) << '\n'
 	      << "Array: " << sizeof(sli3::TokenArray) <<'\n'
- 	      << "Dictionary: " << sizeof(sli3::Dictionary) <<'\n';
+ 	      << "Dictionary: " << sizeof(sli3::Dictionary) <<'\n'
+	      << "token::value: " << sizeof(sli3::Token::value) <<'\n';
     engine.execute();
 
+    std::cerr << "Allocations: " << sli3::TokenArray::allocations << '\n';
     return 0;
 }
