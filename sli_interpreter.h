@@ -198,7 +198,11 @@ namespace sli3
 	/**
 	 * Remove the top element from the operand stack.
 	 */
-	void pop(size_t n=1)
+	void pop()
+	    {
+		operand_stack_.pop();
+	    }
+	void pop(size_t n)
 	    {
 		operand_stack_.pop(n);
 	    }

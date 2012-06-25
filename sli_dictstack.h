@@ -74,7 +74,7 @@ public:
   /**
    * Add a token to the cache.
    */
-  void cache_token( Name n, Token *result)
+  void cache_token( Name const & n, Token *result)
   {
     Name::handle_t key=n.toIndex();
     if (key>=cache_.size())
@@ -82,7 +82,7 @@ public:
     cache_[key]= result;
   }
 
-  void basecache_token(Name n, Token *result)
+  void basecache_token(Name const & n, Token *result)
   {
     Name::handle_t key=n.toIndex();
     if (key>=basecache_.size())
@@ -94,14 +94,14 @@ public:
    * Clear a name from the cache.
    * This function should be called in each def variant.
    */
-  void clear_token_from_cache(Name n)
+  void clear_token_from_cache(Name const & n)
   {
     Name::handle_t key=n.toIndex();
     if(key<cache_.size())
       cache_[key]=0;
   }
 
-  void clear_token_from_basecache(Name n)
+  void clear_token_from_basecache(Name const & n)
   {
     Name::handle_t key=n.toIndex();
     if(key<basecache_.size())
@@ -127,7 +127,7 @@ public:
       cache_[i]=0;
   }
 
-  bool lookup(Name n, Token &result)
+  bool lookup(Name const & n, Token &result)
   { 
     Name::handle_t key=n.toIndex();
     if (key<cache_.size())
@@ -156,7 +156,7 @@ public:
     return false;
   }
 
-  Token& lookup(Name n)
+  Token& lookup(Name const & n)
   { 
     Name::handle_t key=n.toIndex();
     if (key<cache_.size())
@@ -181,7 +181,7 @@ public:
     throw UndefinedName(n.toString());
   }
   
-  bool known(Name n)
+  bool known(Name const & n)
   {
     Token result;
     return lookup(n,result);
@@ -191,7 +191,7 @@ public:
    *  If the Name is not found,
    *  @a VoidToken is returned.
    */
-  Token& baselookup(Name n) // lookup in a specified
+  Token& baselookup(Name const & n) // lookup in a specified
   {                                           // base dictionary
     Name::handle_t key=n.toIndex();
     if (key<basecache_.size())
@@ -219,16 +219,16 @@ public:
   /** Bind a Token to a Name in the top level dictionary.
    *  The Token is copied.
    */
-  void def(Name , const Token &);
+  void def(Name const & , const Token &);
 
   /** Unbind a previously defined Name from its token. Seach in all dictionaries.
    */
-  void undef(Name );
+  void undef(Name const & );
 
   /** Bind a Token to a Name in the bottom level dictionary.
    *  The Token is copied.
    */
-  void basedef(Name n, const Token &t);
+  void basedef(Name const & n, const Token &t);
 
   /**
    * This function must be called once to initialize the systemdict cache.
@@ -236,7 +236,7 @@ public:
   void set_basedict();
 
 
-  bool where(Name, Token&);
+  bool where(Name const &, Token&);
     
   void pop(void);
 
@@ -263,7 +263,7 @@ public:
 };
 
 inline
-void DictionaryStack::def(Name n, const Token &t)
+void DictionaryStack::def(Name const & n, const Token &t)
 {
   //
   // insert (n,t) in top level dictionary

@@ -80,6 +80,7 @@ namespace sli3
 	bool access_flag_;
   };
 
+  //typedef  std::map<Name, DictToken, std::less<Name> > TokenMap;
 typedef  std::map<Name, DictToken, std::less<Name> > TokenMap;
 
 inline bool operator==(const TokenMap & x, const TokenMap &y)
@@ -166,17 +167,17 @@ public:
    *       dictionary read-out is set on the Token in the dictionary,
    *       not its copy.  
    */
-  bool lookup(Name, DictToken &);
-  DictToken & lookup(Name n); //throws UndefinedName
-  bool known( Name ) const;
+  bool lookup(Name const &, DictToken &);
+  DictToken & lookup(Name const & n); //throws UndefinedName
+  bool known( Name const & ) const;
   
-  DictToken & insert(Name , Token const &t);
+  DictToken & insert(Name const & , Token const &t);
 
   //! Remove entry from dictionary
-  void remove(Name n);  
+  void remove(Name const & n);  
 
-  const DictToken& operator[](Name) const;
-  DictToken& operator[](Name );
+  const DictToken& operator[](Name const &) const;
+  DictToken& operator[](Name const & );
   const DictToken& operator[](const char*) const;
   DictToken& operator[](const char *);
   
@@ -249,7 +250,7 @@ public:
   /**
    *
    */
-  void initialize_property_array(Name propname);
+  void initialize_property_array(Name const & propname);
   
   /**
    * This function is called when a dictionary is pushed to the dictionary stack.
@@ -297,7 +298,7 @@ public:
 };
 
  inline
-   bool Dictionary::lookup(Name n, DictToken &result)
+   bool Dictionary::lookup(Name const & n, DictToken &result)
    {
      TokenMap::iterator where = find(n);
      if(where != end())
@@ -310,7 +311,7 @@ public:
    }
  
  inline
-   DictToken& Dictionary::lookup(Name n)
+   DictToken& Dictionary::lookup(Name const & n)
  {      
    TokenMap::iterator where = find(n);
    if(where != end())
@@ -320,7 +321,7 @@ public:
  }
  
 inline
-bool Dictionary::known(Name n) const
+bool Dictionary::known(Name const & n) const
 {
   TokenMap::const_iterator where = find(n);
   if(where != end())
@@ -330,14 +331,14 @@ bool Dictionary::known(Name n) const
 }
 
 inline
-DictToken& Dictionary::insert(Name n, Token const &t)  
+DictToken& Dictionary::insert(Name const & n, Token const &t)  
 { 
     return TokenMap::operator[](n) = DictToken(t); 
 }
 
 
 inline
-const DictToken& Dictionary::operator[](Name n) const
+const DictToken& Dictionary::operator[](Name const & n) const
 {      
   TokenMap::const_iterator where = find(n);
   if(where != end())
@@ -348,7 +349,7 @@ const DictToken& Dictionary::operator[](Name n) const
 
 
 inline
-DictToken& Dictionary::operator[](Name n)
+DictToken& Dictionary::operator[](Name const& n)
 {  
   return TokenMap::operator[](n);
 }

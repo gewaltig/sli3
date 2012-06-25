@@ -40,87 +40,85 @@ public:
   using TokenArray::reserve;
   using TokenArray::reserve_token;
 
-    void clear(void)
+  void clear(void)
+  {
+    erase(begin(),end());
+  }
+  
+  void push(const Token& e)
+  {
+    push_back(e);
+  }
+  
+  void pop(void)
+  {
+    pop_back();
+  }
+  
+  void pop(size_t n)
+  {
+    erase(end()-n, end());
+  }
+  
+  
+  Token& top(void)
     {
-        erase(begin(),end());
-    }
-    
-
-    void push(const Token& e)
-    {
-        push_back(e);
-    }
-
-    void pop(void)
-    {
-        pop_back();
-    }
- 
-    
-    void pop(size_t n)
-    {
-        erase(end()-n, end());
-    }
- 
-    
-    Token& top(void)
-    {
-        return *(end()-1);
-    }
-
-    const Token& top(void) const
-    {
-        return *(end()-1);
-    }
-
-    const Token& pick(size_t i) const
-    {
-        return *(end()-i-1);           
+      return *(end()-1);
     }
   
-    Token& pick(size_t i)
+  const Token& top(void) const
+  {
+    return *(end()-1);
+  }
+
+  const Token& pick(size_t i) const
+  {
+    return *(end()-i-1);           
+  }
+  
+  Token& pick(size_t i)
     {
-        return *(end()-i-1);
+      return *(end()-i-1);
     }
 
-    using TokenArray::empty;
+  using TokenArray::empty;
         
-    void swap(void)
-    {
-      (end()-1)->swap(*(end()-2));
-    }
+  void swap(void)
+  {
+    (end()-1)->swap(*(end()-2));
+  }
+  
+  void swap(Token &e)
+  {
+    (end()-1)->swap(e);
+  }
 
-    void swap(Token &e)
-    {
-      (end()-1)->swap(e);
-    }
+  void index(size_t i)
+  {
+    push(pick(i));
+  }
 
-    void index(size_t i)
-    {
-      push(pick(i));
-    }
-
-    void roll(size_t n, long k)
-    {
-      if (k>=0)
+  void roll(size_t n, long k)
+  {
+    if (k>=0)
       {
 	rotate(end()-n,end()-(k%n),end());
       }
-      else 
+    else 
       {
 	rotate(end()-n,end()-(n+k)%n,end());
       }
-    }            
+  }            
             
-    size_t size(void) const        {return TokenArray::capacity();}
-    size_t load(void) const        {return TokenArray::size();} 
-
-    void dump(std::ostream &) const;
-
-    TokenArray toArray(void) const
-    {
-      return TokenArray(*this);
-    }
+  size_t size(void) const        {return TokenArray::capacity();}
+  size_t load(void) const        {return TokenArray::size();} 
+  
+  void dump(std::ostream &) const;
+  
+  TokenArray * toArray(void) const
+  {
+    return new TokenArray(*this);
+  }
     
 };
 }

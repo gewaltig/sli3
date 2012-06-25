@@ -37,7 +37,7 @@ namespace sli3
 	
 
 	/** 
-	 * Initialize from a Token.
+	 * Initialize from a Token. This function assumes that the object is uninitialized.
 	 */
 	Token & init(const Token &t);
 
@@ -151,23 +151,21 @@ namespace sli3
     inline
     Token::~Token()
     {
-      clear();
+      remove_reference();
     }
 
     inline
     void Token::clear()
     {
-      if (type_)
-	type_->remove_reference(*this);
+      remove_reference();
       type_=0;
-      data_=value();
+      //data_=value();
     }
 
     inline
     Token& Token::init(const Token&t)
     {
       t.add_reference();
-      remove_reference();
       type_=t.type_;
       data_=t.data_;
       return *this;
@@ -176,6 +174,7 @@ namespace sli3
     inline
     Token& Token::move( Token&t)
     {
+      clear();
       init(t);
       t.clear();
       return *this;
@@ -198,7 +197,8 @@ namespace sli3
     inline
     Token& Token::operator=(const Token &t)
     {
-	return init(t);
+      clear();
+      return init(t);
     }
 
     inline
