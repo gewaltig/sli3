@@ -135,10 +135,10 @@ namespace sli3
 	  BadErrorHandler("BadErrorHandler"),
 	  KernelError("KernelError"),
 	  InternalKernelError("InternalKernelError"),
-	  types_(),
 	  token_memory(),
 	  operand_stack_(100),
-	  execution_stack_(100)
+	  execution_stack_(100),
+	  types_()
     {
 	init();
 	parser_= new Parser();
@@ -210,11 +210,8 @@ namespace sli3
 
 	Token dict(types_[sli3::dictionarytype]);
 	dict.data_.dict_val=system_dict_;
-	std::cerr << "sys dict refs =" << system_dict_->references() << '\n';
 	system_dict_->insert(Name("systemdict"),dict);
-	std::cerr << "sys dict refs =" << system_dict_->references() << '\n';
 	dictionary_stack_.push(dict);
-	std::cerr << "sys dict refs =" << system_dict_->references() << '\n';
 	dictionary_stack_.set_basedict();
 	dict.data_.dict_val=error_dict_;
 	system_dict_->insert(Name("errordict"),dict);
@@ -618,8 +615,7 @@ namespace sli3
 				 + "' exists already.\n"
 				 "Please choose a different name!");
   
-	TokenRef t;
-	t.type_=types_[sli3::functiontype];
+	Token t(types_[sli3::functiontype]);
 	t.data_.func_val= fn;
 	fn->set_name(n);
 	dictionary_stack_.def(n, t);

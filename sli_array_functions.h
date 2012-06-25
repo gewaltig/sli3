@@ -318,7 +318,7 @@ class SLIArrayModule: public SLIModule
 
   /**
    * Test single double for finiteness.
-   * @todo This class does not really belong into sliarray, but is placed
+   * @todo This clasCoCs does not really belong into sliarray, but is placed
    * here since it is a Mathematica-style Q function.
    */
   class FiniteQ_dFunction : public SLIFunction

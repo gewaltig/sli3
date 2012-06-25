@@ -169,7 +169,7 @@ void IparseFunction::execute(SLIInterpreter *i) const
   {
     TokenArray *proc= i->EStack().pick(2).data_.array_val;   
     long &pos=i->EStack().pick(1).data_.long_val;
-    
+
     while( proc->index_is_valid(pos))
       {
 	const Token &t=proc->get(pos);

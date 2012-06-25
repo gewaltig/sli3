@@ -33,7 +33,7 @@ namespace sli3
 	Token();
 	Token(SLIType *);
 	Token(const Token &);
-	virtual ~Token();
+	~Token();
 	
 
 	/** 
@@ -151,38 +151,34 @@ namespace sli3
     inline
     Token::~Token()
     {
-	if(type_)
-	    type_->remove_reference(*this);
+      clear();
     }
 
     inline
     void Token::clear()
     {
-	if (type_)
-	    type_->remove_reference(*this);
-	type_=0;
-	data_=value();
+      if (type_)
+	type_->remove_reference(*this);
+      type_=0;
+      data_=value();
     }
 
     inline
     Token& Token::init(const Token&t)
     {
-	t.add_reference();
-	remove_reference();
-	type_=t.type_;
-	data_=t.data_;
-	return *this;
+      t.add_reference();
+      remove_reference();
+      type_=t.type_;
+      data_=t.data_;
+      return *this;
     }
 
     inline
     Token& Token::move( Token&t)
     {
-	t.add_reference();
-	remove_reference();
-	type_=t.type_;
-	data_=t.data_;
-	t.clear();
-	return *this;
+      init(t);
+      t.clear();
+      return *this;
     }
 
     inline
@@ -298,35 +294,15 @@ namespace sli3
     inline
     void Token::execute()
     {
-      if(type_==0)
-	throw InvalidToken();
-      type_->execute(*this);
+      if(type_)
+	{
+	  type_->execute(*this);
+	  return;
+	}
+      throw InvalidToken();
     }
 
 
-    class TokenRef: public Token
-    {
-    public:
-	TokenRef(): Token(){}
-	TokenRef(TokenRef &tr)
-	    {
-		type_=tr.type_;
-		data_=tr.data_;
-	    }
-	TokenRef(const Token&t)
-	    {
-		type_=t.type_;
-		data_=t.data_;
-	    }
-	
-	operator Token()
-	    {
-		Token t;
-		t.type_= type_;
-		t.data_= data_;
-		return t;
-	    }
-    };
 }
     
 #endif

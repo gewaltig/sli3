@@ -170,7 +170,7 @@ public:
   DictToken & lookup(Name n); //throws UndefinedName
   bool known( Name ) const;
   
-  DictToken & insert(Name , Token t);
+  DictToken & insert(Name , Token const &t);
 
   //! Remove entry from dictionary
   void remove(Name n);  
@@ -330,7 +330,7 @@ bool Dictionary::known(Name n) const
 }
 
 inline
-DictToken& Dictionary::insert(Name n, Token t)  
+DictToken& Dictionary::insert(Name n, Token const &t)  
 { 
     return TokenMap::operator[](n) = DictToken(t); 
 }
