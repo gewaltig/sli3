@@ -234,10 +234,15 @@ void TokenArray::erase(size_t i, size_t n)
 
 void TokenArray::clear(void)
 {
-    if(p)
-        delete [] p;
-    p = begin_of_free_storage = end_of_free_storage = NULL;
-    alloc_block_size = 1;
+  for(Token *t=p; t<end_of_free_storage; ++t)
+    {
+      if(t)
+	t->clear();
+    }
+  if(p)
+    delete [] p;
+  p = begin_of_free_storage = end_of_free_storage = NULL;
+  alloc_block_size = 1;
 }
 
 // reduce() could be further optimized by testing wether the

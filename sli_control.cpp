@@ -499,8 +499,6 @@ void CurrentnameFunction::execute(SLIInterpreter *i) const
 
 void DefFunction::execute(SLIInterpreter *i) const
 {
-        // Def should also check the "writeable" Flag of the
-        // name!
     i->require_stack_load(2);
     i->require_stack_type(1,sli3::literaltype);
 
@@ -536,8 +534,6 @@ SeeAlso: def, undef, begin, end
 */
 void SetFunction::execute(SLIInterpreter *i) const
 {
-         // Def should also check the "writeable" Flag of the
-        // name!
     i->require_stack_load(2);
     i->require_stack_type(0,sli3::literaltype);
 
@@ -1713,8 +1709,8 @@ void DebugFunction::execute(SLIInterpreter *i) const
 
 void SetVerbosityFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(1);
-    i->require_stack_type(0,sli3::integertype);
+  //    i->require_stack_load(1);
+  //  i->require_stack_type(0,sli3::integertype);
     long count= i->top().data_.long_val;
     i->set_verbosity(count);
     i->pop();
