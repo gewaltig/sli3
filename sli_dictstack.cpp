@@ -38,7 +38,7 @@ DictionaryStack::~DictionaryStack()
       (*i)->clear();
 }
 
-void DictionaryStack::undef(Name n)
+void DictionaryStack::undef(Name const & n)
 {
     
     size_t num_erased = 0;
@@ -55,7 +55,7 @@ void DictionaryStack::undef(Name n)
 #endif
 }
 
-void DictionaryStack::basedef( Name n, const Token &t)
+void DictionaryStack::basedef( Name const & n, const Token &t)
 {
   //
   // insert (n,t) in bottom level dictionary

@@ -175,16 +175,15 @@ void IfFunction::execute(SLIInterpreter *i) const
         //          1    0
     i->require_stack_load(2);
     i->EStack().pop();
-    Token &val=i->pick(1);
-    if(val==true )
+    if(i->pick(1)==true)
     {
+	i->EStack().push(i->top());
 	if(i->step_mode())
 	{
 	    std::cerr << "if:"
 		      << " Executing true branch."
 		      << std::endl;
 	}
-	i->EStack().push(i->top());
     }
     i->pop(2);
 }
@@ -215,8 +214,7 @@ void IfelseFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(3);
     i->EStack().pop();
 
-    Token &val=i->pick(1);
-    if(val==true )
+    if(i->pick(1)==true )
     {
 	if(i->step_mode())
 	{
@@ -560,9 +558,7 @@ void LoadFunction::execute(SLIInterpreter *i) const
 
     Name name(i->top().data_.name_val);
 
-    Token contents= i->lookup(name); // thows an exception if name is undefined
-    i->pop();
-    i->push(contents);
+    i->top()=i->lookup(name);
     i->EStack().pop();
 }
 

@@ -101,7 +101,7 @@ void Dictionary::add_dict(const std::string& target,
       }
 }
 */
-void Dictionary::remove(Name n)
+void Dictionary::remove(Name const & n)
 {
   TokenMap::iterator it = find(n);
   if ( it != end() )
