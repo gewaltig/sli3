@@ -60,17 +60,12 @@ namespace sli3
     */
     enum opcode
     {
-	i_pop=0,
-	i_iterate,
-	i_repeat,
-	i_loop,
-	i_for,
-	i_forall,
-	i_forall_array,
-	i_forall_string,
-	i_forall_indexedarray,
-	i_forall_indexedstring,
-	num_opcodes
+      i_lookup, // lookup a name
+      i_move, // Move token to operand stack
+      i_iterate, // iterate a procedure
+      i_repeat, // iterate a repeat loop
+      i_for, // iterate a for loop
+      num_opcodes
     };
 	
     class SLIInterpreter
@@ -120,6 +115,7 @@ namespace sli3
 	 */
 	int execute_(size_t level=0);
 	int execute_debug_(size_t level=0);
+	int execute_dispatch_(size_t level=0);
 
 	void createdouble(Name , double);
 	void createcommand(Name, SLIFunction *);
@@ -530,6 +526,7 @@ namespace sli3
 	IforallindexedarrayFunction iforallindexedarrayfunction;
 	IforallindexedstringFunction iforallindexedstringfunction;
 	IforallstringFunction iforallstringfunction;
+	ArraycreateFunction arraycreatefunction;
 
     private:
 	bool is_initialized_;

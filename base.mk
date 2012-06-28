@@ -16,10 +16,13 @@
 ### mog. 3/1996
 
 ## C++ specific flags
-CC=g++
+#CC=gcc-mp-4.6
+#CXX=g++-mp-4.6
+CC=gcc
+CXX=g++
 GDB=-g
 CCFLAGS= -O2 $(GDB) -Wall
-CXXFLAGS= -O2 $(GDB) -Wall
+CXXFLAGS= -O2 $(GDB) -Wall -pedantic
 
 ## Linker flags
 LDLIBS= -lstdc++

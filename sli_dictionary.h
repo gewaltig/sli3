@@ -167,7 +167,7 @@ public:
    *       dictionary read-out is set on the Token in the dictionary,
    *       not its copy.  
    */
-  bool lookup(Name const &, DictToken &);
+  bool lookup(Name const &, Token &);
   DictToken & lookup(Name const & n); //throws UndefinedName
   bool known( Name const & ) const;
   
@@ -298,7 +298,7 @@ public:
 };
 
  inline
-   bool Dictionary::lookup(Name const & n, DictToken &result)
+   bool Dictionary::lookup(Name const & n, Token &result)
    {
      TokenMap::iterator where = find(n);
      if(where != end())

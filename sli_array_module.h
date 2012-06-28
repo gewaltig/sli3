@@ -91,11 +91,6 @@ class SLIArrayModule: public SLIModule
     void execute(SLIInterpreter *) const;
   };
 
-  class ArraycreateFunction: public SLIFunction
-  {
-    public:
-    void execute(SLIInterpreter *) const;
-  };
 
   class ReverseFunction: public SLIFunction
   {
