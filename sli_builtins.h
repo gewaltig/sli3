@@ -125,6 +125,11 @@ namespace sli3
   };
  
 
+  class ArraycreateFunction: public SLIFunction
+  {
+    public:
+    void execute(SLIInterpreter *) const;
+  };
  
 }
 #endif

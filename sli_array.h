@@ -124,9 +124,9 @@ class TokenArray
       //      return p[i];
     }
 
-    bool index_is_valid(long i) const
+    bool index_is_valid(size_t i) const
     {
-      return (i>=0) and ((p+i) < begin_of_free_storage);
+      return ((p+i) < begin_of_free_storage);
     }
 
     void rotate(Token *, Token *, Token *);
@@ -162,16 +162,15 @@ class TokenArray
     void resize(size_t, size_t, const Token & = Token());
     void resize(size_t, const Token & = Token());
 
-    void reserve_token(size_t n)
+    void reserve_token(int n)
     {
-      if(capacity()<size()+1+n)
+      if((end_of_free_storage-begin_of_free_storage) < n)
       	reserve(size()+n);
     }
         // Insertion, deletion
     void push_back(const Token &t)
     {
-      if(capacity()<size()+1)
-      	reserve(size()+alloc_block_size);
+      reserve_token(1);
       (begin_of_free_storage++)->init(t);
     }
 

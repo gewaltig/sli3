@@ -71,12 +71,6 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
   
-  class QuitFunction: public SLIFunction
-  {
-  public:
-    QuitFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
   
   class IfFunction: public SLIFunction
   {

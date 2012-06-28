@@ -7,10 +7,22 @@ namespace sli3
   class LiteralType: public SLIType
   {
   public:
-      LiteralType(SLIInterpreter *sli, char const name[], sli_typeid type)
-	:SLIType(sli, name, type){executable_=false;}
+  LiteralType(SLIInterpreter *sli, char const name[], sli_typeid type, bool exec=false)
+	:SLIType(sli, name, type,exec){}
 
     bool compare(const Token&t1, const Token&t2) const;
+    std::ostream & print(std::ostream&, const Token &) const;
+  };
+
+  class NameType: public LiteralType
+  {
+  public:
+      NameType(SLIInterpreter *sli, char const name[], sli_typeid type)
+	:LiteralType(sli, name, type,true)
+      {}
+    
+    void execute(Token &);
+
     std::ostream & print(std::ostream&, const Token &) const;
   };
 
@@ -23,29 +35,31 @@ namespace sli3
     std::ostream & print(std::ostream&, const Token &) const;
   };
 
-  /**
-   * Marks is a special literal. To process it more efficiently,
-   * we devote a special type to it.
-   */
   class MarkType: public LiteralType
   {
   public:
   MarkType(SLIInterpreter *sli, char const name[], sli_typeid type)
     :LiteralType(sli, name, type){}
-    
     std::ostream & print(std::ostream&, const Token &) const;
   };
 
-  class NameType: public LiteralType
+
+  /**
+   * Operators are special types that are executed inside the interpreter loop.
+   */
+
+  template<sli_typeid type>
+  class OperatorType: public LiteralType
   {
   public:
-      NameType(SLIInterpreter *sli, char const name[], sli_typeid type)
-	  :LiteralType(sli, name, type)
-      {executable_ =true;}
-    
-    void execute(Token &);
+  OperatorType(SLIInterpreter *sli, char const name[])
+    :LiteralType(sli, name, type, true){}
 
-    std::ostream & print(std::ostream&, const Token &) const;
+    std::ostream & print(std::ostream& out, const Token &) const
+      {
+	out << "::" << get_typename();
+	return out;
+      }
   };
 
 

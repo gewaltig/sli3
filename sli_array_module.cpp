@@ -309,14 +309,15 @@ void SLIArrayModule::SortFunction::execute(SLIInterpreter *i) const
 	std::vector<std::string> vd;
 	td.toVector(vd);
 	std::sort(vd.begin(),vd.end());
-	i->OStack.pop();
-	ArrayDatum* output = new ArrayDatum;
+	i->pop();
+	TokenArray* output = new TokenArray();
+	output->reserve(vd.size());
 	for(size_t c = 0; c < vd.size(); ++c)
 	{
-	    StringDatum *sd= new StringDatum(vd[c]);
-	    output->push_back(Token(sd));
+	    SLIString *sd= new SLIString(vd[c]);
+	    output->push_back(i->new_token<sli3::stringtype>(sd));
 	}
-	i->OStack.push(output);
+	i->push(i->new_token<sli3::arraytype>(output));
 	i->EStack.pop();
 	return;
     }
@@ -588,45 +589,6 @@ void SLIArrayModule::ArraystoreFunction::execute(SLIInterpreter *i) const
   } else i->raiseerror(i->RangeCheckError);
 }
 
-void SLIArrayModule::ArraycreateFunction::execute(SLIInterpreter *i) const
-{
-//  call: mark t1 ... tn  arraycreate -> array
-  if(i->OStack.load()==0)
-  {
-    i->message(SLIInterpreter::M_ERROR, "arraycreate","Opening bracket missing.");
-    i->raiseerror("SyntaxError");
-    return;
-  }
-
-  size_t depth = i->OStack.load();
-  size_t n   = 0;
-  const Token mark_token(new LiteralDatum(i->mark_name));
-  bool found = false;
-
-  while( (n < depth) && !found)
-  {
-    found = (i->OStack.pick(n) == mark_token);
-    ++n;
-  }
-
-  if(found)
-  {
-    ArrayDatum *ad= new ArrayDatum();
-    ad->reserve(n-1);
-    Token at(ad);
-    for(size_t l=2; l <= n; ++l)
-      ad->push_back_move(i->OStack.pick(n-l));
-    i->OStack.pop(n);
-    i->OStack.push_move(at);
-    i->EStack.pop();
-  }
-  else
-  {
-    i->message(SLIInterpreter::M_ERROR, "arraycreate","Opening bracket missing.");
-    i->raiseerror("SyntaxError");
-    return;
-  }
-}
 
 void SLIArrayModule::IMapFunction::backtrace(SLIInterpreter *i, int p) const
 {
@@ -2351,11 +2313,7 @@ void SLIArrayModule::init(SLIInterpreter *i)
   i->createcommand("Range", &rangefunction);
   i->createcommand("arrayload", &arrayloadfunction);
   i->createcommand("arraystore", &arraystorefunction);
-  i->createcommand("arraycreate", &arraycreatefunction);
 
-#ifdef PS_ARRAYS
-  i->createcommand("]", &arraycreatefunction);
-#endif
 
   i->createcommand("valid_a", &validfunction);
   i->createcommand("area", &areafunction);

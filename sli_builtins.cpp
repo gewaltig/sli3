@@ -223,7 +223,7 @@ void IforFunction::execute(SLIInterpreter *i) const
 {
   TokenArray *proc= i->EStack().pick(2).data_.array_val;   
   long &pos=i->EStack().pick(1).data_.long_val;
- 
+  
   while( proc->index_is_valid(pos))
     {
       const Token &t= proc->get(pos);
@@ -240,19 +240,19 @@ void IforFunction::execute(SLIInterpreter *i) const
   long &lim=i->EStack().pick(4).data_.long_val;
   long &inc=i->EStack().pick(5).data_.long_val;
         
-  if(( (inc> 0) && (count <= lim)) ||
-     ( (inc< 0) && (count >= lim)))
+   if(( (inc> 0) && (count <= lim)) ||
+      ( (inc< 0) && (count >= lim)))
     {
-      pos=0;                        // reset procedure interator
-      
-      i->push(i->EStack().pick(3)); // push counter to user
-      count += inc;                 // increment loop counter
+	pos=0;                        // reset procedure interator
+	
+	i->push(i->EStack().pick(3)); // push counter to user
+	count += inc;                 // increment loop counter
     }
   else
-    {
+  {
       i->EStack().pop(7);
       i->dec_call_depth();
-    }
+  }
 }
   
 void IforFunction::backtrace(SLIInterpreter *i, int p) const
@@ -502,6 +502,36 @@ void IforallstringFunction::execute(SLIInterpreter *i) const
       i->dec_call_depth();
     }
 
+}
+
+void ArraycreateFunction::execute(SLIInterpreter *i) const
+{
+//  call: mark t1 ... tn  arraycreate -> array
+    size_t depth = i->load();
+    size_t n   = 0;
+    bool found = false;
+
+    while( (n < depth) && !found)
+    {
+	found = (i->pick(n++).is_of_type(sli3::marktype));
+    }
+
+    if(found)
+    {
+	TokenArray *ad= new TokenArray();
+	ad->resize(n-1);
+	for(size_t l=2; l <= n; ++l)
+	    (*ad)[l-2].init((i->pick(n-l)));
+	i->pop(n);
+	i->push(i->new_token<sli3::arraytype>(ad));
+	i->EStack().pop();
+    }
+    else
+    {
+	i->message(sli3::M_ERROR, "arraycreate","Opening bracket missing.");
+	i->raiseerror("SyntaxError");
+	return;
+    }
 }
 
 

@@ -259,19 +259,19 @@ SeeAlso: for, loop, exit
 */
 void RepeatFunction::execute(SLIInterpreter *i) const
 {
+    static const Token mark_t=i->new_token<sli3::marktype>();
+    static const Token repeat_t= i->baselookup(i->irepeat_name);
 
     i->require_stack_load(2);
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::integertype);
 
-    i->EStack().pop();
     TokenArray *proc= i->top().data_.array_val;
-    i->EStack().push(i->new_token<sli3::marktype>());
+    i->EStack().top()=mark_t;
     i->EStack().push(i->pick(1));
     i->EStack().push(i->pick(0));
     i->EStack().push(i->new_token<sli3::integertype>(proc->size()));
-    i->EStack().push(i->baselookup(i->irepeat_name));
-    i->inc_call_depth();
+    i->EStack().push(repeat_t);
     i->pop(2);
 }
 
@@ -500,9 +500,7 @@ void DefFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(2);
     i->require_stack_type(1,sli3::literaltype);
 
-    Name name(i->pick(1).data_.name_val);
-
-    i->def(name,i->top());
+    i->def(i->pick(1).data_.name_val,i->top());
     i->pop(2);
     i->EStack().pop();
 }
@@ -621,22 +619,25 @@ SeeAlso: repeat, exit, loop
 */
 void ForFunction::execute(SLIInterpreter *i) const
 {
+
+    static const Token for_t=i->baselookup(i->ifor_name);
+    static const Token mark_t=i->new_token<sli3::marktype>();
+
     i->require_stack_load(4);
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::integertype);
     i->require_stack_type(2,sli3::integertype);
     i->require_stack_type(3,sli3::integertype);
 
-    i->EStack().pop();
     TokenArray *proc= i->top().data_.array_val;
 
-    i->EStack().push(i->new_token<sli3::marktype>());
+    i->EStack().top()=mark_t;
     i->EStack().push(i->pick(2));      // increment
     i->EStack().push(i->pick(1));      // limit
     i->EStack().push(i->pick(3));      // counter
     i->EStack().push(i->pick(0));      // procedure
     i->EStack().push(i->new_token<sli3::integertype>(proc->size()));
-    i->EStack().push(i->baselookup(i->ifor_name)); // %for
+    i->EStack().push(for_t); // %for
     i->inc_call_depth();
     i->pop(4);
 }
@@ -1041,10 +1042,7 @@ POSIX Programmer's Manual.
 
 SeeAlso: exit
 */
-void QuitFunction::execute(SLIInterpreter *i) const
-{
-  i->EStack().clear();
-}
+
 
 /*BeginDocumentation
 Name: exec - execute an object
@@ -1233,25 +1231,26 @@ void CounttomarkFunction::execute(SLIInterpreter *i) const
 
 void PclocksFunction::execute(SLIInterpreter *i) const
 {
-//   struct tms foo;
-//   const clock_t realtime = times(&foo);
+   struct tms foo;
+   const clock_t realtime = times(&foo);
 
-//   if ( realtime == (clock_t)(-1) )
-//   {
-//     i->message(sli3::M_ERROR, "PclocksFunction",
-// 	     "System function times() returned error!");
-// //    i->raiseerror(Processes::systemerror(i));
-//     i->raiseerror("SystemError");
-//     return;
-//   }
+   if ( realtime == (clock_t)(-1) )
+   {
+     i->message(sli3::M_ERROR, "PclocksFunction",
+ 	     "System function times() returned error!");
+     i->raiseerror("SystemError");
+     return;
+   }
 
-//   TokenArray *result= new TokenArray();
-//   result->push_back(i->new_token<long>(realtime));
-//   result->push_back(i->new_token<long>(foo.tms_utime));
-//   result->push_back(i->new_token<long>(foo.tms_stime));
-//   result->push_back(i->new_token<long>(foo.tms_cutime));
-//   result->push_back(i->new_token<long>(foo.tms_cstime));
-//    i->push<sli3::arraytype>(result);
+   Token result(i->get_type(sli3::arraytype));
+   result.data_.array_val= new TokenArray();
+   result.data_.array_val->reserve(5);
+   result.data_.array_val->push_back(i->new_token<sli3::integertype>((long)realtime));
+   result.data_.array_val->push_back(i->new_token<sli3::integertype>((long)foo.tms_utime));
+   result.data_.array_val->push_back(i->new_token<sli3::integertype>((long)foo.tms_stime));
+   result.data_.array_val->push_back(i->new_token<sli3::integertype>((long)foo.tms_cutime));
+   result.data_.array_val->push_back(i->new_token<sli3::integertype>((long)foo.tms_cstime));
+   i->push(result);
 
   i->EStack().pop();
 }
@@ -1311,7 +1310,6 @@ void PgetrusageFunction::execute(SLIInterpreter *i) const
   {
     i->message(sli3::M_ERROR, "PgetrusageFunction",
 	     "System function getrusage() returned error for self!");
-//    i->raiseerror(Processes::systemerror(i));
     i->raiseerror("SystemError");
     return;
   }
@@ -1320,7 +1318,6 @@ void PgetrusageFunction::execute(SLIInterpreter *i) const
   {
     i->message(sli3::M_ERROR, "PgetrusageFunction",
 	     "System function getrusage() returned error for children!");
-//    i->raiseerror(Processes::systemerror(i));
     i->raiseerror("SystemError");
     return;
   }
@@ -1776,7 +1773,6 @@ void NoopFunction::execute(SLIInterpreter *i) const
  EStackdumpFunction        estackdumpfunction;
  LoopFunction             loopfunction;
  ExitFunction             exitfunction;
- QuitFunction             quitfunction;
  IfFunction               iffunction;
  IfelseFunction           ifelsefunction;
  RepeatFunction           repeatfunction;
@@ -1862,7 +1858,6 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("ostackdump",  &ostackdumpfunction);
   i->createcommand("loop",  &loopfunction);
   i->createcommand("exit",  &exitfunction);
-  i->createcommand("quit",  &quitfunction);
   i->createcommand("if",    &iffunction);
   i->createcommand("ifelse",&ifelsefunction);
   i->createcommand("repeat",&repeatfunction);

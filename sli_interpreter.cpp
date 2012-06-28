@@ -8,6 +8,7 @@
 #include "sli_numerics.h"
 #include "sli_parser.h"
 #include "sli_control.h"
+#include <time.h>
 
 /* BeginDocumentation
  Name: Pi - Value of the constant Pi= 3.1415...
@@ -136,8 +137,8 @@ namespace sli3
 	  KernelError("KernelError"),
 	  InternalKernelError("InternalKernelError"),
 	  token_memory(),
-	  operand_stack_(100),
-	  execution_stack_(100),
+	  operand_stack_(1000),
+	  execution_stack_(1000),
 	  types_()
     {
 	init();
@@ -185,6 +186,10 @@ namespace sli3
 	types_[sli3::proceduretype]=(new ProcedureType(this,"proceduretype",sli3::proceduretype));
 	types_[sli3::dictionarytype]=(new DictionaryType(this,"dictionarytype",sli3::dictionarytype));
 	types_[sli3::functiontype]=(new FunctionType(this,"functiontype",sli3::functiontype));
+	types_[sli3::iiteratetype]=(new OperatorType<sli3::iiteratetype>(this,"proc_continue"));
+	types_[sli3::irepeattype]=(new OperatorType<sli3::irepeattype>(this,"repeat_continue"));
+	types_[sli3::ifortype]=(new OperatorType<sli3::ifortype>(this,"for_continue"));
+	types_[sli3::quittype]=(new OperatorType<sli3::quittype>(this,"quit"));
     }
 
     void SLIInterpreter::init_message_tags()
@@ -230,7 +235,8 @@ namespace sli3
 	createcommand(ipop_name,         &ilookupfunction);
 	createcommand(iiterate_name,     &iiteratefunction);
 	createcommand(iloop_name,        &iloopfunction);
-	createcommand(irepeat_name,      &irepeatfunction);
+	system_dict_->insert(irepeat_name, Token(types_[sli3::irepeattype]));
+	system_dict_->insert(Name("quit"), Token(types_[sli3::quittype]));
 	createcommand(ifor_name,         &iforfunction);
 	createcommand(iforallarray_name, &iforallarrayfunction);
 	createcommand(iforalliter_name,  &iforalliterfunction);
@@ -239,6 +245,7 @@ namespace sli3
 	createcommand(iforallindexedarray_name, 
 		      &iforallindexedarrayfunction);
 	createcommand(iforallstring_name,&iforallstringfunction);
+	createcommand("]", &arraycreatefunction);
 	
 	createdouble(pi_name, numerics::pi);
 	createdouble(e_name, numerics::e);
@@ -472,6 +479,7 @@ namespace sli3
 	case 1:
 	    return execute_debug_(); // run the interpreter in debug mode
 	case 2:
+	    return execute_dispatch_();
 	default:
 	    return -1;
 	}
@@ -594,6 +602,207 @@ namespace sli3
     
     return exitcode;
   }
+
+  int SLIInterpreter::execute_dispatch_(size_t exitlevel)
+  {
+    int exitcode;
+//    const Token iiterate_t=baselookup(iiterate_name);
+    const Token null_val=new_token<sli3::integertype>(0);
+    SLIType* iiterate_t=types_[sli3::iiteratetype];
+    SLIType* proc_type= types_[sli3::proceduretype];
+
+    if(sli3::signalflag !=0)
+      {
+	return sli3::unknown_error;
+      }
+    
+    try
+      {
+	do { //loop1  this double loop to keep the try/catch outside the inner loop
+	  try
+	    { 
+	      while(execution_stack_.load() > exitlevel) // loop 2
+	      {
+		  ++cycle_count_;
+
+		  while(not execution_stack_.top().is_executable())
+		  {
+		      operand_stack_.push(execution_stack_.top());
+		      execution_stack_.pop();
+		  }
+
+		  switch(execution_stack_.top().type_->get_typeid())
+		  {
+		  case sli3::nametype:
+		  {
+		      Token &t=lookup(execution_stack_.top().data_.long_val);
+		      if(t.is_executable())
+			  execution_stack_.top()=t;
+		      else
+		      {
+			  operand_stack_.push(t);
+			  execution_stack_.pop();
+		      }
+		      break;
+		  }
+		  case sli3::litproceduretype:
+		      execution_stack_.top().type_=proc_type;
+		      operand_stack_.push(execution_stack_.top());
+		      execution_stack_.pop();
+		      break;
+
+		  case sli3::proceduretype:
+		      execution_stack_.push(null_val);
+		      execution_stack_.push(iiterate_t);
+
+		  case sli3::iiteratetype:
+		  {
+		      TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
+		      long &pos=  execution_stack_.pick(1).data_.long_val;
+		      
+		  start_iterate:
+		      if(proc->index_is_valid(pos))
+		      {
+			  const Token &t=proc->get(pos++);
+			  if(not t.is_executable())
+			  {
+			      operand_stack_.push(t);
+			      if(not proc->index_is_valid(pos))
+			      {
+				  execution_stack_.pop(3);
+				  break; 
+			      }
+			      goto start_iterate;
+			  }
+			  if(not proc->index_is_valid(pos))
+			  {
+			      proc->add_reference();
+			      execution_stack_.pick(2)=t;
+			      proc->remove_reference();
+			      execution_stack_.pop(2);
+			      break; 
+			  }
+			  execution_stack_.push(t);
+			  break; 
+		      }
+		      // This point is only reached for empty procedures
+		      execution_stack_.pop(3);
+		      break;
+		  }
+
+		  case sli3::irepeattype:
+		  {
+		      TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
+		      long &pos=        execution_stack_.pick(1).data_.long_val;
+		      
+		  start_repeat:
+		      if( proc->index_is_valid(pos))
+		      {
+			  const Token &t=proc->get(pos);
+			  ++pos;
+			  if( t.is_executable())
+			  {
+			      execution_stack_.push(t);
+			      break;
+			  }
+			  operand_stack_.push(t);
+			  goto start_repeat; // we must use goto here, so that break exits the case label rather than the while loop.
+		      }
+		      
+		      long &lc=execution_stack_.pick(3).data_.long_val;
+		      if( lc > 0 )
+		      {
+			  pos=0;     // reset procedure iterator
+			  --lc;
+		      }
+		      else
+		      {
+			  execution_stack_.pop(5);
+		      }
+		      break;
+		  }
+
+		  case sli3::ifortype:
+		  {
+		      TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
+		      long &pos=execution_stack_.pick(1).data_.long_val;
+		  start_for:
+		      if(proc->index_is_valid(pos))
+		      {
+			  const Token &t=proc->get(pos);
+		  	  ++pos;
+		  	  if(t.is_executable())
+			  {
+		  	      execution_stack_.push(t);
+			      break;
+			  }
+			  operand_stack_.push(t);
+			  goto start_for; // We use goto so that 'break' exits 'case' rather than 'while' 
+		      }
+		      
+		      long &count=execution_stack_.pick(3).data_.long_val;
+		      long &lim=execution_stack_.pick(4).data_.long_val;
+		      long &inc=execution_stack_.pick(5).data_.long_val;
+		      
+		      if(( (inc> 0) && (count <= lim)) ||
+			 ( (inc< 0) && (count >= lim)))
+		      {
+			  pos=0;                        // reset procedure interator
+			  
+			  operand_stack_.push(execution_stack_.pick(3)); // push counter to user
+			  count += inc;                                  // increment loop counter
+			  break;
+		      }
+		      else
+			  execution_stack_.pop(7);
+		      break;
+		  }
+		  case sli3::quittype:
+		      goto exit_interpreter;
+		  default:
+		      execution_stack_.top().execute();
+		  }
+		}
+	    }
+	  catch(std::exception &exc)
+	    {
+	      message(M_ERROR, "SLIInterpreter","A C++ library exception was caught.");
+	      operand_stack_.dump(std::cerr);
+	      execution_stack_.dump(std::cerr);
+	      message(M_ERROR, "SLIInterpreter",exc.what());
+	      //raiseerror(exc);
+	      execution_stack_.pop();
+	    }
+	} while(execution_stack_.load() > exitlevel);
+      }
+    catch(std::exception &e)
+      {
+	message(M_FATAL, "SLIInterpreter","A C++ library exception occured.");
+	operand_stack_.dump(std::cerr);
+	execution_stack_.dump(std::cerr);
+	message(M_FATAL, "SLIInterpreter",e.what());
+	terminate(sli3::exception);
+      }
+    catch(...)
+      {
+	message(M_FATAL, "SLIInterpreter","An unknown c++ exception occured.");
+	operand_stack_.dump(std::cerr);
+	execution_stack_.dump(std::cerr);
+	terminate(sli3::exception);
+      } 
+
+  exit_interpreter:
+    Token exit_tk;
+    if(status_dict_->lookup(Name("exitcode"), exit_tk)) // This throws an exception if the entry is not found.
+    {
+	exitcode = exit_tk.data_.long_val;
+    }
+
+    if (exitcode != 0)
+	error_dict_->insert(quitbyerror_name,new_token<sli3::booltype>(true));
+    
+    return exitcode;
+  }
   
   void SLIInterpreter::createdouble(Name n, double val)
   {
@@ -713,9 +922,9 @@ void SLIInterpreter::message(std::ostream& out, const char levelname[],
 {
   const unsigned buflen=30;
   char timestring[buflen+1]="";
-  const time_t tm = std::time(NULL);
+  const time_t tm = ::time(NULL);
 
-  std::strftime(timestring,buflen,"%b %d %H:%M:%S",std::localtime(&tm));
+  ::strftime(timestring,buflen,"%b %d %H:%M:%S",::localtime(&tm));
 
   std::string msg = 
     String::compose("%1 %2 [%3]: ", timestring, from, levelname); 

@@ -15,7 +15,7 @@ int main()
 	      << "Array: " << sizeof(sli3::TokenArray) <<'\n'
  	      << "Dictionary: " << sizeof(sli3::Dictionary) <<'\n'
 	      << "token::value: " << sizeof(sli3::Token::value) <<'\n';
-    engine.execute();
+    engine.execute(2);
 
     std::cerr << "Allocations: " << sli3::TokenArray::allocations << '\n';
     return 0;
