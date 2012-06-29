@@ -22,7 +22,9 @@ CC=clang
 CXX=clang
 GDB=-g
 CCFLAGS= -O2 $(GDB) -Wall
-CXXFLAGS= -O2 $(GDB) -I/opt/local/include -Wall -pedantic
+#CXXFLAGS= -O3 $(GDB) -I/opt/local/include -Wall -pedantic
+
+CXXFLAGS= -O3 -Wall -pedantic
 
 ## Linker flags
 LDLIBS= -lstdc++

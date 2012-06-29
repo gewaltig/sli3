@@ -21,6 +21,8 @@
 namespace sli3
 {
 
+sli3::pool TokenArray::memory(sizeof(TokenArray),10240,1);
+
 size_t TokenArray::allocations=0;
 
     TokenArray::TokenArray(size_t s, const Token &t, size_t alloc)

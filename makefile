@@ -22,7 +22,9 @@ CC=clang
 CXX=clang
 GDB=-g
 CCFLAGS= -O2 $(GDB) -Wall
-CXXFLAGS= -O2 $(GDB) -I/opt/local/include -Wall -pedantic
+#CXXFLAGS= -O3 $(GDB) -I/opt/local/include -Wall -pedantic
+
+CXXFLAGS= -O3 -Wall -pedantic
 
 ## Linker flags
 LDLIBS= -lstdc++
@@ -189,7 +191,7 @@ sli_array.o: sli_array.cpp sli_array.h /usr/include/c++/4.2.1/typeinfo \
   /usr/include/c++/4.2.1/bits/deque.tcc sli_exceptions.h \
   /usr/include/c++/4.2.1/vector /usr/include/c++/4.2.1/bits/stl_vector.h \
   /usr/include/c++/4.2.1/bits/stl_bvector.h \
-  /usr/include/c++/4.2.1/bits/vector.tcc
+  /usr/include/c++/4.2.1/bits/vector.tcc sli_allocator.h
 sli_token.o: sli_token.cpp sli_token.h /usr/include/c++/4.2.1/iostream \
   /usr/include/c++/4.2.1/bits/c++config.h \
   /usr/include/c++/4.2.1/bits/os_defines.h /usr/include/unistd.h \
@@ -507,8 +509,8 @@ sli_arraytype.o: sli_arraytype.cpp sli_arraytype.h sli_type.h \
   /usr/include/c++/4.2.1/bits/istream.tcc sli_token.h sli_exceptions.h \
   /usr/include/c++/4.2.1/vector /usr/include/c++/4.2.1/bits/stl_vector.h \
   /usr/include/c++/4.2.1/bits/stl_bvector.h \
-  /usr/include/c++/4.2.1/bits/vector.tcc sli_array.h sli_interpreter.h \
-  sli_allocator.h sli_integertype.h SLI_token.h sli_tokenstack.h \
+  /usr/include/c++/4.2.1/bits/vector.tcc sli_array.h sli_allocator.h \
+  sli_interpreter.h sli_integertype.h SLI_token.h sli_tokenstack.h \
   sli_string.h sli_dictionary.h sli_dictstack.h \
   /usr/include/c++/4.2.1/list /usr/include/c++/4.2.1/bits/stl_list.h \
   /usr/include/c++/4.2.1/bits/list.tcc sli_builtins.h sli_function.h
@@ -723,7 +725,8 @@ sli_integertype.o: sli_integertype.cpp sli_integertype.h sli_type.h \
   /usr/include/c++/4.2.1/bits/istream.tcc SLI_token.h sli_exceptions.h \
   /usr/include/c++/4.2.1/vector /usr/include/c++/4.2.1/bits/stl_vector.h \
   /usr/include/c++/4.2.1/bits/stl_bvector.h \
-  /usr/include/c++/4.2.1/bits/vector.tcc sli_array.h sli_token.h
+  /usr/include/c++/4.2.1/bits/vector.tcc sli_array.h sli_token.h \
+  sli_allocator.h
 sli_nametype.o: sli_nametype.cpp sli_nametype.h sli_type.h \
   /usr/include/c++/4.2.1/string /usr/include/c++/4.2.1/bits/c++config.h \
   /usr/include/c++/4.2.1/bits/os_defines.h /usr/include/unistd.h \
@@ -1228,7 +1231,7 @@ sli_tokenstack.o: sli_tokenstack.cpp sli_tokenstack.h sli_token.h \
   /usr/include/c++/4.2.1/bits/deque.tcc sli_exceptions.h \
   /usr/include/c++/4.2.1/vector /usr/include/c++/4.2.1/bits/stl_vector.h \
   /usr/include/c++/4.2.1/bits/stl_bvector.h \
-  /usr/include/c++/4.2.1/bits/vector.tcc sli_array.h
+  /usr/include/c++/4.2.1/bits/vector.tcc sli_array.h sli_allocator.h
 sli_name.o: sli_name.cpp sli_name.h /usr/include/c++/4.2.1/cassert \
   /usr/include/assert.h /usr/include/sys/cdefs.h \
   /usr/include/sys/_symbol_aliasing.h \
