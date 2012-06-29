@@ -73,7 +73,7 @@ class TokenArray
 	     refs_(1)
     {
       ++allocations;
-    };
+    }
     
     TokenArray(size_t , const Token & = Token(), size_t =  0);
     TokenArray(const TokenArray&);

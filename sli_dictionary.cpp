@@ -26,6 +26,8 @@
 namespace sli3
 {
 
+sli3::pool Dictionary::memory(sizeof(Dictionary),10240,1);
+
 Dictionary::~Dictionary()
 {
     clear();

@@ -54,13 +54,15 @@ namespace sli3
        */
       Name()                  : handle_(0) {}
       Name(long h)            : handle_(h)
-	  {
-	      assert(handle_ >=0 and handle_<handleTableInstance_().size());
-	  }
+	  {}
       
       Name(const char s[])       : handle_(insert(std::string(s))) {} 
       Name(const std::string &s) : handle_(insert(s)) {}
       Name(const Name &n)        : handle_(n.handle_) {}
+      operator int() const
+      {
+	return handle_;
+      }
       
       /**
        * Return string represented by Name.

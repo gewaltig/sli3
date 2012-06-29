@@ -174,10 +174,9 @@ void IfFunction::execute(SLIInterpreter *i) const
         // OStack: bool proc
         //          1    0
     i->require_stack_load(2);
-    i->EStack().pop();
     if(i->pick(1)==true)
     {
-	i->EStack().push(i->top());
+	i->EStack().top()=i->top();
 	if(i->step_mode())
 	{
 	    std::cerr << "if:"
@@ -185,6 +184,9 @@ void IfFunction::execute(SLIInterpreter *i) const
 		      << std::endl;
 	}
     }
+    else
+	i->EStack().pop();
+    
     i->pop(2);
 }
 
@@ -259,15 +261,15 @@ SeeAlso: for, loop, exit
 */
 void RepeatFunction::execute(SLIInterpreter *i) const
 {
-    static const Token mark_t=i->new_token<sli3::marktype>();
-    static const Token repeat_t= i->baselookup(i->irepeat_name);
+    static SLIType* mark_t= i->get_type(sli3::marktype);
+    static SLIType* repeat_t= i->get_type(sli3::irepeattype);
 
     i->require_stack_load(2);
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::integertype);
 
     TokenArray *proc= i->top().data_.array_val;
-    i->EStack().top()=mark_t;
+    i->EStack().top().type_=mark_t;
     i->EStack().push(i->pick(1));
     i->EStack().push(i->pick(0));
     i->EStack().push(i->new_token<sli3::integertype>(proc->size()));
@@ -620,8 +622,8 @@ SeeAlso: repeat, exit, loop
 void ForFunction::execute(SLIInterpreter *i) const
 {
 
-    static const Token for_t=i->baselookup(i->ifor_name);
-    static const Token mark_t=i->new_token<sli3::marktype>();
+    static SLIType* for_t=i->get_type(sli3::ifortype);
+    static SLIType* mark_t=i->get_type(sli3::marktype);
 
     i->require_stack_load(4);
     i->require_stack_type(0,sli3::proceduretype);
@@ -629,14 +631,12 @@ void ForFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(2,sli3::integertype);
     i->require_stack_type(3,sli3::integertype);
 
-    TokenArray *proc= i->top().data_.array_val;
-
-    i->EStack().top()=mark_t;
+    i->EStack().top().type_=mark_t;
     i->EStack().push(i->pick(2));      // increment
     i->EStack().push(i->pick(1));      // limit
     i->EStack().push(i->pick(3));      // counter
     i->EStack().push(i->pick(0));      // procedure
-    i->EStack().push(i->new_token<sli3::integertype>(proc->size()));
+    i->EStack().push(i->new_token<sli3::integertype>(i->top().data_.array_val->size()));
     i->EStack().push(for_t); // %for
     i->inc_call_depth();
     i->pop(4);

@@ -23,6 +23,7 @@
 #include "sli_name.h"
 #include "sli_token.h"
 #include "sli_exceptions.h"
+#include "sli_allocator.h"
 
 #include <map>
 namespace sli3
@@ -56,11 +57,6 @@ namespace sli3
 	      return *this;
 	  }
 
-      operator Token &()
-      { 
-	  return *this;
-      }
-
       bool accessed() const
 	  {
 	      return access_flag_;
@@ -75,6 +71,7 @@ namespace sli3
 	  {
 	      access_flag_=true;
 	  }
+
   private:
       mutable
 	bool access_flag_;
@@ -279,7 +276,25 @@ public:
     return refs_on_dictstack_ >0;
   }
 
-  
+  static void * operator new(size_t size)
+    {
+      if(size != memory.size_of())
+	return ::operator new(size);
+      return memory.alloc();
+    }
+
+  static void operator delete(void *p, size_t size)
+    {
+      if(p == NULL)
+	return;
+      if(size != memory.size_of())
+      {
+	::operator delete(p);
+	return;
+      }
+      memory.free(p);
+    }
+
  private:
   /**
    * Worker function checking whether all elements have been accessed.
@@ -290,11 +305,14 @@ public:
    * @note this is just the worker for all_accessed()
    * @see clear_access_flags(), all_accessed()
    */
- 
-  mutable
-  refcount_t references_;
-    refcount_t refs_on_dictstack_; 
   bool all_accessed_(std::string&, std::string prefix = std::string()) const;
+  
+  mutable
+    refcount_t references_;
+  refcount_t refs_on_dictstack_; 
+  
+static sli3::pool memory;
+
 };
 
  inline

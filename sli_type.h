@@ -24,18 +24,19 @@ namespace sli3
     booltype,
     literaltype,
     marktype,
-    nametype,
-    symboltype,
     stringtype,
     arraytype,
+    dictionarytype,
+    nametype,
     litproceduretype,
+    functiontype,
     proceduretype,
     iiteratetype,
-    dictionarytype,
-    functiontype,
     irepeattype,
     ifortype,
+    iforalltype,
     quittype,
+    symboltype,
     num_sli_types,
     trietype,
     istreamtype,
@@ -57,7 +58,8 @@ namespace sli3
   public:
     
     SLIType(SLIInterpreter *, char const[], sli_typeid, bool=true);
-    
+    virtual ~SLIType(){}
+
     virtual refcount_t add_reference(Token const&) const
     {
       return 1;
