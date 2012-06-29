@@ -189,6 +189,7 @@ namespace sli3
 	types_[sli3::irepeattype]=(new OperatorType<sli3::irepeattype>(this,"repeat_continue"));
 	types_[sli3::ifortype]=(new OperatorType<sli3::ifortype>(this,"for_continue"));
 	types_[sli3::quittype]=(new OperatorType<sli3::quittype>(this,"quit"));
+	types_[sli3::iforalltype]=(new OperatorType<sli3::iforalltype>(this,"forall_continue"));
     }
 
     void SLIInterpreter::init_message_tags()
@@ -236,15 +237,15 @@ namespace sli3
 	createcommand(iloop_name,        &iloopfunction);
 	system_dict_->insert(irepeat_name, Token(types_[sli3::irepeattype]));
 	system_dict_->insert(Name("quit"), Token(types_[sli3::quittype]));
+	system_dict_->insert(iforallarray_name, Token(types_[sli3::iforalltype]));
 	createcommand(ifor_name,         &iforfunction);
-	createcommand(iforallarray_name, &iforallarrayfunction);
-	createcommand(iforalliter_name,  &iforalliterfunction);
 	createcommand(iforallindexedstring_name, 
 		      &iforallindexedstringfunction);
 	createcommand(iforallindexedarray_name, 
 		      &iforallindexedarrayfunction);
 	createcommand(iforallstring_name,&iforallstringfunction);
 	createcommand("]", &arraycreatefunction);
+//	createcommand(">>", &dictcreatefunction);
 	
 	createdouble(pi_name, numerics::pi);
 	createdouble(e_name, numerics::e);
