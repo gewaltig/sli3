@@ -18,11 +18,11 @@
 ## C++ specific flags
 #CC=gcc-mp-4.6
 #CXX=g++-mp-4.6
-CC=gcc
-CXX=g++
+CC=clang
+CXX=clang
 GDB=-g
 CCFLAGS= -O2 $(GDB) -Wall
-CXXFLAGS= -O2 $(GDB) -Wall -pedantic
+CXXFLAGS= -O2 $(GDB) -I/opt/local/include -Wall -pedantic
 
 ## Linker flags
 LDLIBS= -lstdc++
@@ -74,7 +74,7 @@ makefile: base.mk
 	@ rm -f $@
 	@ cp base.mk $@
 	@ echo '# Automatically-generated dependency list:' >> $@
-	@ ${CC} ${CFLAGS} -M ${SOURCES} >> $@
+	@ g++ ${CXXFLAGS} -M ${SOURCES} >> $@
 	@ chmod -w $@
 
 clean:

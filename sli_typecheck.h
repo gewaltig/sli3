@@ -14,54 +14,57 @@
  *
  */
 
-#ifndef SLITYPECHECK_H
-#define SLITYPECHECK_H
-#include <typeinfo>
-#include "slifunction.h"
+#ifndef SLI_TYPECHECK_H
+#define SLI_TYPECHECK_H
+#include "sli_function.h"
 
-class TrieFunction: public SLIFunction
+namespace sli3
 {
-public:
-  TrieFunction() {}
+
+  class TrieFunction: public SLIFunction
+  {
+  public:
+    TrieFunction() {}
     void execute(SLIInterpreter *) const;
-};
-
-class TrieInfoFunction: public SLIFunction
-{
-public:
-  TrieInfoFunction() {}
-  void execute(SLIInterpreter *) const;
-};
-
-class AddtotrieFunction: public SLIFunction
-{
-public:
-AddtotrieFunction() {}
+  };
+  
+  class TrieInfoFunction: public SLIFunction
+  {
+  public:
+    TrieInfoFunction() {}
     void execute(SLIInterpreter *) const;
-};
-
-class Cva_tFunction: public SLIFunction
-{
-public:
-Cva_tFunction() {}
+  };
+  
+  class AddtotrieFunction: public SLIFunction
+  {
+  public:
+    AddtotrieFunction() {}
     void execute(SLIInterpreter *) const;
-};
-
-class Cvt_aFunction: public SLIFunction
-{
-public:
-Cvt_aFunction() {}
+  };
+  
+  class Cva_tFunction: public SLIFunction
+  {
+  public:
+    Cva_tFunction() {}
     void execute(SLIInterpreter *) const;
-};
-
-class TypeFunction: public SLIFunction
-{
-public:
-TypeFunction() {}
+  };
+  
+  class Cvt_aFunction: public SLIFunction
+  {
+  public:
+    Cvt_aFunction() {}
     void execute(SLIInterpreter *) const;
-};
-
-
-void init_slitypecheck(SLIInterpreter *);
+  };
+  
+  class TypeFunction: public SLIFunction
+  {
+  public:
+    TypeFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  
+  
+  void init_slitypecheck(SLIInterpreter *);
+}
 
 #endif

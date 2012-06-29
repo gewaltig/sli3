@@ -67,82 +67,81 @@ namespace sli3
     int signalflag =0;
 
     SLIInterpreter::SLIInterpreter()
-	: is_initialized_(false),
-	  debug_mode_(false),
-	  show_stack_(false),
-	  show_backtrace_(false),
-	  catch_errors_(false),
-	  opt_tailrecursion_(true),
-	  cycle_guard_(false),
-	  call_depth_(0),
-	  max_call_depth_(10),
-	  cycle_count_(0),
-	  cycle_restriction_(0),
-	  verbosity_level_(M_INFO),
-	  system_dict_(0),
-	  user_dict_(0),
-	  status_dict_(0),
-	  error_dict_(0),
-	  parser_(0),
-	  mark_name("mark"),
-	  iparse_name("::parse"),
-	  iparsestdin_name("::parsestdin"),
-	  ilookup_name("::lookup"),
-	  ipop_name("::pop"),
-	  iiterate_name("::executeprocedure"),
-	  iloop_name("::loop"),
-	  irepeat_name("::repeat"),
-	  ifor_name("::for"),
-	  iforallarray_name("::forall_a"),
-	  iforalliter_name("::forall_iter"),
-	  iforallindexedarray_name("::forallindexed_a"),
-	  iforallindexedstring_name("::forallindexed_s"),
-	  iforallstring_name("::forall_s"),
-	  pi_name("Pi"),    
-	  e_name("E"),
-	  stop_name("stop"),
-	  end_name("end"),
-	  EndSymbol("EndSymbol"),
-	  null_name("null"),
-	  true_name("true"),
-	  false_name("false"),
-	  istopped_name("::stopped"),
-	  systemdict_name("systemdict"),
-	  userdict_name("userdict"),
-	  errordict_name("errordict"),
-	  quitbyerror_name("quitbyerror"),
-	  newerror_name("newerror"),
-	  errorname_name("errorname"),
-	  commandname_name("commandname"),
-	  signo_name("sys_signo"),
-	  recordstacks_name("recordstacks"),
-	  estack_name("estack"),
-	  ostack_name("ostack"),
-	  dstack_name("dstack"),
-	  commandstring_name("moduleinitializers"),
-	  interpreter_name("SLIInterpreter::execute"),
-	  
-	  ArgumentTypeError("ArgumentType"),
-	  StackUnderflowError("StackUnderflow"),
-	  UndefinedNameError("UndefinedName"),
-	  WriteProtectedError("WriteProtected"),
-	  DivisionByZeroError("DivisionByZero"),
-	  RangeCheckError("RangeCheck"),
-	  PositiveIntegerExpectedError("PositiveIntegerExpected"),
-	  BadIOError("BadIO"),
-	  StringStreamExpectedError("StringStreamExpected"),
-	  CycleGuardError("AllowedCyclesExceeded"),
-	  SystemSignal("SystemSignal"),
-	  BadErrorHandler("BadErrorHandler"),
-	  KernelError("KernelError"),
-	  InternalKernelError("InternalKernelError"),
-	  token_memory(),
-	  operand_stack_(1000),
-	  execution_stack_(1000),
-	  types_()
+	: 
+      mark_name("mark"),
+      iparse_name("::parse"),
+      iparsestdin_name("::parsestdin"),
+      ilookup_name("::lookup"),
+      ipop_name("::pop"),
+      iiterate_name("::executeprocedure"),
+      iloop_name("::loop"),
+      irepeat_name("::repeat"),
+      ifor_name("::for"),
+      iforallarray_name("::forall_a"),
+      iforalliter_name("::forall_iter"),
+      iforallindexedarray_name("::forallindexed_a"),
+      iforallindexedstring_name("::forallindexed_s"),
+      iforallstring_name("::forall_s"),
+      pi_name("Pi"),    
+      e_name("E"),
+      stop_name("stop"),
+      end_name("end"),
+      EndSymbol("EndSymbol"),
+      null_name("null"),
+      true_name("true"),
+      false_name("false"),
+      istopped_name("::stopped"),
+      systemdict_name("systemdict"),
+      userdict_name("userdict"),
+      errordict_name("errordict"),
+      quitbyerror_name("quitbyerror"),
+      newerror_name("newerror"),
+      errorname_name("errorname"),
+      commandname_name("commandname"),
+      signo_name("sys_signo"),
+      recordstacks_name("recordstacks"),
+      estack_name("estack"),
+      ostack_name("ostack"),
+      dstack_name("dstack"),
+      commandstring_name("moduleinitializers"),
+      interpreter_name("SLIInterpreter::execute"),
+      ArgumentTypeError("ArgumentType"),
+      StackUnderflowError("StackUnderflow"),
+      UndefinedNameError("UndefinedName"),
+      WriteProtectedError("WriteProtected"),
+      DivisionByZeroError("DivisionByZero"),
+      RangeCheckError("RangeCheck"),
+      PositiveIntegerExpectedError("PositiveIntegerExpected"),
+      BadIOError("BadIO"),
+      StringStreamExpectedError("StringStreamExpected"),
+      CycleGuardError("AllowedCyclesExceeded"),
+      SystemSignal("SystemSignal"),
+      BadErrorHandler("BadErrorHandler"),
+      KernelError("KernelError"),
+      InternalKernelError("InternalKernelError"),
+      is_initialized_(false),
+      debug_mode_(false),
+      show_stack_(false),
+      show_backtrace_(false),
+      catch_errors_(false),
+      opt_tailrecursion_(true),
+      cycle_guard_(false),
+      call_depth_(0),
+      max_call_depth_(10),
+      cycle_count_(0),
+      cycle_restriction_(0),
+      verbosity_level_(M_INFO),
+      system_dict_(0),
+      user_dict_(0),
+      status_dict_(0),
+      error_dict_(0),
+      parser_(0),
+      operand_stack_(1000),
+      execution_stack_(1000),
+      types_()
     {
-	init();
-	parser_= new Parser();
+      init();
+      parser_= new Parser();
     }
     
     SLIInterpreter::~SLIInterpreter()
@@ -304,9 +303,10 @@ namespace sli3
     void SLIInterpreter::raiseerror(std::exception &err)
     {
 	Name caller=get_current_name();
-	
+	Name command_n("command");
+
 	assert(error_dict_ != NULL);
-	error_dict_->insert("command",execution_stack_.top()); // store the func/trie that caused the error.
+	error_dict_->insert(command_n,execution_stack_.top()); // store the func/trie that caused the error.
 
 	// SLIException provide addtional information
 	SLIException *  slierr = 
@@ -471,6 +471,7 @@ namespace sli3
     int SLIInterpreter::execute(int v)
     {
 	startup();
+	execution_stack_.push(new_token<sli3::quittype>());
 	execution_stack_.push(new_token<sli3::nametype>(Name("::parsestdin")));
 	switch(v)
 	{
@@ -487,7 +488,7 @@ namespace sli3
   
   int SLIInterpreter::execute_(size_t exitlevel)
   {
-    int exitcode;
+    int exitcode=0;
     
     if(sli3::signalflag !=0)
       {
@@ -605,11 +606,12 @@ namespace sli3
 
   int SLIInterpreter::execute_dispatch_(size_t exitlevel)
   {
-    int exitcode;
-//    const Token iiterate_t=baselookup(iiterate_name);
+    int exitcode=0;
+    const Name exitcode_name("exitcode");
     const Token null_val=new_token<sli3::integertype>(0);
     SLIType* iiterate_t=types_[sli3::iiteratetype];
     SLIType* proc_type= types_[sli3::proceduretype];
+    (*status_dict_)[exitcode_name]=null_val;
 
     if(sli3::signalflag !=0)
       {
@@ -617,196 +619,263 @@ namespace sli3
       }
     
     try
-      {
-	do { //loop1  this double loop to keep the try/catch outside the inner loop
-	  try
+    {
+	while (true)
+	{
+	    try
 	    { 
-	      while(execution_stack_.load() > exitlevel) // loop 2
-	      {
-		  ++cycle_count_;
-
-		  while(not execution_stack_.top().is_executable())
-		  {
-		      operand_stack_.push(execution_stack_.top());
-		      execution_stack_.pop();
-		  }
-
-		  switch(execution_stack_.top().type_->get_typeid())
-		  {
-		  case sli3::nametype:
-		  {
-		      Token &t=lookup(execution_stack_.top().data_.long_val);
-		      if(t.is_executable())
-			  execution_stack_.top()=t;
-		      else
-		      {
-			  operand_stack_.push(t);
-			  execution_stack_.pop();
-		      }
-		      break;
-		  }
-		  case sli3::litproceduretype:
-		      execution_stack_.top().type_=proc_type;
-		      operand_stack_.push(execution_stack_.top());
-		      execution_stack_.pop();
-		      break;
-
-		  case sli3::proceduretype:
-		      execution_stack_.push(null_val);
-		      execution_stack_.push(iiterate_t);
-
-		  case sli3::iiteratetype:
-		  {
-		      TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
-		      long &pos=  execution_stack_.pick(1).data_.long_val;
-		      
-		  start_iterate:
-		      if(proc->index_is_valid(pos))
-		      {
-			  const Token &t=proc->get(pos++);
-			  if(not t.is_executable())
-			  {
-			      operand_stack_.push(t);
-			      if(not proc->index_is_valid(pos))
-			      {
-				  execution_stack_.pop(3);
-				  break; 
-			      }
-			      goto start_iterate;
-			  }
-			  if(not proc->index_is_valid(pos))
-			  {
-			      proc->add_reference();
-			      execution_stack_.pick(2)=t;
-			      proc->remove_reference();
-			      execution_stack_.pop(2);
-			      break; 
-			  }
-			  execution_stack_.push(t);
-			  break; 
-		      }
-		      // This point is only reached for empty procedures
-		      execution_stack_.pop(3);
-		      break;
-		  }
-
-		  case sli3::irepeattype:
-		  {
-		      TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
-		      long &pos=        execution_stack_.pick(1).data_.long_val;
-		      
-		  start_repeat:
-		      if( proc->index_is_valid(pos))
-		      {
-			  const Token &t=proc->get(pos);
-			  ++pos;
-			  if( t.is_executable())
-			  {
-			      execution_stack_.push(t);
-			      break;
-			  }
-			  operand_stack_.push(t);
-			  goto start_repeat; // we must use goto here, so that break exits the case label rather than the while loop.
-		      }
-		      
-		      long &lc=execution_stack_.pick(3).data_.long_val;
-		      if( lc > 0 )
-		      {
-			  pos=0;     // reset procedure iterator
-			  --lc;
-		      }
-		      else
-		      {
-			  execution_stack_.pop(5);
-		      }
-		      break;
-		  }
-
-		  case sli3::ifortype:
-		  {
-		      TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
-		      long &pos=execution_stack_.pick(1).data_.long_val;
-		  start_for:
-		      if(proc->index_is_valid(pos))
-		      {
-			  const Token &t=proc->get(pos);
-		  	  ++pos;
-		  	  if(t.is_executable())
-			  {
-		  	      execution_stack_.push(t);
-			      break;
-			  }
-			  operand_stack_.push(t);
-			  goto start_for; // We use goto so that 'break' exits 'case' rather than 'while' 
-		      }
-		      
-		      long &count=execution_stack_.pick(3).data_.long_val;
-		      long &lim=execution_stack_.pick(4).data_.long_val;
-		      long &inc=execution_stack_.pick(5).data_.long_val;
-		      
-		      if(( (inc> 0) && (count <= lim)) ||
-			 ( (inc< 0) && (count >= lim)))
-		      {
-			  pos=0;                        // reset procedure interator
-			  
-			  operand_stack_.push(execution_stack_.pick(3)); // push counter to user
-			  count += inc;                                  // increment loop counter
-			  break;
-		      }
-		      else
-			  execution_stack_.pop(7);
-		      break;
-		  }
-		  case sli3::quittype:
-		      goto exit_interpreter;
-		  default:
-		      execution_stack_.top().execute();
-		  }
+		++cycle_count_;
+		
+		/*
+		  - The following switch handles most of the interpreter's internal functions.
+		  - Placing them all in one large piece of code allows the compiler to better optimize
+		  the code. 
+		  - The case lables are the type ids which are in strict ascending order. This allows the
+		  compiler to contruct a jump table.
+		  - Not all case lables have break statements, but continue to the next label. 
+		  - Some case-lables use gotos to implement loops that depend on the stack contents.
+		  Since we must use break to exit the case-label, we cannot use loops without awkward 
+		  rechecks of the loop's exit condition.
+		  - quit is now also implemented as an operator.
+		*/
+		switch(execution_stack_.top().type_->get_typeid())
+		{
+		    /*
+		      We first send all plain data types to the operand stack.
+		    */
+		case sli3::integertype:
+		case sli3::doubletype:
+		case sli3::booltype:
+		case sli3::literaltype:
+		case sli3::marktype:
+		case sli3::stringtype:
+		case sli3::arraytype:
+		case sli3::dictionarytype:
+		    operand_stack_.push(execution_stack_.top());
+		    execution_stack_.pop();
+		    break;
+		    /*
+		      Next we deal with the executable types.
+		    */
+		case sli3::nametype:
+		{
+		    Token &t=lookup(execution_stack_.top().data_.long_val);
+		    if(t.is_executable())
+			execution_stack_.top()=t;
+		    else
+		    {
+			operand_stack_.push(t);
+			execution_stack_.pop();
+		    }
+		    break;
+		}
+		case sli3::litproceduretype:
+		    execution_stack_.top().type_=proc_type;
+		    operand_stack_.push(execution_stack_.top());
+		    execution_stack_.pop();
+		    break;
+		    
+		case sli3::functiontype:
+		    execution_stack_.top().data_.func_val->execute(this);
+		    break;
+		    
+		case sli3::proceduretype:
+		    execution_stack_.push(null_val);
+		    execution_stack_.push(iiterate_t);
+		    
+		case sli3::iiteratetype:
+		{
+		    TokenArray *proc= execution_stack_.pick(2).data_.array_val;   		      
+		start_iterate:
+		    // pos must be re-assigned in each iteration, because
+		    // Estack().push() may re-allocate its storage in which case
+		    // the reference would be invalidated. 
+		    long &pos=  execution_stack_.pick(1).data_.long_val;
+		    if(proc->index_is_valid(pos))
+		    {
+			const Token &t=proc->get(pos++);
+			if(not t.is_executable())
+			{
+			    operand_stack_.push(t);
+			    if(not proc->index_is_valid(pos))
+			    {
+				execution_stack_.pop(3);
+				break; 
+			    }
+			    goto start_iterate;
+			}
+			if(not proc->index_is_valid(pos))
+			{
+			    proc->add_reference();
+			    execution_stack_.pick(2)=t;
+			    proc->remove_reference();
+			    execution_stack_.pop(2);
+			    break; 
+			}
+			execution_stack_.push(t);
+			break; 
+		    }
+		    // This point is only reached for empty procedures
+		    execution_stack_.pop(3);
+		    break;
+		}
+		
+		case sli3::irepeattype:
+		{
+		    TokenArray *proc= execution_stack_.pick(2).data_.array_val;   		      
+		start_repeat:
+		    // pos must be re-assigned in each iteration, because
+		    // Estack().push() may re-allocate its storage in which case
+		    // the reference would be invalidated. 
+		    long &pos=        execution_stack_.pick(1).data_.long_val;
+		    if( proc->index_is_valid(pos))
+		    {
+			const Token &t=proc->get(pos);
+			++pos;
+			if( t.is_executable())
+			{
+			    execution_stack_.push(t);
+			    break;
+			}
+			operand_stack_.push(t);
+			goto start_repeat; // we must use goto here, so that break exits the case label rather than the while loop.
+		    }
+		    
+		    long &lc=execution_stack_.pick(3).data_.long_val;
+		    if( lc > 0 )
+		    {
+			pos=0;     // reset procedure iterator
+			--lc;
+		    }
+		    else
+		    {
+			execution_stack_.pop(5);
+		    }
+		    break;
+		}
+		
+		case sli3::ifortype:
+		{
+		    TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
+		start_for:
+		    // pos must be re-assigned in each iteration, because
+		    // Estack().push() may re-allocate its storage in which case
+		    // the reference would be invalidated. 
+		    long &pos=execution_stack_.pick(1).data_.long_val;
+		    if(proc->index_is_valid(pos))
+		    {
+			const Token &t=proc->get(pos);
+			++pos;
+			if(t.is_executable())
+			{
+			    execution_stack_.push(t);
+			    break;
+			}
+			operand_stack_.push(t);
+			goto start_for; // We use goto so that 'break' exits 'case' rather than 'while' 
+		    }
+		    
+		    long &count=execution_stack_.pick(3).data_.long_val;
+		    long &lim=execution_stack_.pick(4).data_.long_val;
+		    long &inc=execution_stack_.pick(5).data_.long_val;
+		    
+		    if(( (inc> 0) && (count <= lim)) ||
+		       ( (inc< 0) && (count >= lim)))
+		    {
+			pos=0;                        // reset procedure interator
+			
+			operand_stack_.push(execution_stack_.pick(3)); // push counter to user
+			count += inc;                                  // then increment it
+			break;
+		    }
+		    else
+			execution_stack_.pop(7);
+		    break;
+		}
+		case sli3::iforalltype:
+		{
+		    TokenArray *proc= execution_stack_.pick(2).data_.array_val;   
+		start_forall:
+		    // pos must be re-assigned in each iteration, because
+		    // Estack().push() may re-allocate its storage in which case
+		    // the reference would be invalidated. 
+		    long &pos=execution_stack_.pick(1).data_.long_val;
+		    if( proc->index_is_valid(pos))
+		    {
+			const Token &t= proc->get(pos);
+			++pos;
+			if( t.is_executable())
+			{
+			    execution_stack_.push(t);
+			    break;
+			}
+			operand_stack_.push(t);
+			goto start_forall;
+		    }
+		    
+		    TokenArray *ad= execution_stack_.pick(4).data_.array_val;   
+		    long &idx=execution_stack_.pick(3).data_.long_val;
+		    
+		    if(ad->index_is_valid(idx))
+		    {
+			pos=0; // reset procedure interator
+			
+			operand_stack_.push(ad->get(idx)); // push object to user
+			++idx;
+		    }
+		    else
+		    {
+			execution_stack_.pop(6);
+		    }
+		    break;
+		}
+		case sli3::quittype:
+		    goto exit_interpreter;
+		default:
+		    execution_stack_.top().execute();
 		}
 	    }
-	  catch(std::exception &exc)
+	    catch(std::exception &exc)
 	    {
-	      message(M_ERROR, "SLIInterpreter","A C++ library exception was caught.");
-	      operand_stack_.dump(std::cerr);
-	      execution_stack_.dump(std::cerr);
-	      message(M_ERROR, "SLIInterpreter",exc.what());
-	      //raiseerror(exc);
-	      execution_stack_.pop();
+		message(M_ERROR, "SLIInterpreter","A C++ library exception was caught.");
+		operand_stack_.dump(std::cerr);
+		execution_stack_.dump(std::cerr);
+		message(M_ERROR, "SLIInterpreter",exc.what());
+		//raiseerror(exc);
+		execution_stack_.pop();
 	    }
-	} while(execution_stack_.load() > exitlevel);
-      }
+	}// while(true);
+    }
     catch(std::exception &e)
-      {
+    {
 	message(M_FATAL, "SLIInterpreter","A C++ library exception occured.");
 	operand_stack_.dump(std::cerr);
 	execution_stack_.dump(std::cerr);
 	message(M_FATAL, "SLIInterpreter",e.what());
 	terminate(sli3::exception);
-      }
+    }
     catch(...)
-      {
+    {
 	message(M_FATAL, "SLIInterpreter","An unknown c++ exception occured.");
 	operand_stack_.dump(std::cerr);
 	execution_stack_.dump(std::cerr);
 	terminate(sli3::exception);
-      } 
-
+    } 
+    
   exit_interpreter:
-    Token exit_tk;
-    if(status_dict_->lookup(Name("exitcode"), exit_tk)) // This throws an exception if the entry is not found.
-    {
-	exitcode = exit_tk.data_.long_val;
-    }
-
+    
+    Token exit_tk=(*status_dict_)["exitcode"];
+    exitcode = exit_tk.data_.long_val;
+    
     if (exitcode != 0)
 	error_dict_->insert(quitbyerror_name,new_token<sli3::booltype>(true));
     
     return exitcode;
   }
-  
-  void SLIInterpreter::createdouble(Name n, double val)
-  {
-    dictionary_stack_.def(n, new_token<sli3::doubletype>(val));
+    
+    void SLIInterpreter::createdouble(Name n, double val)
+    {
+	dictionary_stack_.def(n, new_token<sli3::doubletype>(val));
   }
   
  

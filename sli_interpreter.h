@@ -555,7 +555,6 @@ namespace sli3
 	TokenStack execution_stack_;
     private:
 	DictionaryStack dictionary_stack_;
-	sli3::pool token_memory;       //!< Memory allocator for token
 	std::vector<std::string> message_tag_;
 	std::vector<SLIFunction *> functions_; //!< Table with internal functions.
 	std::vector<SLIType *> types_;         //!< must be last, so it is deleted last
@@ -593,6 +592,9 @@ namespace sli3
 
    template<>
     void SLIInterpreter::push<Dictionary *>(Dictionary *);
+
+    template<>
+      Token SLIInterpreter::new_token<sli3::quittype>();
 
     template<>
       Token SLIInterpreter::new_token<sli3::integertype>();
@@ -781,6 +783,13 @@ namespace sli3
 	operand_stack_.top().data_.dict_val= d;
     }
 
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::quittype>()
+    {
+	return Token(types_[sli3::quittype]);
+    }
 
     template<>
     inline

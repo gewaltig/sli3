@@ -56,7 +56,7 @@ class SLIException: public std::exception
    : what_(what)
   {}
   
-  virtual ~SLIException() throw() {};
+  virtual ~SLIException() throw() {}
 
   /**
    * Returns the SLI error name, used by raiseerror.
@@ -281,7 +281,7 @@ class StackUnderflow: public InterpreterError
  StackUnderflow(int n, int g)
    : InterpreterError("StackUnderflow"), 
     needed(n), 
-    given(g){};
+    given(g){}
 
   std::string message();
 };
