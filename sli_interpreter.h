@@ -12,6 +12,7 @@
 #include "sli_dictionary.h"
 #include "sli_dictstack.h"
 #include "sli_builtins.h"
+#include "sli_module.h"
 #include<vector>
 #include <deque>
 
@@ -86,6 +87,10 @@ namespace sli3
 	 */
 	int startup();
 
+	template<class T>  void addmodule(void);
+	void addmodule(SLIModule *);
+
+
 	void clear_parser_context();
 
 	Token read_token(std::istream &);
@@ -120,6 +125,8 @@ namespace sli3
 	void createdouble(Name , double);
 	void createcommand(Name, SLIFunction *);
 	void createconstant(Name, const Token&);
+
+
 
 	/** Lookup a name searching all dictionaries on the stack.
 	 *  The first occurrence is reported. If the Name is not found,
@@ -554,6 +561,7 @@ namespace sli3
 	TokenStack operand_stack_;
 	TokenStack execution_stack_;
     private:
+	std::vector<SLIModule *> modules_;
 	DictionaryStack dictionary_stack_;
 	std::vector<std::string> message_tag_;
 	std::vector<SLIFunction *> functions_; //!< Table with internal functions.
@@ -959,6 +967,15 @@ namespace sli3
 	Token t(types_[sli3::dictionarytype]);
 	t.data_.dict_val= d;
 	return t;
+    }
+
+    template<class T>
+    void SLIInterpreter::addmodule(void)
+    {
+	SLIModule *m=new T();
+	
+	modules_.push_back(m);
+	m->install(std::cout,this);
     }
 
 }

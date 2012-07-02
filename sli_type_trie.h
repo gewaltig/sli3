@@ -51,91 +51,92 @@ Date:      18.11.95
 *******************************************************************/
 
 
-#include <typeinfo>
-#include <iostream>
-#include <vector>
 #include "sli_function.h"
 #include "sli_array.h"
 #include "tokenstack.h"
-#include "typearray.h"
 #include "sli_name.h"
+#include <iostream>
+#include <vector>
 
 namespace sli3
 {
-class TypeTrie {
-private:
-  class TypeNode
-  {
+
+  typedef std::vector<unsigned int> TypeArray;
+
+  class TypeTrie {
+  private:
+    class TypeNode
+    {
     private:
-    unsigned int refs_;         // number of references to this Node
-    
-  public:
-    
-    SLIType     *type_;        // expected type at this stack level
-    Token       func_;         // points to the operator or an error func.
-    
-    TypeNode    *alt_;         // points to the next parameter alternative
-    TypeNode    *next;         // points to the next stack level for this path
-    
-    
-    void add_reference(void)
+      unsigned int refs_;         // number of references to this Node
+      
+    public:
+      
+      SLIType     *type_;        // expected type at this stack level
+      Token       func_;         // points to the operator or an error func.
+      
+      TypeNode    *alt_;         // points to the next parameter alternative
+      TypeNode    *next;         // points to the next stack level for this path
+      
+      
+      void add_reference(void)
       { ++refs_; }
-    
-    void remove_reference(void)
+      
+      void remove_reference(void)
       {
 	if(--refs_ == 0)
 	  delete this;
       }
-
-  TypeNode(const SLIType *t, Token f=Token())
-    : refs_(1), type_(t), func_(f),alt_(NULL),next_(NULL) {}
+      
+    TypeNode(const SLIType *t, Token f=Token())
+      : refs_(1), type_(t), func_(f),alt_(NULL),next_(NULL) {}
+      
+      ~TypeNode()
+	{
+	  if (next_ != NULL)
+	    next_->remove_reference();
+	  if (alt_ != NULL)
+	    alt->remove_reference();
+	}
+      
+      void toTokenArray(TokenArray &) const;
+      void info(std::ostream &, std::vector<TypeNode const *> &) const;
+      
+    };
     
-    ~TypeNode()
-      {
-	if (next_ != NULL)
-	  next_->remove_reference();
-	if (alt_ != NULL)
-	  alt->remove_reference();
-      }
-
-    void toTokenArray(TokenArray &) const;
-    void info(std::ostream &, std::vector<TypeNode const *> &) const;
-
-  };
-
-  TypeNode *root_;
-
-//    TypeTrie operator=(const TypeTrie &){}; // disable this operator
-  TypeNode * get_alternative(TypeNode *, SLIType *);
-  TypeNode* new_node(const TokenArray &) const;
-
-public:
-
-    TypeTrie()
-      : root_(new TypeNode(0))
-    {}
-
+    TypeNode *root_;
+    
+    //    TypeTrie operator=(const TypeTrie &){}; // disable this operator
+    TypeNode * get_alternative(TypeNode *, SLIType *);
+    TypeNode* new_node(const TokenArray &) const;
+    
+  public:
+    
+  TypeTrie()
+    : root_(new TypeNode(0))
+      {}
+    
   TypeTrie(const TokenArray &ta)
     : root_(NULL)
-    {
-      root_= new_node(ta);
-    }
-  
+      {
+	root_= new_node(ta);
+      }
+    
   TypeTrie(const TypeTrie &tt)
     :root_(tt.root_)
-    {
-      if(root !=NULL)
-        root->add_reference();
-    }
-
+      {
+	if(root !=NULL)
+	  root->add_reference();
+      }
+    
     ~TypeTrie();
-  
+    
     void  insert(const TypeArray& , Token const &);
     
     const Token& lookup(const TokenStack &st) const;
-  
+    
     bool operator == (const TypeTrie &) const;
-  
+    
     inline bool equals(const Name &, const Name &) const;
     void toTokenArray(TokenArray &) const;
     void info(std::ostream &) const;
