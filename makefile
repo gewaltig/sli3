@@ -53,7 +53,8 @@ OBJS=	sli_array.o\
 	sli_numerics.o\
 	sli_builtins.o\
 	sli_control.o\
-	sli_iostreamtype.o
+	sli_iostreamtype.o\
+	sli_math.o
 
 SOURCES = ${OBJS:.o=.cpp}
 
@@ -2065,7 +2066,7 @@ sli_interpreter.o: sli_interpreter.cpp sli_interpreter.h sli_type.h \
   /usr/include/c++/4.2.1/cmath /usr/include/math.h \
   /usr/include/architecture/i386/math.h \
   /usr/include/c++/4.2.1/bits/cmath.tcc sli_parser.h sli_scanner.h \
-  sli_charcode.h sli_control.h
+  sli_charcode.h sli_control.h sli_math.h
 sli_numerics.o: sli_numerics.cpp config.h sli_numerics.h \
   /usr/include/c++/4.2.1/limits /usr/include/c++/4.2.1/bits/c++config.h \
   /usr/include/c++/4.2.1/bits/os_defines.h /usr/include/unistd.h \

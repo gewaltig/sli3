@@ -1,4 +1,5 @@
 #include "sli_interpreter.h"
+#include "sli_module.h"
 #include "sli_nametype.h"
 #include "sli_dicttype.h"
 #include "sli_functiontype.h"
@@ -8,6 +9,7 @@
 #include "sli_numerics.h"
 #include "sli_parser.h"
 #include "sli_control.h"
+#include "sli_math.h"
 #include <time.h>
 
 /* BeginDocumentation
@@ -146,9 +148,15 @@ namespace sli3
     
     SLIInterpreter::~SLIInterpreter()
     {
+	for(size_t m=0; m<modules_.size(); ++m)
+	    delete modules_[m];
+
 	operand_stack_.clear();
 	execution_stack_.clear();
 	dictionary_stack_.clear();
+
+	// Types must be deleted *after* all tokens are deleted.
+        // otherwhise the Token desctructor will crash.
 	for(size_t t=0; t<types_.size();++t)
 	    delete types_[t];
     }
@@ -250,6 +258,7 @@ namespace sli3
 	createdouble(pi_name, numerics::pi);
 	createdouble(e_name, numerics::e);
 	init_slicontrol(this);
+	init_slimath(this);
 	system_dict_->info(std::cerr);
     }
 
@@ -264,6 +273,8 @@ namespace sli3
 	}
 	return exitcode;
     }
+
+
 
     void SLIInterpreter::clear_parser_context()
     {
