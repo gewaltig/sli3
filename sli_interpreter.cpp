@@ -11,6 +11,8 @@
 #include "sli_control.h"
 #include "sli_math.h"
 #include "sli_stack.h"
+#include "sli_typecheck.h"
+#include "sli_trietype.h"
 #include <time.h>
 
 /* BeginDocumentation
@@ -201,6 +203,7 @@ namespace sli3
 	types_[sli3::ifortype]=(new OperatorType<sli3::ifortype>(this,"for_continue"));
 	types_[sli3::quittype]=(new OperatorType<sli3::quittype>(this,"quit"));
 	types_[sli3::iforalltype]=(new OperatorType<sli3::iforalltype>(this,"forall_continue"));
+	types_[sli3::trietype]=(new TrieType(this,"trietype", sli3::trietype));
     }
 
     void SLIInterpreter::init_message_tags()
@@ -263,6 +266,7 @@ namespace sli3
 	init_slicontrol(this);
 	init_slistack(this);
 	init_slimath(this);
+	init_slitypecheck(this);
 	system_dict_->info(std::cerr);
     }
 

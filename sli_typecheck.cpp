@@ -44,8 +44,9 @@ void TrieFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::literaltype);
 
     TypeNode *trie= new TypeNode(i->top().data_.name_val);
-    i->top().type_=i->get_type(sli3::trietype);
-    i->top().data_.trie_val=trie;
+    Token tmp(i->get_type(sli3::trietype));
+    tmp.data_.trie_val=trie;
+    i->push(tmp);
     i->EStack().pop();
 }
 
