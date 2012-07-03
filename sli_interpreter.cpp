@@ -181,6 +181,8 @@ namespace sli3
 	  order in which the lables in the enum typeid (sli_type.h) are
 	  defined.
 	*/
+	types_[sli3::nulltype]=(new OperatorType<sli3::nulltype>(this,"nulltype"));
+	types_[sli3::anytype]=(new OperatorType<sli3::anytype>(this,"anytype"));
 	types_[sli3::integertype]=(new IntegerType(this,"integertype",sli3::integertype));
 	types_[sli3::doubletype]=(new DoubleType(this,"doubletype",sli3::doubletype));
 	types_[sli3::booltype]=(new BoolType(this,"booltype",sli3::booltype));

@@ -26,7 +26,8 @@ namespace sli3
     class SLIString;
     class SLIistream;
     class SLIostream;
-    
+    class TypeNode;
+
     class Token
     {
     public:
@@ -56,7 +57,8 @@ namespace sli3
 	 * Exchange the contents of t and this token.
 	 */
 	Token & swap(Token &t);
-	
+
+
 	/**
 	 * Clear contents of token.
 	 * 
@@ -113,17 +115,18 @@ namespace sli3
 	SLIType *type_; //!< If NULL, the datum is unused.	
 	union value
 	{
-	  double double_val;
-	  long   long_val;   
-	  bool   bool_val;
-	  size_t  name_val;
-	  TokenArray *array_val;
-	  SLIFunction *func_val;
-	  Dictionary *dict_val;
-	  SLIString  *string_val;
-	  SLIistream *istream_val;
-	  SLIostream *ostream_val;
-	  TypeNode *trie_val;
+	    double double_val;
+	    long   long_val;   
+	    bool   bool_val;
+	    size_t  name_val;
+	    TokenArray *array_val;
+	    SLIFunction *func_val;
+	    Dictionary *dict_val;
+	    SLIString  *string_val;
+	    SLIistream *istream_val;
+	    SLIostream *ostream_val;
+	    TypeNode *trie_val;
+	    SLIType *type_val;
 	} data_;
     };
     

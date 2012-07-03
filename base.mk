@@ -20,11 +20,10 @@
 #CXX=g++-mp-4.6
 CC=clang
 CXX=clang
+
 GDB=-g
 CCFLAGS= -O2 $(GDB) -Wall
-#CXXFLAGS= -O3 $(GDB) -I/opt/local/include -Wall -pedantic
-
-CXXFLAGS= -O3 -Wall -pedantic
+CXXFLAGS= -O3 $(GDB) -Wall -pedantic
 
 ## Linker flags
 LDLIBS= -lstdc++

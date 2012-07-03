@@ -42,11 +42,8 @@ class TokenArray
   unsigned int alloc_block_size;
   unsigned int refs_;
   
-//  bool homogeneous;
-
   void allocate(size_t, size_t, size_t, const Token & = Token());
     
-
  public:
   static size_t allocations;
     
