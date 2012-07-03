@@ -1,7 +1,7 @@
 #ifndef SLI_TRIETYPE_H
 #define SLI_TRIETYPE_H
 #include "sli_type.h"
-#include "sli_trie.h"
+#include "sli_type_trie.h"
 #include <cassert>
 namespace sli3
 {

@@ -2,6 +2,7 @@
 #ifndef SLI_TYPE_H
 #define SLI_TYPE_H
 #include "sli_name.h"
+
 namespace sli3
 {
 
@@ -19,7 +20,9 @@ namespace sli3
 
   enum sli_typeid
   {
-    integertype=0,
+    nulltype=0,  //!< used for unassigned type_id values
+    anytype,     //!< Used for typechecking only
+    integertype,
     doubletype,
     booltype,
     literaltype,
@@ -29,19 +32,20 @@ namespace sli3
     dictionarytype,
     nametype,
     litproceduretype,
+    trietype,      //!< Type Trie
     functiontype,
     proceduretype,
     iiteratetype,
     irepeattype,
     ifortype,
     iforalltype,
+    nooptype,
     quittype,
     symboltype,
-    num_sli_types,
-    trietype,
     istreamtype,
     xistreamtype,
     ostreamtype,
+    num_sli_types, //!< Number of builtin types. User type ids start here
     intvectortype,
     doublevectortype,
     iteratortype
@@ -99,6 +103,7 @@ namespace sli3
       return name_;
     }
     
+
     bool is_type(unsigned int id) const
     {
       return id_ == id;
@@ -118,6 +123,11 @@ namespace sli3
     bool is_executable() const
     {
       return executable_;
+    }
+
+    SLIInterpreter *get_interpreter() const
+    {
+      return sli_;
     }
 
     virtual bool compare(Token const &t1, Token const& t2) const=0;

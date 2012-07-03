@@ -54,156 +54,193 @@ Date:      18.11.95
 #include "sli_type_trie.h"
 #include "sli_array.h"
 #include "sli_exceptions.h"
-
+#include "sli_interpreter.h"
+#include <iomanip>
 namespace sli3
 {
 
-  void TypeNode::toTokenArray(SLIInterpreter *sli, TokenArray &a) const
+  void TypeNode::toTokenArray(TokenArray &a) const
   {
-    assert(a.size()==0);
-    if(next == NULL && alt == NULL) // Leaf node
+      if(type_ == NULL)
+	  return;
+
+      static SLIInterpreter *sli=type_->get_interpreter();
+
+      assert(a.size()==0);
+      if(next_ == NULL && alt_ == NULL) // Leaf node
       {
-	a.push_back(func);
+	  a.push_back(func_);
       }
-    else 
+      else 
       { 
-	assert(next != NULL);
-	a.push_back(sli->new_token<sli3::literaltype>(type_->get_typename()));
-	TokenArray *a_next=new TokenArray();
-	next->toTokenArray(*a_next);
-	a.push_back(sli->new_token<sli3::arraytype>(a_next));
-	if(alt != NULL)
+	  a.push_back(sli->new_token<sli3::literaltype>(type_->get_typename()));
+	  TokenArray *a_next_=new TokenArray();
+	  next_->toTokenArray(*a_next_);
+	  a.push_back(sli->new_token<sli3::arraytype>(a_next_));
+	  if(alt_ != NULL)
 	  {
-	    TokenArray *a_alt= new TokenArray();
-	    alt->toTokenArray(*a_alt);
-	    a.push_back(sli->new_token<sli3::arraytype>(ArrayDatum(a_alt)));
+	      TokenArray *a_alt_= new TokenArray();
+	      alt_->toTokenArray(*a_alt_);
+	      a.push_back(sli->new_token<sli3::arraytype>(a_alt_));
 	  }
       }
   }
     
-  void TypeNode::info(SLIInterpreter *sli, std::ostream &out, std::deque<TypeNode const *> &tl) const
+  void TypeNode::info(std::ostream &out, std::deque<TypeNode const *> &tl) const
   {
-    if(next == NULL && alt == NULL) // Leaf node
+      if(type_ == NULL)
+	  return;
+      
+      if(next_ == NULL && alt_ == NULL) // Leaf node
       {
-	// print type list then function
-	for(int i=tl.size()-1; i>=0;--i)
+	  // print type list then function
+	  for(int i=tl.size()-1; i>=0;--i)
 	  {
-	    out << std::setw(15) << std::left << sli->get_type(tl[i]->type_)->get_typename();
+	      out << std::setw(15) << std::left << tl[i]->type_->get_typename();
 	  }
-	out  <<"calls " << func << std::endl;
+	  out  <<"calls " << func_ << std::endl;
       }
-    else 
+      else 
       { 
-	assert(next != NULL);
-	tl.push_back(this);
-	next->info(sli, out, tl);
-	tl.pop_back();
-	if(alt != NULL)
+	  assert(next_ != NULL);
+	  tl.push_back(this);
+	  next_->info(out, tl);
+	  tl.pop_back();
+	  if(alt_ != NULL)
 	  {
-	    alt->info(sli, out, tl);
+	      alt_->info(out, tl);
 	  }
       }
   }
     
     
-TypeNode *TypeTrie::get_alternative(TypeTrie::TypeNode *pos, unsigned int type)
-{
-  // Finds Node for the current type in the alternative List,
-  // starting at pos. If the type is not already present, a new
-  // Node will be created.
-  
-  while(type != pos->type)
+    TypeNode *TypeNode::get_alternative(TypeNode *pos, SLIType *type)
     {
-      if(pos->alt == NULL)
-	pos->alt =new TypeNode(type);
-      
-      if(pos->type == sli3::anytype)
+	// Finds Node for the current type in the alt_ernative List,
+	// starting at pos. If the type is not already present, a new
+	// Node will be created.
+	
+	
+	// First we fill an unassigned node.
+	if(pos->type_==0)
 	{
-	  // any must have been the tail and the previous 
-	  // if must have added an extra Node, thus the following
-	  // assertion must hold:
-	  //assert(pos->alt->alt == NULL);
-      
-	  TypeNode *new_tail= pos->alt;
-      
-	  // Move the wildcard to the tail Node.
-      
-	  pos->type=type;
-	  new_tail->type=sli3::anytype;
-	  new_tail->func.swap(pos->func);
-	  new_tail->next= pos->next;
-	  pos->next=NULL;
-	  break;
-	  // this  while() cycle will terminate, as 
-	  // pos->type==type by asignment.
+	    pos->type_=type;
+	    return pos;
 	}
-      else
-	pos= pos->alt; // pos->alt is always defined here.
+    
+    // Next we treat the special case sli3::anytype, since it must be at the end of the alternative list.
+	if (type->get_typeid()==sli3::anytype)
+	{
+	    SLIType *any_type=type;
+	    while(pos->alt_ !=0)
+		pos = pos->alt_;
+	    
+	    // If the tail node is not anytype, we must create a new
+            // tail node.
+	    if(pos->type_ != any_type)
+	    {
+		pos->alt_=new TypeNode(any_type);
+		pos= pos->alt_;
+	    }
+	    return pos;
+	}
+    
+	// This is the general case, and we traveser the alternative
+        // list, until we hit the desired type or the end.
+	while(type != pos->type_)
+	{
+	    if(pos->alt_ == NULL)
+	    {
+		pos->alt_ =new TypeNode(type);
+	    
+		// If we are at the tail and it is "anytype"
+                // we must insert the new node before the
+                // tail, so anytype remains the tail.
+		if(pos->type_->get_typeid() == sli3::anytype)
+		{
+		    TypeNode *new_tail= pos->alt_;
+		
+		    // Move the wildcard to the tail Node.
+		    new_tail->type_=pos->type_;
+		    pos->type_=type;
+		    new_tail->func_.move(pos->func_);
+		    new_tail->next_= pos->next_;
+		    pos->next_=NULL; // The new node still has no next_ entries.
+		    return pos;
+		}
+		return pos->alt_;
+	    }
+	
+	    pos= pos->alt_; // pos->alt_ is always defined here.
+	}
+	
+	return pos;
     }
+
+/**
+  Task:      Array 'a' adds a correct parameter list into the 
+  'TypeNode'. Function 'f' will manage the handling 
+  of a correct parameter list. If 'array' is empty, 
+  function 'f' will handle a SLI procedure without
+  input parameter.
+  Insert will overwrite a function with identical parameter
+  list which might be already in the trie.
+  The type sli3::anytype will compare true to all other types.
+  Since specific variants of a function must have precedence,
+  nodes with type sli3::anytype must always be the tail of the
+  alternative parameter list.
   
-  return pos;
-}
-
-void TypeTrie::insert(const TypeArray& a, Token &f)
-{
-/*
-Task:      Array 'a' adds a correct parameter list into the 
-           'TypeTrie'. Function 'f' will manage the handling 
-           of a correct parameter list. If 'array' is empty, 
-           function 'f' will handle a SLI procedure without
-           input parameter.
-	   Insert will overwrite a function with identical parameter
-	   list which might be already in the trie.
-
-Bugs:	   If a represents a parameter-list which is already 
-	   present, nothing happens, just a warning is
-	   issued. 
-
-Author:    Marc Oliver Gewaltig
-
-Date:      15.Apr.1998, 18.11.95
-            completely rewritten, 16.Apr. 1998
-
-Parameter: a = array of datatypes
-           f = interpreter function
-
+  Bugs:	   If a represents a parameter-list which is already 
+  present, nothing happens, just a warning is
+  issued. 
+  
+  Author:    Marc Oliver Gewaltig
+  
+  Date:      15.Apr.1998, 18.11.95
+             completely rewritten, 16.Apr. 1998
+	     rewritten for sli3, July 2012
+  
+  Parameter: a = array of datatypes
+  f = interpreter function
+  
 */
-    TypeNode *pos=this;
-     
-    for(unsigned int level=0; level < a.size(); ++level)
-      {
-      
-	pos= getalternative(pos,a[level]);
-      
-	if(pos->next == NULL)
-	  pos->next = new TypeNode();
-	pos=pos->next;
-      }
-  
-    /* Error conditions:
-       1. If pos->next!=NULL, the parameter list overlaps with 
-       an existing function definition.
-       2. If pos->alt != NULL, something undefined must have happened.
-       This should be impossible.
-    */
-    if (pos->next == NULL)
-      {
-	pos->type=sli3::anytype;
-	pos->func=f;
-      }
-    else
-      std::cout << "Method 'TypeTrie::InsertFunction'"<< std::endl
-		<< "Warning! Ambigous Function Definition ." << std::endl
-		<< "A function with longer, but identical initial parameter "
-		<< "list is already present!" << std::endl
-		<< "Nothing was changed." << std::endl;
-}
 
+    void TypeNode::insert(const TypeArray& a, Token const &f)
+    {
+	TypeNode *pos=this;
+	unsigned int new_leaf=0;
+	
+	for(unsigned int level=0; level < a.size(); ++level)
+	{
+	    pos= get_alternative(pos,a[level]);
+	    new_leaf =(pos->next_ == NULL);
+	    if(new_leaf)
+		pos->next_=new TypeNode(NULL);
+	    
+	    pos=pos->next_;
+	}
+	
+	if(new_leaf)
+	{
+	    pos->func_=f;
+	}
+	else
+	{
+	    std::cout << "Method 'TypeNode::InsertFunction'"<< std::endl
+		      << "Error! Ambigous Function Definition ." << std::endl
+		      << "A function with longer, but identical initial parameter "
+		      << "list is already present!" << std::endl
+		      << "Nothing was changed." << std::endl;
+	    throw ArgumentType(0);
+	}
+    }
+    
 /*_____ end InsertFunction() _____________________________________*/
 
-  void TypeNode::info(SLIInterpreter *sli, std::ostream &out) const
-{
-  std::deque<TypeNode const * > tl;
-  info(sli, out, tl);
-}
+    void TypeNode::info(std::ostream &out) const
+    {
+	std::deque<TypeNode const * > tl;
+	info(out, tl);
+    }
 
+}

@@ -60,146 +60,176 @@ Date:      18.11.95
 
 namespace sli3
 {
-
-  typedef std::vector<unsigned int> TypeArray;
-
-  class TypeNode
-  {
-  private:
-    unsigned int refs_;         // number of references to this Node
+    class SLIInterpreter;
     
-  public:
-    unsigned int type_;        // expected type at this stack level    
-    Token        func_;         // points to the operator or an error func.
+    typedef std::vector<SLIType *> TypeArray;
     
-    TypeNode    *alt_;         // points to the next parameter alternative
-    TypeNode    *next;         // points to the next stack level for this path
-    
-    void add_reference(void)
-    { ++refs_; }
-    
-    unsigned int remove_reference(void)
+    class TypeNode
     {
-      if(--refs_ > 0)
-	return refs_;
-      
-      delete this;
-      return 0;
-    }
-      
-    unsigned int references() const
-    {
-      return refs_;
-    }
+	
+    public:
+	TypeNode(Name const &n);
+	
+	~TypeNode();
+	
+	void  insert(const TypeArray& , Token const &);
+	Token& lookup(TokenStack &st);
+	
+	bool operator == (const TypeNode &) const;
+	bool equals(unsigned int , unsigned int) const;
+	
+	void toTokenArray(TokenArray &) const;
+	void info(std::ostream &) const;
+	
+	
+	refcount_t add_reference(void);
+	refcount_t remove_reference(void);
+	refcount_t references() const;
+	
+	Name const & get_name() const;
 
-  TypeNode(const SLIType *t, Token f=Token())
-    : refs_(1), type_(t), func_(f),alt_(NULL),next_(NULL) {}
+    private:
+	TypeNode(SLIType *, Token);
+	TypeNode(const TypeNode &);
+	
+	//    TypeNode operator=(const TypeNode &){}; // disable this operator
+	TypeNode * get_alternative(TypeNode *, SLIType *);
+	void info( std::ostream &, std::deque<TypeNode const *> &) const;
+	
+	refcount_t refs_;         //!< number of references to this Node
+	Name       name_;        //!< Name of the trie (only for root)
+
+	SLIType    *type_;        //!< expected type at this stack level
+	Token       func_;        //!< Object stored (only for leaf).
+	
+	TypeNode    *alt_;         //!< alternative parameter at this level
+	TypeNode    *next_;         //!< next stack level
+	
+    };
     
-    TypeNode(const TypeNode &node)
-      :refs_(1),
-      type_(node.type_),
-      func_(node.func_),
-      alt_(node.alt_),
-      next_(node.next_)
-	{
-	  if(next_ != NULL)
+    inline 
+    TypeNode::TypeNode(Name const &name)
+	: refs_(1),
+	  name_(name),
+	  type_(0),
+	  func_(),
+	  alt_(NULL),
+	  next_(NULL){}
+    
+    inline 
+    TypeNode::TypeNode(SLIType* t, Token f=Token())
+      : refs_(1), name_(), type_(t),  func_(f),alt_(NULL),next_(NULL) 
+    {}
+    
+    inline 
+    TypeNode::TypeNode(const TypeNode &node)
+	:refs_(1),
+	 name_(node.name_),
+	 type_(node.type_),
+	 func_(node.func_),
+	 alt_(node.alt_),
+	 next_(node.next_)
+    {
+	if(next_ != NULL)
 	    next_->add_reference();
-	  if(alt_ != NULL)
+	if(alt_ != NULL)
 	    alt_->add_reference();
+    }
+
+    inline  
+    TypeNode::~TypeNode()
+    {
+	if (next_ != NULL)
+	    next_->remove_reference();
+	if (alt_ != NULL)
+	    alt_->remove_reference();
+    }    
+    
+    inline 
+    refcount_t TypeNode::add_reference(void)
+    { 
+	return ++refs_; 
+    }
+    
+    inline 
+    refcount_t TypeNode::remove_reference(void)
+    {
+	if(--refs_ > 0)
+	    return refs_;
+	
+	delete this;
+	return 0;
+    }
+    
+    inline 
+    refcount_t TypeNode::references() const
+    {
+	return refs_;
+    }
+    
+    inline
+    Name const & TypeNode::get_name() const
+    {
+	return name_;
+    }
+    
+    /**
+       Task:      Token on stack 'st' will be compared with the TypeNode.
+       Each stack element must have an equivalent type on the 
+       current tree level. By reaching a leaf the interpreter 
+       function will be returned.           
+       
+       Author:    Marc Oliver Gewaltig
+       
+       Date:      18.11.95, 
+       rewritten on Apr. 16 1998
+       rewritten for sli3, June 2012
+       
+       Parameter: st = stack
+       
+    */
+    inline
+    Token& TypeNode::lookup(TokenStack &st)
+    {
+	const size_t load =st.load();
+	size_t level=0;
+	
+	TypeNode *pos=this;
+	
+	while(level<load)
+	{
+	    SLIType *find_type=st.pick(level).type_;
+	    
+	    // Step 1: find the type at the current stack level in the
+	    // list of alternatives. Unfortunately, this search is O(n).
+	    
+	    while (pos->type_ != find_type)
+		if (pos->alt_ != NULL)
+		    pos = pos->alt_;
+		else
+		    if((not pos) or (pos->type_->get_typeid() != sli3::anytype))
+			throw ArgumentType(level);
+	    
+	    // If we have reached a leaf, we can return the function.
+	    if(pos->next_ == NULL)
+		return pos->func_;
+
+	    // Proceed with next level/argument.
+	    pos = pos->next_;     
+	    ++level;
 	}
 
-    ~TypeNode()
-      {
-	if (next_ != NULL)
-	  next_->remove_reference();
-	if (alt_ != NULL)
-	  alt->remove_reference();
-      }
-    
-    void toTokenArray(TokenArray &) const;
-    
-    //    TypeTrie operator=(const TypeTrie &){}; // disable this operator
-    TypeNode * get_alternative(TypeNode *, SLIType *);
-    
-    void  insert(const TypeArray& , Token const &);
-    
-    const Token& lookup(const TokenStack &st) const;
-    
-    bool operator == (const TypeTrie &) const;
-    
-    inline bool equals(const Name &, const Name &) const;
-    void toTokenArray(TokenArray &) const;
-    void info(std::ostream &) const;
-  private:
-    void info(SLIInterpreter *, std::ostream &, std::vector<TypeNode const *> &) const;
+	throw StackUnderflow(level+1, load) ;
+    }
 
-};
-
-// Typename comparison including /anytype which compares
-// positively for all other typenames
 
  inline
-   bool TypeNode::equals(unsigned int t1, unsigned int t2) const
-   {
-     return(t1==t2 || t1==sli3::anytype || t2==sli3::anytype);
-   }
- 
- inline
-   Token& TypeNode::lookup(const TokenStack &st) const
+ bool TypeNode::operator == (const TypeNode &tt) const
  {
-   /*
-     Task:      Token on stack 'st' will be compared with the TypeTrie.
-     Each stack element must have an equivalent type on the 
-     current tree level. By reaching a leaf the interpreter 
-     function will be returned.           
-     
-     Author:    Marc Oliver Gewaltig
-     
-     Date:      18.11.95, 
-     rewritten on Apr. 16 1998
-     rewritten for sli3, June 2012
-
-     Parameter: st = stack
-     
-   */
-   const size_t load =st.load();
-   size_t level=0;
-   
-   TypeNode *pos=this;
-   
-   while(level<load)
-     {
-       unsigned int find_type=st.pick(level)->type_->get_type_id();
-       
-       // Step 1: find the type at the current stack level in the
-       // list of alternatives. Unfortunately, this search is O(n).
-       
-       while (! equals(find_type, pos->type))
-	 if (pos->alt != NULL)
-	   pos = pos->alt;
-	 else
-	   throw ArgumentType(level);
-    
-    // Now go to the next argument.
-       pos = pos->next;     
-    
-       // Now check if we have reached a leaf.
-       if(pos->next == NULL)
-	 return pos->func;
-
-       ++level;
-     }
-
-   throw StackUnderflow(level+1, load) ;
+     return (this == &tt);
  }
 
-
- inline
-   bool TypeNode::operator == (const TypeNode &tt) const
-   {
-     return (this == &tt);
-   }
-
+}    
 #endif
 
 

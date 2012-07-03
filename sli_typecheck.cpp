@@ -14,11 +14,16 @@
  *
  */
 
-#include <sstream>
 
-#include "sli_typecheck.h"
 #include "sli_interpreter.h"
 #include "sli_trietype.h"
+#include "sli_typecheck.h"
+#include "sli_iostream.h"
+#include <iostream>
+#include <sstream>
+
+namespace sli3
+{
 
 /*BeginDocumentation
 Name: trie - Create a new type-trie object
@@ -32,28 +37,16 @@ Examples: /square trie
 Author: Marc-Oliver Gewaltig
 SeeAlso: addtotrie
 */
+
 void TrieFunction::execute(SLIInterpreter *i) const
 {
+    i->require_stack_load(1);
+    i->require_stack_type(0,sli3::literaltype);
 
-  if(i->OStack.load() <1)
-  {
-    i->raiseerror(i->StackUnderflowError);
-    return;
-  }
-  
-  LiteralDatum *name = dynamic_cast<LiteralDatum *>(i->OStack.top().datum());
-  
-  if(name == NULL)
-  {
-    i->raiseerror(i->ArgumentTypeError);
-    return;
-  }
-  i->EStack.pop();
-
-  TrieDatum *trie= new TrieDatum(*name );
-
-  Token tmp(trie);
-  i->OStack.push_move(tmp);
+    TypeNode *trie= new TypeNode(i->top().data_.name_val);
+    i->top().type_=i->get_type(sli3::trietype);
+    i->top().data_.trie_val=trie;
+    i->EStack().pop();
 }
 
 
@@ -75,64 +68,44 @@ SeeAlso: trie
     
 void AddtotrieFunction::execute(SLIInterpreter *i) const
 {
-  if(i->OStack.load() <3)
-  {
-    i->raiseerror(i->StackUnderflowError);
-    return;
-  }
-  
-  TrieDatum *trie=
-    dynamic_cast<TrieDatum *>(i->OStack.pick(2).datum());
+    i->require_stack_load(3);
+    i->require_stack_type(2,sli3::trietype);
+    i->require_stack_type(1,sli3::arraytype);
 
-  if(trie == NULL)
-  {
-    i->raiseerror(i->ArgumentTypeError);
-    return;
-  }
-    
-  TypeArray a;
+    TypeNode *trie= i->pick(2).data_.trie_val;
+    TokenArray *ad=i->pick(1).data_.array_val;
 
-  // Construct a TypeArray from the TokenArray
-  ArrayDatum *ad = dynamic_cast<ArrayDatum *>(i->OStack.pick(1).datum());
-
-  if(ad == NULL)
-  {
-    i->raiseerror(i->ArgumentTypeError);
-    return;
-  }
-
-  if(ad->size() == 0)
-  {
-    i->message(SLIInterpreter::M_ERROR, "addtotrie","type-array must not be empty.");
-    i->message(SLIInterpreter::M_ERROR, "addtotrie","No change was made to the trie.");
-    i->raiseerror(i->ArgumentTypeError);
-    return;
-  }
-
-
-  for(Token *t= ad->end()-1; t >= ad->begin(); --t)
-  {
-    LiteralDatum *nd = dynamic_cast<LiteralDatum *>(t->datum());
-
-    if(nd == NULL)
+    if(ad->size() == 0)
     {
-      std::ostringstream message;
-      message << "In trie " << trie->getname() << ". " 
-	      << "Error at array position " << t - ad->begin() << '.' << std::ends;
-      i->message(SLIInterpreter::M_ERROR, "addtotrie", message.str().c_str());
-      i->message(SLIInterpreter::M_ERROR, "addtotrie","Array must contain typenames as literals.");
-      i->message(SLIInterpreter::M_ERROR, "addtotrie","No change was made to the trie.");
-      
-      i->raiseerror(i->ArgumentTypeError);
-      return;
+	i->message(sli3::M_ERROR, "addtotrie","Can't store function without any parameters.");
+	i->message(sli3::M_ERROR, "addtotrie","No change was made to the trie.");
+	i->raiseerror(i->ArgumentTypeError);
+	return;
     }
-
-    a.push_back(*nd);
-  }
-
-  trie->insert_move(a, i->OStack.top());
-  i->OStack.pop(2);
-  i->EStack.pop();
+    
+    TypeArray a;
+    a.reserve(ad->size());
+    for(Token *t= ad->end()-1; t >= ad->begin(); --t)
+    {
+	if( not t->is_of_type(sli3::literaltype))
+	{
+	    std::ostringstream message;
+	    message << "In trie " << trie->get_name() << ". " 
+	    	    << "Type name expected at position " << t - ad->begin() << '.' << std::ends;
+	    i->message(sli3::M_ERROR, "addtotrie", message.str().c_str());
+	    i->message(sli3::M_ERROR, "addtotrie","Array must contain typenames as literals.");
+	    i->message(sli3::M_ERROR, "addtotrie","No change was made to the trie.");
+	    
+	    i->raiseerror(i->ArgumentTypeError);
+	    return;
+	}
+	long type_val=i->baselookup(t->data_.name_val);
+	a.push_back(i->get_type(type_val));
+    }
+    
+    trie->insert(a, i->top());
+    i->pop(2);
+    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -182,43 +155,29 @@ void AddtotrieFunction::execute(SLIInterpreter *i) const
 
 void Cva_tFunction::execute(SLIInterpreter *i) const
 {
-  assert(i->OStack.size()>0);
-  
-  i->EStack.pop();
+    i->require_stack_load(1);
+    i->require_stack_type(0,sli3::trietype);
 
-  Token trietoken;
-  trietoken.move(i->OStack.top());
-  i->OStack.pop();
-  
-  TrieDatum *trie=
-    dynamic_cast<TrieDatum *>(trietoken.datum());
-  assert(trie != NULL);
-    
-  Name triename(trie->getname());
-  i->OStack.push(LiteralDatum(triename));
-  TokenArray a;  
-  trie->get().toTokenArray(a);
-  i->OStack.push(ArrayDatum(a));
+    TypeNode *trie=i->top().data_.trie_val;
+    TokenArray *array = new TokenArray();  
+    trie->toTokenArray(*array);
+    i->top()=i->new_token<sli3::literaltype>(trie->get_name());
+    i->push(i->new_token<sli3::arraytype>(array));
+    i->EStack().pop();
 }
 
 void TrieInfoFunction::execute(SLIInterpreter *i) const
 {
-  assert(i->OStack.size()>1);
-  
-  i->EStack.pop();
-
-  OstreamDatum *osd=dynamic_cast<OstreamDatum *>(i->OStack.pick(1).datum());
-  assert(osd != 0);
-
-  Token trietoken;
-  trietoken.move(i->OStack.top());
-  
-  TrieDatum *trie=
-    dynamic_cast<TrieDatum *>(trietoken.datum());
-  assert(trie != NULL);
+    i->require_stack_load(2);
+    i->require_stack_type(1,sli3::ostreamtype);
+    i->require_stack_type(0,sli3::trietype);
     
-  trie->get().info(**osd);
-  i->OStack.pop(2);
+    std::ostream *out = i->pick(1).data_.ostream_val->get();
+
+    TypeNode *trie= i->top().data_.trie_val;
+    trie->info(*out);
+    i->pop(2);
+    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -286,22 +245,18 @@ void TrieInfoFunction::execute(SLIInterpreter *i) const
 */
 void Cvt_aFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
-    assert(i->OStack.size()>1);
+    i->require_stack_load(2);
+    i->require_stack_type(1,sli3::literaltype);
+    i->require_stack_type(0,sli3::arraytype);
 
-    LiteralDatum *name = 
-      dynamic_cast<LiteralDatum *>(i->OStack.pick(1).datum());
-    assert(name != NULL);
-    ArrayDatum   *arr  = 
-      dynamic_cast<ArrayDatum *>(i->OStack.pick(0).datum());
-    assert(arr != NULL);
-
-    TrieDatum *trie=
-        new TrieDatum(*name, *arr);
-    assert(trie != NULL);
-    Token tmp(trie);
-    i->OStack.pop();
-    i->OStack.push_move(tmp);
+    Name name(i->pick(1).data_.name_val); 
+    TokenArray *arr  = i->pick(0).data_.array_val;
+    
+    TypeNode *trie= new TypeNode(name);//, *arr);
+    i->top().clear(); // Clear token before explicit assignment.
+    i->top().type_=i->get_type(sli3::trietype);
+    i->top().data_.trie_val=trie;
+    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -311,26 +266,23 @@ Examples: 1 type -> /integertype
 */
 void TypeFunction::execute(SLIInterpreter *i) const
 {
-  if(i->OStack.load()==0)
-  {
-    i->raiseerror(i->StackUnderflowError);
-    return;
-  }
+    static SLIType *literal_t=i->get_type(sli3::literaltype);
 
-  i->EStack.pop();
-  Token tmp;
-  tmp.move(i->OStack.top());
-  i->OStack.pop();
-  Token n(new LiteralDatum(tmp->gettypename()));
-  i->OStack.push_move(n);
+    i->require_stack_load(1);
+    Token &top=i->top();
+    Token tmp;
+    tmp.move(top);
+    top.type_= literal_t;
+    top.data_.name_val=tmp.type_->get_typename();
+    i->EStack().pop();
 }
 
-const TrieFunction      triefunction;
-const TrieInfoFunction  trieinfofunction;
-const AddtotrieFunction addtotriefunction;
-const Cva_tFunction     cva_tfunction;
-const Cvt_aFunction     cvt_afunction;
-const TypeFunction      typefunction;
+TrieFunction      triefunction;
+TrieInfoFunction  trieinfofunction;
+AddtotrieFunction addtotriefunction;
+Cva_tFunction     cva_tfunction;
+Cvt_aFunction     cvt_afunction;
+TypeFunction      typefunction;
 
 void init_slitypecheck(SLIInterpreter *i)
 {
@@ -342,3 +294,4 @@ void init_slitypecheck(SLIInterpreter *i)
     i->createcommand("type",      &typefunction);
 }
 
+}
