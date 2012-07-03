@@ -16,12 +16,9 @@
 
 #include <sstream>
 
-#include "slitypecheck.h"
-#include "interpret.h"
-#include "namedatum.h"
-#include "triedatum.h"
-#include "arraydatum.h"
-#include "iostreamdatum.h"
+#include "sli_typecheck.h"
+#include "sli_interpreter.h"
+#include "sli_trietype.h"
 
 /*BeginDocumentation
 Name: trie - Create a new type-trie object
@@ -32,7 +29,7 @@ current dictionary. This has to be done by an explicit def.
 Examples: /square trie 
           [/doubletype] { dup mul } addtotrie def
           
-Author: Marc-Oliver 
+Author: Marc-Oliver Gewaltig
 SeeAlso: addtotrie
 */
 void TrieFunction::execute(SLIInterpreter *i) const

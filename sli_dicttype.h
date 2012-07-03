@@ -22,8 +22,11 @@ namespace sli3
 
     void remove_reference(Token &t) const
     {
-      if(t.data_.dict_val!=0)
-	t.data_.dict_val->remove_reference();
+      if(t.data_.dict_val->remove_reference() ==0)
+	{
+	  t.type_=0;
+	  t.data_.dict_val=0;
+	}
     }
 
     void clear(Token &t) const
@@ -36,15 +39,12 @@ namespace sli3
 
     refcount_t references(Token const &t) const
     {
-      if(t.data_.dict_val !=0)
-	return t.data_.dict_val->references();
-      else 
-	return 0;
+      return t.data_.dict_val->references();
     }
 
-      bool compare(const Token&t1, const Token&t2) const;
-      std::ostream & print(std::ostream&, const Token &) const;
-      std::ostream & pprint(std::ostream&, const Token &) const;
+    bool compare(const Token&t1, const Token&t2) const;
+    std::ostream & print(std::ostream&, const Token &) const;
+    std::ostream & pprint(std::ostream&, const Token &) const;
   };
 }
 

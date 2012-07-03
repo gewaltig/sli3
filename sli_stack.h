@@ -19,10 +19,14 @@
 /* 
     Stack manipulation functions
 */
+#include "sli_function.h"
 
 namespace sli3
 {
   class SLIInterpreter;
+
+
+  void  init_slistack(SLIInterpreter *i);
 
     /************************************************
       Stack manipulation functions

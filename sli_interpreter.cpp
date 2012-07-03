@@ -10,6 +10,7 @@
 #include "sli_parser.h"
 #include "sli_control.h"
 #include "sli_math.h"
+#include "sli_stack.h"
 #include <time.h>
 
 /* BeginDocumentation
@@ -258,6 +259,7 @@ namespace sli3
 	createdouble(pi_name, numerics::pi);
 	createdouble(e_name, numerics::e);
 	init_slicontrol(this);
+	init_slistack(this);
 	init_slimath(this);
 	system_dict_->info(std::cerr);
     }

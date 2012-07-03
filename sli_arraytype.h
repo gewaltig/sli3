@@ -17,21 +17,15 @@ namespace sli3
 
     refcount_t add_reference(Token const& t) const
     {
-      if(t.data_.array_val !=0)
 	return t.data_.array_val->add_reference();
-      else
-	return 0;
     }
 
     void remove_reference(Token &t) const
     {
-      if(t.data_.array_val!=0)
+      if(t.data_.array_val->remove_reference() ==0)
 	{
-	  if(t.data_.array_val->remove_reference() ==0)
-	    {
-	      t.type_=0;
-	      t.data_=Token::value();
-	    }
+	  t.type_=0;
+	  t.data_=Token::value();
 	}
     }
 

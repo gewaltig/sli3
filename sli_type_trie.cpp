@@ -58,142 +58,93 @@ Date:      18.11.95
 namespace sli3
 {
 
-    void TypeTrie::TypeNode::toTokenArray(SLIInterpreter *sli, TokenArray &a) const
-    {
-	assert(a.size()==0);
-	if(next == NULL && alt == NULL) // Leaf node
-	{
-	    a.push_back(func);
-	}
-	else 
-	{ 
-	    assert(next != NULL);
-	    a.push_back(sli->new_token<sli3::literaltype>(type_->get_typename()));
-	    TokenArray *a_next=new TokenArray();
-	    next->toTokenArray(*a_next);
-	    a.push_back(sli->new_token<sli3::arraytype>(a_next));
-	    if(alt != NULL)
-	    {
-		TokenArray *a_alt= new TokenArray();
-		alt->toTokenArray(*a_alt);
-		a.push_back(sli->new_token<sli3::arraytype>(ArrayDatum(a_alt)));
-	    }
-	}
-    }
+  void TypeNode::toTokenArray(SLIInterpreter *sli, TokenArray &a) const
+  {
+    assert(a.size()==0);
+    if(next == NULL && alt == NULL) // Leaf node
+      {
+	a.push_back(func);
+      }
+    else 
+      { 
+	assert(next != NULL);
+	a.push_back(sli->new_token<sli3::literaltype>(type_->get_typename()));
+	TokenArray *a_next=new TokenArray();
+	next->toTokenArray(*a_next);
+	a.push_back(sli->new_token<sli3::arraytype>(a_next));
+	if(alt != NULL)
+	  {
+	    TokenArray *a_alt= new TokenArray();
+	    alt->toTokenArray(*a_alt);
+	    a.push_back(sli->new_token<sli3::arraytype>(ArrayDatum(a_alt)));
+	  }
+      }
+  }
     
-    void TypeTrie::TypeNode::info(std::ostream &out, std::vector<TypeNode const *> &tl) const
-    {
-	if(next == NULL && alt == NULL) // Leaf node
-	{
-	    // print type list then function
-	    for(int i=tl.size()-1; i>=0;--i)
-	    {
-		out << std::setw(15) << std::left << LiteralDatum(tl[i]->type);
-	    }
-	    out  <<"calls " << func << std::endl;
-	}
-	else 
-	{ 
-	    assert(next != NULL);
-	    tl.push_back(this);
-	    next->info(out, tl);
-	    tl.pop_back();
-	    if(alt != NULL)
-	    {
-		alt->info(out,tl);
-	    }
-	}
-    }
-    
-    
-    TypeTrie::TypeNode * TypeTrie::new_node(const TokenArray &ta) const
-    {
-	assert(ta.size() >0); assert(ta.size() <= 3);
-	TypeNode *n= NULL;
-	if(ta.size() == 1) // leaf
-	{
-	    n =new TypeNode(sli::object,ta[0]);
-	}
-	else 
-	{
-	    // first object in the array must be a literal, indicating the type
-	    // the second and third object must be an array.
-	    LiteralDatum *typed = dynamic_cast<LiteralDatum *>(ta[0].datum());
-	    assert(typed != NULL);
-	    ArrayDatum *nextd = dynamic_cast<ArrayDatum *>(ta[1].datum());
-	    assert(nextd != NULL);
-	    n = new TypeNode(*typed);
-	    n->next = newnode(*nextd);
-	    if(ta.size()==3)
-	    {
-		ArrayDatum *altd = dynamic_cast<ArrayDatum *>(ta[2].datum());
-		assert(altd != NULL);
-		n->alt = newnode(*altd);
-	    }
-	}
-	return n;
-    }
-    
-/*
-  Task:      Destructor removes the complete tree.
-  
-  Author:    Marc Oliver Gewaltig
-  
-  Date:      18.11.95
-  
-  Parameter: None
-*/
+  void TypeNode::info(SLIInterpreter *sli, std::ostream &out, std::deque<TypeNode const *> &tl) const
+  {
+    if(next == NULL && alt == NULL) // Leaf node
+      {
+	// print type list then function
+	for(int i=tl.size()-1; i>=0;--i)
+	  {
+	    out << std::setw(15) << std::left << sli->get_type(tl[i]->type_)->get_typename();
+	  }
+	out  <<"calls " << func << std::endl;
+      }
+    else 
+      { 
+	assert(next != NULL);
+	tl.push_back(this);
+	next->info(sli, out, tl);
+	tl.pop_back();
+	if(alt != NULL)
+	  {
+	    alt->info(sli, out, tl);
+	  }
+      }
+  }
     
     
-
-
-TypeTrie::TypeNode *TypeTrie::get_alternative(TypeTrie::TypeNode *pos, const Name &type)
+TypeNode *TypeTrie::get_alternative(TypeTrie::TypeNode *pos, unsigned int type)
 {
   // Finds Node for the current type in the alternative List,
   // starting at pos. If the type is not already present, a new
   // Node will be created.
-  const Name empty;
-
-  if(pos->type==empty)
-  {
-    pos->type=type;
-    //    assert(pos->next == NULL);
-    return pos;
-  }
-
+  
   while(type != pos->type)
-  {
-    if(pos->alt == NULL)
-      pos->alt =new TypeNode(type);
-    
-    if(pos->type == sli::any)
     {
-      // any must have been the tail and the previous 
-      // if must have added an extra Node, thus the following
-      // assertion must hold:
-      //assert(pos->alt->alt == NULL);
+      if(pos->alt == NULL)
+	pos->alt =new TypeNode(type);
       
-      TypeNode *new_tail= pos->alt;
+      if(pos->type == sli3::anytype)
+	{
+	  // any must have been the tail and the previous 
+	  // if must have added an extra Node, thus the following
+	  // assertion must hold:
+	  //assert(pos->alt->alt == NULL);
       
-      // Move the wildcard to the tail Node.
+	  TypeNode *new_tail= pos->alt;
       
-      pos->type=type;
-      new_tail->type=sli::any;
-      new_tail->func.swap(pos->func);
-      new_tail->next= pos->next;
-      pos->next=NULL;
+	  // Move the wildcard to the tail Node.
       
-      // this  while() cycle will terminate, as 
-      // pos->type==type by asignment.
+	  pos->type=type;
+	  new_tail->type=sli3::anytype;
+	  new_tail->func.swap(pos->func);
+	  new_tail->next= pos->next;
+	  pos->next=NULL;
+	  break;
+	  // this  while() cycle will terminate, as 
+	  // pos->type==type by asignment.
+	}
+      else
+	pos= pos->alt; // pos->alt is always defined here.
     }
-    else
-      pos= pos->alt; // pos->alt is always defined here.
-  }
   
   return pos;
 }
 
-void TypeTrie::insert_move(const TypeArray& a, Token &f)
+void TypeTrie::insert(const TypeArray& a, Token &f)
 {
 /*
 Task:      Array 'a' adds a correct parameter list into the 
@@ -217,37 +168,30 @@ Parameter: a = array of datatypes
            f = interpreter function
 
 */
-    TypeNode *pos=root;
-    const Name empty;
-    
-    assert(root != NULL);
-    
-//Functions with no parameters are possible, but useless in trie
-// structures, so it is best to forbid them!
-  assert(a.size()>0); 
-  
-  for(unsigned int level=0; level < a.size(); ++level)
-  {
+    TypeNode *pos=this;
+     
+    for(unsigned int level=0; level < a.size(); ++level)
+      {
       
-      pos= getalternative(pos,a[level]);
+	pos= getalternative(pos,a[level]);
       
-      if(pos->next == NULL)
-	  pos->next = new TypeNode(empty);
-    pos=pos->next;
-  }
+	if(pos->next == NULL)
+	  pos->next = new TypeNode();
+	pos=pos->next;
+      }
   
-  /* Error conditions:
-     1. If pos->next!=NULL, the parameter list overlaps with 
-     an existing function definition.
-     2. If pos->alt != NULL, something undefined must have happened.
-     This should be impossible.
-  */
-  if (pos->next == NULL)
-  {
-      pos->type=sli::object;
-      pos->func.move(f);
-  }
-  else
+    /* Error conditions:
+       1. If pos->next!=NULL, the parameter list overlaps with 
+       an existing function definition.
+       2. If pos->alt != NULL, something undefined must have happened.
+       This should be impossible.
+    */
+    if (pos->next == NULL)
+      {
+	pos->type=sli3::anytype;
+	pos->func=f;
+      }
+    else
       std::cout << "Method 'TypeTrie::InsertFunction'"<< std::endl
 		<< "Warning! Ambigous Function Definition ." << std::endl
 		<< "A function with longer, but identical initial parameter "
@@ -257,24 +201,9 @@ Parameter: a = array of datatypes
 
 /*_____ end InsertFunction() _____________________________________*/
 
-
-
-
-
-    void TypeTrie::toTokenArray(TokenArray &a) const
-    {
-	a.clear();
-	if(root_ != NULL)
-	    root_->toTokenArray(a);
-    }
-    
-    void TypeTrie::info(std::ostream &out) const
-    {
-	std::vector<TypeNode const * > tl;
-	tl.reserve(5);
-	
-	if(root_ != NULL)
-	    root_->info(out, tl);
-    }
-
+  void TypeNode::info(SLIInterpreter *sli, std::ostream &out) const
+{
+  std::deque<TypeNode const * > tl;
+  info(sli, out, tl);
 }
+
