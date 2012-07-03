@@ -21,6 +21,8 @@
 namespace sli3
 {
 
+    void init_slitypecheck(SLIInterpreter *);
+
   class TrieFunction: public SLIFunction
   {
   public:
@@ -64,7 +66,6 @@ namespace sli3
   };
   
   
-  void init_slitypecheck(SLIInterpreter *);
 }
 
 #endif

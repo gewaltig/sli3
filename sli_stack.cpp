@@ -18,7 +18,7 @@
     slistack.cc
 */
 #include "sli_stack.h"
-
+#include "sli_interpreter.h"
 namespace sli3
 {
 
@@ -37,7 +37,7 @@ SeeAlso: npop
 void PopFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->EStack.pop();
+    i->EStack().pop();
     i->pop();
 }
 
@@ -55,7 +55,7 @@ void NpopFunction::execute(SLIInterpreter *i) const
     size_t n=i->top().data_.long_val;
     i->require_stack_load(n+1);
     i->pop(n+1);
-    i->EStack.pop();
+    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -173,9 +173,8 @@ void RollFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
     
-    const size_t load=i->load();
-    const size_t n=i->pick(1).data_.long_val;
-    const size_t k=i->pick(0).data_.long_val;
+    const long n=i->pick(1).data_.long_val;
+    const long k=i->pick(0).data_.long_val;
 
     if(n < 0)
     {
@@ -201,7 +200,7 @@ SeeAlso: roll, rolld, rot
 void RolluFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(3);
-    i->EStack.pop();
+    i->EStack().pop();
     
     i->OStack().roll(3,1);
 }
@@ -217,7 +216,7 @@ SeeAlso: roll, rollu, rot
 void RolldFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(3);
-    i->EStack.pop();
+    i->EStack().pop();
     i->OStack().roll(3,-1);
 }
 
@@ -229,9 +228,9 @@ SeeAlso: roll, rollu, rolld
 
 void RotFunction::execute(SLIInterpreter *i) const
 {
-  i->EStack.pop();
+  i->EStack().pop();
     
-  i->OStack().roll(i->OStack.load(),1);
+  i->OStack().roll(i->OStack().load(),1);
 }
 
 /*BeginDocumentation
@@ -240,9 +239,9 @@ Synopsis: obj_n-1 ... obj0 count -> obj_n-1 ... obj0 n
 */
 void CountFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
     
-    i->OStack.push(i->load());
+    i->push(i->load());
 }
 
 /*BeginDocumentation
@@ -265,10 +264,10 @@ SeeAlso: restoreestack, operandstack
 */ 
 void ExecstackFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
+    i->EStack().pop();
 
-    TokenArray *ta=i->EStack.toArray();
-    i->OStack.push<sli3::arraytype>(st);   
+    TokenArray *ta=i->EStack().toArray();
+    i->push(i->new_token<sli3::arraytype>(ta));   
 }
 
 /*BeginDocumentation
@@ -287,9 +286,9 @@ SeeAlso: execstack
 void RestoreestackFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->require_stack_type(sli3::arraytype);
+    i->require_stack_type(0,sli3::arraytype);
     i->EStack()=*(i->top().data_.array_val);
-    i->OStack.pop();
+    i->pop();
 }
 
 /*BeginDocumentation
@@ -307,9 +306,9 @@ SeeAlso: operandstack, arrayload, arraystore
 void RestoreostackFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->require_stack_type(sli3::arraytype);
+    i->require_stack_type(0,sli3::arraytype);
     i->OStack()=*(i->top().data_.array_val);
-    i->EStack.pop();
+    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -319,8 +318,8 @@ SeeAlso: restoreostack, arrayload, arraystore
 */ 
 void OperandstackFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack.pop();
-    i->push<sli3::arraytype>(i->OStack().toArray());
+    i->EStack().pop();
+    i->push(i->new_token<sli3::arraytype>(i->OStack().toArray()));
 }
 
  PopFunction              popfunction;
