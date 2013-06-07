@@ -40,9 +40,23 @@ namespace sli3
     }
 
 
-    bool compare(const Token&t1, const Token&t2) const;
-    std::ostream & print(std::ostream&, const Token &) const;
-    std::ostream & pprint(std::ostream&, const Token &) const;
+    bool compare(const Token&t1, const Token&t2) const
+    {
+      return *(t1.data_.trie_val) == *(t1.data_.trie_val);
+    }
+
+    std::ostream & print(std::ostream& out, const Token &t) const
+      {
+        t.data_.trie_val->info(out);
+        return out;
+      }
+
+    std::ostream & pprint(std::ostream&out, const Token &t) const
+      {
+        t.data_.trie_val->info(out);
+        return out;
+      }
+
   };
 }
 

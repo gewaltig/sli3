@@ -1,5 +1,5 @@
-#include <string>
 #ifndef SLI_TYPE_H
+#include <string>
 #define SLI_TYPE_H
 #include "sli_name.h"
 
@@ -31,20 +31,20 @@ namespace sli3
     arraytype,
     dictionarytype,
     nametype,
-    litproceduretype,
-    trietype,      //!< Type Trie
+    litproceduretype, 
+    trietype,         //!< Type Trie
     functiontype,
     proceduretype,
+    istreamtype,
+    xistreamtype,
+    ostreamtype,
+    symboltype, //!< last datatype system operators follow
     iiteratetype,
     irepeattype,
     ifortype,
     iforalltype,
     nooptype,
     quittype,
-    symboltype,
-    istreamtype,
-    xistreamtype,
-    ostreamtype,
     num_sli_types, //!< Number of builtin types. User type ids start here
     intvectortype,
     doublevectortype,

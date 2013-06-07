@@ -219,7 +219,13 @@ namespace sli3
 	    
 	    pos=pos->next_;
 	}
-	
+        /* Error conditions:
+           1. If pos->next!=NULL, the parameter list overlaps with 
+           an existing function definition.
+           2. If pos->alt != NULL, something undefined must have happened.
+           This should be impossible.
+        */
+
 	if(new_leaf)
 	{
 	    pos->func_=f;

@@ -18,8 +18,10 @@
 ## C++ specific flags
 #CC=gcc-mp-4.6
 #CXX=g++-mp-4.6
-CC=clang
-CXX=clang
+#CC=clang
+#CXX=clang
+CC=gcc
+CXX=g++
 
 GDB=-g
 CCFLAGS= -O2 $(GDB) -Wall
@@ -60,10 +62,10 @@ OBJS=	sli_array.o\
 
 SOURCES = ${OBJS:.o=.cpp}
 
-all: makefile sli test_token test_dictionary
+all: makefile sli
 
 sli: ${OBJS} sli_main.o
-	${CC} -o $@ ${OBJS} sli_main.o ${LDFLAGS}
+	${CXX} -o $@ ${OBJS} sli_main.o ${LDFLAGS}
 
 test_token: ${OBJS} test_token.o
 	${CC} -o $@ ${OBJS} $@.o ${LDFLAGS}
@@ -71,8 +73,8 @@ test_token: ${OBJS} test_token.o
 test_dictionary: ${OBJS} test_dictionary.o
 	${CC} -o $@ ${OBJS} $@.o ${LDFLAGS}
 
-.cc.o:
-	${CC} ${CFLAGS} -c $*.cc
+.cpp.o:
+	${CXX} ${CXXFLAGS} -c $*.cpp
 
 makefile: base.mk
 	@ echo 'Generating makefile...'
