@@ -854,12 +854,22 @@ namespace sli3
 
     template<>
     inline
+    Token SLIInterpreter::new_token<sli3::integertype,unsigned int>(unsigned int i)
+    {
+	Token t(types_[sli3::integertype]);
+	t.data_.long_val= i;
+	return t;
+    }
+
+    template<>
+    inline
     Token SLIInterpreter::new_token<sli3::integertype,int>(int i)
     {
 	Token t(types_[sli3::integertype]);
 	t.data_.long_val= i;
 	return t;
     }
+
 
     template<>
     inline

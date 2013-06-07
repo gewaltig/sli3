@@ -69,6 +69,7 @@ SeeAlso: trie
     
 void AddtotrieFunction::execute(SLIInterpreter *i) const
 {
+    std::cerr << "Adding to trie.\n";
     i->require_stack_load(3);
     i->require_stack_type(2,sli3::trietype);
     i->require_stack_type(1,sli3::arraytype);
@@ -105,6 +106,7 @@ void AddtotrieFunction::execute(SLIInterpreter *i) const
     }
     
     trie->insert(a, i->top());
+    trie->info(std::cerr);
     i->pop(2);
     i->EStack().pop();
 }

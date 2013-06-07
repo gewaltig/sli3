@@ -238,6 +238,14 @@ namespace sli3
 	system_dict_->insert(Name("userdict"),dict);
 	dict.data_.dict_val=status_dict_;
 	system_dict_->insert(Name("statusdict"),dict);
+        for (unsigned int t_id=sli3::nulltype; t_id < sli3::symboltype; ++t_id)
+        {
+            SLIType *type=types_[t_id];
+            if(type == 0)
+                continue;
+            Name t_name=type->get_typename();
+            system_dict_->insert(t_name, new_token<sli3::integertype>(t_id));
+        }
 	dict.type_=0; // This prevents the token data from being cleared.
     }
 
