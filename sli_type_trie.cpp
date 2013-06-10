@@ -62,27 +62,23 @@ namespace sli3
   void TypeNode::toTokenArray(TokenArray &a) const
   {
       if(type_ == NULL)
+      {
+          a.push_back(func_);
 	  return;
+      }
 
       static SLIInterpreter *sli=type_->get_interpreter();
 
       assert(a.size()==0);
-      if(next_ == NULL && alt_ == NULL) // Leaf node
+      a.push_back(sli->new_token<sli3::literaltype>(type_->get_typename()));
+      TokenArray *a_next_=new TokenArray();
+      next_->toTokenArray(*a_next_);
+      a.push_back(sli->new_token<sli3::arraytype>(a_next_));
+      if(alt_ != NULL)
       {
-	  a.push_back(func_);
-      }
-      else 
-      { 
-	  a.push_back(sli->new_token<sli3::literaltype>(type_->get_typename()));
-	  TokenArray *a_next_=new TokenArray();
-	  next_->toTokenArray(*a_next_);
-	  a.push_back(sli->new_token<sli3::arraytype>(a_next_));
-	  if(alt_ != NULL)
-	  {
-	      TokenArray *a_alt_= new TokenArray();
-	      alt_->toTokenArray(*a_alt_);
-	      a.push_back(sli->new_token<sli3::arraytype>(a_alt_));
-	  }
+          TokenArray *a_alt_= new TokenArray();
+          alt_->toTokenArray(*a_alt_);
+          a.push_back(sli->new_token<sli3::arraytype>(a_alt_));
       }
   }
     
@@ -145,7 +141,7 @@ namespace sli3
 	    return pos;
 	}
     
-	// This is the general case, and we traveser the alternative
+	// This is the general case, and we travese the alternative
         // list, until we hit the desired type or the end.
 	while(type != pos->type_)
 	{
@@ -208,15 +204,23 @@ namespace sli3
     void TypeNode::insert(const TypeArray& a, Token const &f)
     {
 	TypeNode *pos=this;
-	unsigned int new_leaf=0;
+	bool new_leaf=false;
 	
 	for(unsigned int level=0; level < a.size(); ++level)
 	{
 	    pos= get_alternative(pos,a[level]);
 	    new_leaf =(pos->next_ == NULL);
 	    if(new_leaf)
+            {
+                if(pos->func_.type_ != 0)
+                {
+                    // In this case, the new argument list overlaps with an
+                    // existing list and we jump out to issue an error.
+                    new_leaf=false;
+                    break;
+                }
 		pos->next_=new TypeNode(NULL);
-	    
+	    }
 	    pos=pos->next_;
 	}
         /* Error conditions:

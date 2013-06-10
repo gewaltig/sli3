@@ -211,8 +211,8 @@ namespace sli3
 			throw ArgumentType(level);
 	    
 	    // If we have reached a leaf, we can return the function.
-	    if(pos->next_ == NULL)
-		return pos->func_;
+	    if(pos->func_.type_ != NULL)
+              return pos->func_;
 
 	    // Proceed with next level/argument.
 	    pos = pos->next_;     
