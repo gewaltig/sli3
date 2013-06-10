@@ -47,13 +47,13 @@ namespace sli3
 
     std::ostream & print(std::ostream& out, const Token &t) const
       {
-        t.data_.trie_val->info(out);
+        out << '+' << t.data_.trie_val->get_name() << '+';
         return out;
       }
 
     std::ostream & pprint(std::ostream&out, const Token &t) const
       {
-        t.data_.trie_val->info(out);
+        out << '+' << t.data_.trie_val->get_name() << '+';
         return out;
       }
 
