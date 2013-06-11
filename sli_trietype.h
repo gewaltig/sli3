@@ -10,7 +10,7 @@ namespace sli3
   {
   public:
       TrieType(SLIInterpreter *sli, char const name[], sli_typeid type)
-	  :SLIType(sli, name, type){}
+        :SLIType(sli, name, type,true){}
 
     refcount_t add_reference(Token const& t) const
     {
