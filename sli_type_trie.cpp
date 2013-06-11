@@ -116,15 +116,8 @@ namespace sli3
 	// starting at pos. If the type is not already present, a new
 	// Node will be created.
 	
-	
-	// First we fill an unassigned node.
-	if(pos->type_==0)
-	{
-	    pos->type_=type;
-	    return pos;
-	}
-    
-    // Next we treat the special case sli3::anytype, since it must be at the end of the alternative list.
+
+        // Next we treat the special case sli3::anytype, since it must be at the end of the alternative list.
 	if (type->get_typeid()==sli3::anytype)
 	{
 	    SLIType *any_type=type;
@@ -148,7 +141,7 @@ namespace sli3
 	    if(pos->alt_ == NULL)
 	    {
 		pos->alt_ =new TypeNode(type);
-	    
+                
 		// If we are at the tail and it is "anytype"
                 // we must insert the new node before the
                 // tail, so anytype remains the tail.
@@ -204,45 +197,39 @@ namespace sli3
     void TypeNode::insert(const TypeArray& a, Token const &f)
     {
 	TypeNode *pos=this;
-	bool new_leaf=false;
-	
-	for(unsigned int level=0; level < a.size(); ++level)
-	{
-	    pos= get_alternative(pos,a[level]);
-	    new_leaf =(pos->next_ == NULL);
-	    if(new_leaf)
+        
+        assert( ! a.empty());
+        
+        const unsigned int max_level=a.size();
+        unsigned int level=0;
+        while(level<max_level)
+        {
+            if(pos->type_==NULL)
             {
-                if(pos->func_.type_ != 0)
-                {
-                    // In this case, the new argument list overlaps with an
-                    // existing list and we jump out to issue an error.
-                    new_leaf=false;
+                if(pos->func_.type_ != NULL)
                     break;
-                }
-		pos->next_=new TypeNode(NULL);
-	    }
-	    pos=pos->next_;
-	}
-        /* Error conditions:
-           1. If pos->next!=NULL, the parameter list overlaps with 
-           an existing function definition.
-           2. If pos->alt != NULL, something undefined must have happened.
-           This should be impossible.
-        */
+                pos->type_=a[level];
+            }
+            else
+                pos=get_alternative(pos,a[level]);
 
-	if(new_leaf)
-	{
-	    pos->func_=f;
-	}
-	else
-	{
-	    std::cout << "Method 'TypeNode::InsertFunction'"<< std::endl
-		      << "Error! Ambigous Function Definition ." << std::endl
-		      << "A function with longer, but identical initial parameter "
-		      << "list is already present!" << std::endl
-		      << "Nothing was changed." << std::endl;
-	    throw ArgumentType(0);
-	}
+            if(pos->next_==NULL)
+                pos->next_=new TypeNode(NULL);
+            pos=pos->next_;
+            ++level;
+        }
+
+        if(pos->func_.type_ != NULL)
+        {
+            std::string caller="addtotrie +"+name_.toString()+"+";
+            SLIInterpreter *sli=f.type_->get_interpreter();
+            sli->message(sli3::M_ERROR,caller.c_str(), "Ambiguous parameter list.");
+            sli->message(sli3::M_ERROR,caller.c_str(), 
+                         "A command with same or overlapping parameter list is already registered in the trie.");
+            throw ArgumentType(level);
+        }
+        
+        pos->func_=f;
     }
     
 /*_____ end InsertFunction() _____________________________________*/

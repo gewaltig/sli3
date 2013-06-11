@@ -69,7 +69,6 @@ SeeAlso: trie
     
 void AddtotrieFunction::execute(SLIInterpreter *i) const
 {
-    std::cerr << "Adding to trie.\n";
     i->require_stack_load(3);
     i->require_stack_type(2,sli3::trietype);
     i->require_stack_type(1,sli3::arraytype);
@@ -253,9 +252,7 @@ void Cvt_aFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::arraytype);
 
     Name name(i->pick(1).data_.name_val); 
-    TokenArray *arr  = i->pick(0).data_.array_val;
-    
-    TypeNode *trie= new TypeNode(name);//, *arr);
+    TypeNode *trie= new TypeNode(name);
     i->top().clear(); // Clear token before explicit assignment.
     i->top().type_=i->get_type(sli3::trietype);
     i->top().data_.trie_val=trie;

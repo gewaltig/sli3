@@ -540,7 +540,7 @@ namespace sli3
 	    }
 	  catch(std::exception &exc)
 	    {
-	      message(M_FATAL, "SLIInterpreter","A C++ library exception was caught.");
+                //message(M_FATAL, "SLIInterpreter","A C++ library exception was caught.");
 	      raiseerror(exc);
 	    }
 	} while(execution_stack_.load() > exitlevel);
@@ -687,7 +687,7 @@ namespace sli3
 		    */
 		case sli3::nametype:
 		{
-		    Token &t=lookup(execution_stack_.top().data_.long_val);
+		    const Token &t=lookup(execution_stack_.top().data_.long_val);
 		    if(t.is_executable())
 			execution_stack_.top()=t;
 		    else
@@ -697,6 +697,18 @@ namespace sli3
 		    }
 		    break;
 		}
+                case sli3::trietype:
+                {
+ 		    const Token &t=execution_stack_.top().data_.trie_val->lookup(operand_stack_);
+		    if(t.is_executable())
+			execution_stack_.top()=t;
+		    else
+		    {
+			operand_stack_.push(t);
+			execution_stack_.pop();
+		    }
+		    break;
+                }                   
 		case sli3::litproceduretype:
 		    execution_stack_.top().type_=proc_type;
 		    operand_stack_.push(execution_stack_.top());
@@ -866,9 +878,9 @@ namespace sli3
 	    catch(std::exception &exc)
 	    {
 		message(M_ERROR, "SLIInterpreter","A C++ library exception was caught.");
+		message(M_ERROR, "SLIInterpreter",exc.what());
 		operand_stack_.dump(std::cerr);
 		execution_stack_.dump(std::cerr);
-		message(M_ERROR, "SLIInterpreter",exc.what());
 		//raiseerror(exc);
 		execution_stack_.pop();
 	    }

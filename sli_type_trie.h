@@ -89,7 +89,7 @@ namespace sli3
 	Name const & get_name() const;
 
     private:
-	TypeNode(SLIType *, Token);
+	TypeNode(SLIType *);
 	TypeNode(const TypeNode &);
 	
 	//    TypeNode operator=(const TypeNode &){}; // disable this operator
@@ -111,14 +111,14 @@ namespace sli3
     TypeNode::TypeNode(Name const &name)
 	: refs_(1),
 	  name_(name),
-	  type_(0),
+	  type_(NULL),
 	  func_(),
 	  alt_(NULL),
 	  next_(NULL){}
     
     inline 
-    TypeNode::TypeNode(SLIType* t, Token f=Token())
-      : refs_(1), name_(), type_(t),  func_(f),alt_(NULL),next_(NULL) 
+    TypeNode::TypeNode(SLIType* t)
+      : refs_(1), name_(), type_(t), func_(), alt_(NULL),next_(NULL) 
     {}
     
     inline 
@@ -191,35 +191,32 @@ namespace sli3
     inline
     Token& TypeNode::lookup(TokenStack &st)
     {
-	const size_t load =st.load();
-	size_t level=0;
+      
+      const size_t load =st.load();
+      size_t level=0;
+      TypeNode *pos=this;
 	
-	TypeNode *pos=this;
-	
-	while(level<load)
-	{
-	    SLIType *find_type=st.pick(level).type_;
-	    
-	    // Step 1: find the type at the current stack level in the
-	    // list of alternatives. Unfortunately, this search is O(n).
-	    
-	    while (pos->type_ != find_type)
-		if (pos->alt_ != NULL)
-		    pos = pos->alt_;
-		else
-		    if((not pos) or (pos->type_->get_typeid() != sli3::anytype))
-			throw ArgumentType(level);
-	    
-	    // If we have reached a leaf, we can return the function.
-	    if(pos->func_.type_ != NULL)
-              return pos->func_;
-
-	    // Proceed with next level/argument.
-	    pos = pos->next_;     
-	    ++level;
-	}
-
-	throw StackUnderflow(level+1, load) ;
+      while(pos->next_ != NULL)
+        {
+          assert(pos->type_!=0);
+          
+          if(level>=load)
+            throw StackUnderflow(level+1, load);
+          
+          const SLIType *find_type=st.pick(level).type_;
+          while(pos->type_ != find_type)
+            {
+              if ((pos->alt_ == NULL) and (pos->type_->get_typeid() != sli3::anytype))
+                throw ArgumentType(level);
+              pos=pos->alt_;
+              assert(pos->type_ != NULL);
+            }
+          ++level;
+          pos=pos->next_;
+        }
+      // We have reached a leaf, we can return the function.
+      //assert(pos->func_.type_ != NULL);
+      return pos->func_;
     }
 
 
