@@ -13,6 +13,8 @@
 #include "sli_dictstack.h"
 #include "sli_builtins.h"
 #include "sli_module.h"
+#include "sli_iostream.h"
+
 #include<vector>
 #include <deque>
 
@@ -661,7 +663,10 @@ namespace sli3
 
     template<>
     Token SLIInterpreter::new_token<sli3::dictionarytype,sli3::Dictionary *>(sli3::Dictionary *);
+    template<>
+    Token SLIInterpreter::new_token<sli3::ostreamtype,sli3::SLIostream *>(sli3::SLIostream *);
     
+
     inline
     bool SLIInterpreter::lookup(Name n, Token &t)
     {
@@ -846,6 +851,15 @@ namespace sli3
 
     template<>
     inline
+    Token SLIInterpreter::new_token<sli3::ostreamtype>()
+    {
+	Token t(types_[sli3::ostreamtype]);
+	t.data_.ostream_val= new SLIostream();
+	return t;
+    }
+
+    template<>
+    inline
     Token SLIInterpreter::new_token<sli3::marktype>()
     {
 	Token t(types_[sli3::marktype]);
@@ -976,6 +990,15 @@ namespace sli3
     {
 	Token t(types_[sli3::dictionarytype]);
 	t.data_.dict_val= d;
+	return t;
+    }
+
+    template<>
+    inline
+    Token SLIInterpreter::new_token<sli3::ostreamtype, sli3::SLIostream *>(sli3::SLIostream *os)
+    {
+	Token t(types_[sli3::ostreamtype]);
+	t.data_.ostream_val= os;
 	return t;
     }
 

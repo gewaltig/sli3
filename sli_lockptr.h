@@ -25,7 +25,7 @@ namespace sli3
 \class lockPTR
 
  This template is the standard safe-pointer implementation
- of SYNOD.
+ of NEST.
 
  In order for this scheme to work smoothly, the user has to take some
  precautions:
@@ -182,13 +182,13 @@ class lockPTR
     : obj(spd.obj)
   {
     assert(obj != NULL);
-    obj->addReference();
+    obj->add_reference();
   }
     
   virtual ~lockPTR()
   {
     assert(obj != NULL);
-    obj->removeReference();
+    obj->remove_reference();
   }    
 
   lockPTR<D> operator=(const lockPTR<D>&spd)
@@ -199,8 +199,8 @@ class lockPTR
 // The following order of the expressions protects
 // against a=a;
     
-    spd.obj->addReference();
-    obj->removeReference();
+    spd.obj->add_reference();
+    obj->remove_reference();
 	    
     obj = spd.obj;
 	    
@@ -210,14 +210,12 @@ class lockPTR
   lockPTR<D> operator=(D &s)
     {
       *this = lockPTR<D>(s);
-      assert(!(obj->isdeletable()));
       return *this;
     }
 
   lockPTR<D> operator=(D const &s)
     {
       *this = lockPTR<D>(s);
-      assert(!(obj->isdeletable()));
       return *this;
     }
 
