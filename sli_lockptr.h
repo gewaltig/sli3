@@ -15,7 +15,7 @@
  */
 
 #ifndef SLI_LOCKPTR_H
-#define SLILOCKPTR_H
+#define SLI_LOCKPTR_H
 
 #include <cassert>
 #include <cstddef>
