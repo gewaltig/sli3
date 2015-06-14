@@ -29,16 +29,11 @@
   filesystem.h
   *************************************/
 
-#include "sli_interpret.h"
+#include "sli_interpreter.h"
 
-void init_sli_io(SLIInterpreter *);
-
-class MathLinkPutStringFunction: public SLIFunction
+namespace sli3
 {
-public:
-  MathLinkPutStringFunction() {}
-    void execute(SLIInterpreter *) const;
-};
+void init_sli_io(SLIInterpreter *);
 
 class IfstreamFunction: public SLIFunction
 {
@@ -366,6 +361,7 @@ ReadWordFunction() {}
     void execute(SLIInterpreter *) const;
 };
 
+} // end of namespace
 #endif
 
 

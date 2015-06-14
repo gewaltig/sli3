@@ -17,7 +17,7 @@ namespace sli3
    * These are the pre-defined type identifiers.
    * Each enum value has an associated SLIType class.
    */
-
+    
   enum sli_typeid
   {
     nulltype=0,  //!< used for unassigned type_id values

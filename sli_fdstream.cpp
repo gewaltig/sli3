@@ -20,10 +20,8 @@
  *
  */
 
-#include "config.h"
-#include "fdstream.h"
-
-#ifdef HAVE_ISTREAM
+#include "sli_config.h"
+#include "sli_fdstream.h"
 
 std::streamsize const fdbuf::s_bufsiz;
 
@@ -31,10 +29,9 @@ fdbuf* fdbuf::open(const char* s, std::ios_base::openmode mode)
 {
   if (is_open())
     {
-      //      std::cerr<<"Is already open!"<<std::endl;
-      return NULL;
+      return 0;
     }
-  //  bool success=true;
+
   
   int oflag;
   std::ios_base::openmode open_mode = 
@@ -55,8 +52,7 @@ fdbuf* fdbuf::open(const char* s, std::ios_base::openmode mode)
     oflag = (O_RDWR | O_TRUNC | O_CREAT);
   else
     {
-      //std::cerr<<"bad flags!"<<std::endl;
-      return NULL;
+      return 0;
     }
   
   m_fd=::open(s, oflag, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH); // these file permissions are required by POSIX.1 (see Stevens 5.5)
@@ -64,8 +60,8 @@ fdbuf* fdbuf::open(const char* s, std::ios_base::openmode mode)
   if (m_fd==-1) 
     {
       // std::cerr<<"::open failed!"<<std::endl;
-      // perror(NULL);
-      return NULL;
+      // perror(0);
+      return 0;
     }
   
   // beware of operator precedence --- HEP
@@ -75,8 +71,8 @@ fdbuf* fdbuf::open(const char* s, std::ios_base::openmode mode)
 	{
 	  close();
 	  // std::cerr<<"seek failed!"<<std::endl;
-	  // perror(NULL);
-	  return NULL;
+	  // perror(0);
+	  return 0;
 	}
     };
   
@@ -89,7 +85,7 @@ fdbuf* fdbuf::close()
   if (!is_open())
     {
       // std::cerr<<"File was not open."<<std::endl;
-      return NULL;
+      return 0;
     }
   
   bool success=true;
@@ -101,18 +97,18 @@ fdbuf* fdbuf::close()
     }
   if (::close(m_fd)==-1)
     {
-      // std::cerr<<"::close failed: "<<std::endl;perror(NULL);
+      // std::cerr<<"::close failed: "<<std::endl;perror(0);
       success=false;
     }
   
   m_isopen=false;
   
-  return (success ? this : NULL);
+  return (success ? this : 0);
 }
 
 void ofdstream::close()
 {
-  if (rdbuf()->close() == NULL) 
+  if (rdbuf()->close() == 0) 
     {
       setstate(failbit);
     }
@@ -121,7 +117,7 @@ void ofdstream::close()
 
 void ifdstream::close()
 {
-  if (rdbuf()->close() == NULL) 
+  if (rdbuf()->close() == 0) 
     {
       setstate(failbit);
     }
@@ -129,11 +125,9 @@ void ifdstream::close()
 
 void fdstream::close()
 {
-  if (rdbuf()->close() == NULL) 
+  if (rdbuf()->close() == 0) 
     {
       setstate(failbit);
     }
 }
 
-
-#endif

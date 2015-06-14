@@ -1407,8 +1407,8 @@ void Sleep_dFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     i->require_stack_type(0,sli3::doubletype);
   const long sec    = 0;
-  const long usec   = 
-      static_cast<long>(i->pick(0).data_.long_val*1000000.);
+  const int usec   = 
+      static_cast<int>(i->pick(0).data_.long_val*1000000.);
   struct timeval tv = { sec, usec };
 
   if (usec>0)
