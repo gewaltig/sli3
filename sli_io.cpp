@@ -32,7 +32,7 @@
 #include <sstream>    
 #include <cstdio>
 
-#include "fdstream.h"
+#include "sli_fdstream.h"
 #include "sli_io.h"
 #include "sli_string.h"
 #include "sli_iostream.h"

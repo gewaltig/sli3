@@ -85,7 +85,7 @@ class lockPTR
     bool deletable;
     bool locked;
 
-// forbid this constructor!
+    //!< forbid this constructor!
     PointerObject(PointerObject const&){assert(false);} 
     
     public:
