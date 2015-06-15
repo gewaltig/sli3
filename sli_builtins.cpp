@@ -322,53 +322,6 @@ void IforallarrayFunction::backtrace(SLIInterpreter *i, int p) const
   */
 }
 
-
-/*********************************************************/
-/* %foralliter                                          */
-/*  call: mark iterator proc %foralliter                */
-/*  pick   3     2    1      0                          */        
-/*********************************************************/
-void IforalliterFunction::execute(SLIInterpreter *i) const
-{
-  /*
-  IteratorDatum *iter=
-    static_cast<IteratorDatum *>(i->EStack().pick(2).datum());
-
-    
-   if(iter->pos() < iter->end())
-    {
-
-      i->OStack.push(iter->pos());  // push current element to operand stack
-      iter->incr();
-      i->EStack().push(i->EStack().pick(1));
-      if(i->step_mode())
-      {
-	std::cerr << "foralliter:"
-		  << " Limit: " << iter->end()
-		  << " Pos: "   << iter->pos() ;
-	i->OStack.pick(0).pprint(std::cerr);
-	std::cerr << std::endl;
-      }
-    }
-    else
-    {
-      i->EStack().pop(4);
-      i->dec_call_depth();
-    }
-  */
-}
-
-void IforalliterFunction::backtrace(SLIInterpreter *i, int p) const
-{
-  /*
-  IteratorDatum   *iter= static_cast<IteratorDatum *>(i->EStack().pick(p+2).datum());
-
-  std::cerr << "During forall (iterator) at iteration " << iter->pos() << "." << std::endl;
-  */
-}
-
-
-
 /*********************************************************/
 /* %forallindexedarray                                   */
 /*  call: mark object limit count proc forallindexedarray  */
