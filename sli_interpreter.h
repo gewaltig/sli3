@@ -473,7 +473,6 @@ namespace sli3
 	Name irepeat_name;
 	Name ifor_name;
 	Name iforallarray_name;
-	Name iforalliter_name;
 	Name iforallindexedarray_name;
 	Name iforallindexedstring_name;
 	Name iforallstring_name;
@@ -531,7 +530,6 @@ namespace sli3
 	IrepeatFunction      irepeatfunction;
 	IforFunction         iforfunction;
 	IforallarrayFunction iforallarrayfunction;
-	IforalliterFunction  iforalliterfunction;
 	IforallindexedarrayFunction iforallindexedarrayfunction;
 	IforallindexedstringFunction iforallindexedstringfunction;
 	IforallstringFunction iforallstringfunction;

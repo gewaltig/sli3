@@ -83,7 +83,6 @@ namespace sli3
       irepeat_name("::repeat"),
       ifor_name("::for"),
       iforallarray_name("::forall_a"),
-      iforalliter_name("::forall_iter"),
       iforallindexedarray_name("::forallindexed_a"),
       iforallindexedstring_name("::forallindexed_s"),
       iforallstring_name("::forall_s"),
