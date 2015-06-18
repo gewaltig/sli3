@@ -18,10 +18,10 @@
 ## C++ specific flags
 #CC=gcc-mp-4.6
 #CXX=g++-mp-4.6
-#CC=clang
-#CXX=clang
-CC=gcc
-CXX=g++
+CC=clang
+CXX=clang
+#CC=gcc
+#CXX=g++
 
 GDB=-g
 CCFLAGS= -O2 $(GDB) -Wall
