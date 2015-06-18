@@ -1,6 +1,11 @@
 set(CMAKE_CXX_FLAGS "-g -W -Wall -pedantic -std=c++11")
 
-add_executable(sli3 sli_main.cpp sli_array.cpp sli_token.cpp sli_type.cpp sli_arraytype.cpp
+add_executable(sli3 
+  sli_main.cpp 
+  sli_array.cpp 
+  sli_token.cpp 
+  sli_type.cpp 
+  sli_arraytype.cpp
 	sli_stringtype.cpp
 	sli_integertype.cpp
 	sli_nametype.cpp
