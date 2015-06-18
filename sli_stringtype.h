@@ -1,4 +1,4 @@
-#ifndef SLI_STRINGYPE_H
+#ifndef SLI_STRINGTYPE_H
 #define SLI_STRINGTYPE_H
 
 #include "sli_type.h"
