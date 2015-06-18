@@ -39,11 +39,11 @@ namespace sli3
       sli_->EStack().pop();
     }
  
-  void ProcedureType::execute(Token &t)
+  void ProcedureType::execute(Token &)
   {
-      sli_->EStack().push(sli_->new_token<sli3::integertype>(0));
-      sli_->EStack().push(sli_->baselookup(sli_->iiterate_name));
-      sli_->inc_call_depth();
-      sli_->EStack().dump(std::cerr);
+    sli_->EStack().push(sli_->new_token<sli3::integertype>(0));
+    sli_->EStack().push(sli_->baselookup(sli_->iiterate_name));
+    sli_->inc_call_depth();
+    sli_->EStack().dump(std::cerr);
   }
 }
