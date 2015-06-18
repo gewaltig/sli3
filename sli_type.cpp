@@ -30,7 +30,7 @@ namespace sli3
 	sli_->EStack().pop();
     }
 
-    std::ostream & SLIType::print(std::ostream& out, const Token & t) const
+    std::ostream & SLIType::print(std::ostream& out, const Token &) const
     {
 	return out << '-' << name_ << '-';
     }

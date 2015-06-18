@@ -24,7 +24,7 @@ namespace sli3
 	return out << myname.toString(); 
     }
 
-    std::ostream & MarkType::print(std::ostream& out, const Token &t) const
+    std::ostream & MarkType::print(std::ostream& out, const Token &) const
     {
 	return out << "mark";
     }
