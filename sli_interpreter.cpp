@@ -151,38 +151,38 @@ namespace sli3
     
     SLIInterpreter::~SLIInterpreter()
     {
-	for(size_t m=0; m<modules_.size(); ++m)
-	    delete modules_[m];
+      for(size_t m=0; m<modules_.size(); ++m)
+        delete modules_[m];
 
-	operand_stack_.clear();
-	execution_stack_.clear();
-	dictionary_stack_.clear();
+      operand_stack_.clear();
+      execution_stack_.clear();
+      dictionary_stack_.clear();
 
 	// Types must be deleted *after* all tokens are deleted.
         // otherwhise the Token desctructor will crash.
-	for(size_t t=0; t<types_.size();++t)
-	    delete types_[t];
+      for(size_t t=0; t<types_.size();++t)
+        delete types_[t];
     }
 
     void SLIInterpreter::init()
     {
-	init_types();
-	init_message_tags();
-	init_dictionaries();
-	init_internal_functions();
-	Token dict(types_[sli3::dictionarytype]);
-	dict.data_.dict_val=user_dict_;
-	dictionary_stack_.push(dict);
+      init_types();
+      init_message_tags();
+      init_dictionaries();
+      init_internal_functions();
+      Token dict(types_[sli3::dictionarytype]);
+      dict.data_.dict_val=user_dict_;
+      dictionary_stack_.push(dict);
     }
     
     void SLIInterpreter::init_types()
     {
-	types_.resize(num_sli_types,0);
-	/*
-	  The order in which these types are created must match the
-	  order in which the lables in the enum typeid (sli_type.h) are
-	  defined.
-	*/
+      types_.resize(num_sli_types,0);
+      /*
+        The order in which these types are created must match the
+        order in which the lables in the enum typeid (sli_type.h) are
+        defined.
+      */
 	types_[sli3::nulltype]=(new OperatorType<sli3::nulltype>(this,"nulltype"));
 	types_[sli3::anytype]=(new OperatorType<sli3::anytype>(this,"anytype"));
 	types_[sli3::integertype]=(new IntegerType(this,"integertype",sli3::integertype));
@@ -544,22 +544,22 @@ namespace sli3
 	      raiseerror(exc);
 	    }
 	} while(execution_stack_.load() > exitlevel);
-      }
-    catch(std::exception &e)
-      {
+}
+catch(std::exception &e)
+{
 	message(M_FATAL, "SLIInterpreter","A C++ library exception occured.");
 	operand_stack_.dump(std::cerr);
 	execution_stack_.dump(std::cerr);
 	message(M_FATAL, "SLIInterpreter",e.what());
 	terminate(sli3::exception);
-      }
-    catch(...)
-      {
+}
+catch(...)
+{
 	message(M_FATAL, "SLIInterpreter","An unknown c++ exception occured.");
 	operand_stack_.dump(std::cerr);
 	execution_stack_.dump(std::cerr);
 	terminate(sli3::exception);
-      } 
+} 
     
     // Token &exit_tk=	status_dict_->lookup(Name("exitcode")); // This throws an exception if the entry is not found.
     // exitcode = exit_tk.data_.long_val;
@@ -632,7 +632,7 @@ namespace sli3
     return exitcode;
   }
 
-  int SLIInterpreter::execute_dispatch_(size_t exitlevel)
+  int SLIInterpreter::execute_dispatch_(size_t)
   {
     int exitcode=0;
     const Name exitcode_name("exitcode");

@@ -328,7 +328,7 @@ void IforallarrayFunction::backtrace(SLIInterpreter *i, int p) const
 /*  call: mark iterator proc %foralliter                */
 /*  pick   3     2    1      0                          */        
 /*********************************************************/
-void IforalliterFunction::execute(SLIInterpreter *i) const
+void IforalliterFunction::execute(SLIInterpreter *) const
 {
   /*
   IteratorDatum *iter=

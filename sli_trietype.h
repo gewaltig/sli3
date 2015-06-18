@@ -42,7 +42,7 @@ namespace sli3
 
     bool compare(const Token&t1, const Token&t2) const
     {
-      return *(t1.data_.trie_val) == *(t1.data_.trie_val);
+      return *(t1.data_.trie_val) == *(t2.data_.trie_val);
     }
 
     std::ostream & print(std::ostream& out, const Token &t) const
