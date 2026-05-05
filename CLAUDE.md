@@ -20,19 +20,38 @@ Original work: Marc-Oliver Gewaltig, 2014–2015. Paused June 2015. Revived May 
 
 ## Status
 
-- **Stage 1 (build cleanup) complete.** Builds clean on AppleClang 21 / C++17, zero errors.
-- **Runtime is not yet functional.** The interpreter binary starts up but has no `sli-init.sli` loader and no error-handler bootstrap, so user-level operators like `==`, `=`, `cvs` are not registered. Anything beyond stack manipulation will fail or crash.
-- Stages 2–5 are described in `implementation_spec.md`.
+Work is on the `revive` branch.
+
+- **Stage 1 (build cleanup):** done. Builds clean on AppleClang 21 / C++17, zero errors.
+- **Stage 2 (strip non-core deps):** done. All `HAVE_PTHREADS` / `HAVE_MPI` / `HAVE_GSL` / `HAVE_MUSIC` / `HAVE_SSTREAM` / `HAVE_EXPM1` / `HAVE_M_E` / `HAVE_M_PI` / `HAVE_CMATH_MAKROS_IGNORED` paths gone. `sli_processes.{h,cpp}` moved to `unported/`. Build clean, only 4 pre-existing unused-variable warnings.
+- **Stage 3 (modern-C++ rewrite of containers + stdlib):** in progress.
+  - **Slice 1:** `sli_allocator.{h,cpp}` deleted; default heap. Sizes unchanged.
+  - **Slice 1.5:** Serialization protocol scaffolded — `Writer` / `Reader` abstract + `BinaryWriter` / `BinaryReader` with object table for shared-pointer de-duplication. `serialize` / `deserialize` virtuals on `SLIType`. Per-type implementations for scalars (Integer, Double, Bool) and Name/Literal/Symbol/Mark.
+  - **Slice 2:** `TokenArray` rewritten over `std::vector<Token>` + intrusive `uint32_t refs_`. Token gained proper noexcept move ctor / move-assign. `ArrayType::serialize` / `deserialize` use the object table for de-duplication; round-tripped aliasing preserved. Bug fix: `ArrayType::references()` was decrementing.
+  - **Slice 3:** `SLIString` no longer inherits `std::string` (composes); `SLIistream` / `SLIostream` rewritten as plain intrusive-refcount wrappers. `sli_lockptr.h` and `sli_lockobj.h` deleted. `IstreamType` / `OstreamType` got missing refcount overrides (silent leaks fixed). String type serializes via the object table; stream types emit a stderr warning and produce closed-stream Tokens on load.
+  - **Slice 4 (next):** array stdlib rewrite (Map / Sort / Reverse / Range / Partition / etc.) on the new TokenArray, using `std::sort` / `std::reverse` / `std::transform`.
+- **Stage 4 (tests):** partial. `test_serialize` and `test_array` wired into CTest; cover scalar/name/string/array round-trips, intrusive refcount, shared-pointer aliasing through serialization, basic container API.
+- **Runtime is not yet functional.** The interpreter binary starts up but has no `sli-init.sli` loader and no error-handler bootstrap, so user-level operators like `==`, `=`, `cvs` are not registered. Anything beyond stack manipulation will fail or crash. That comes in Slice 5+ (startup wiring + sli-init vendoring).
+- Full plan in `implementation_spec.md`.
 
 ## Build
 
 ```sh
 cmake -S . -B build
 cmake --build build -j
-./build/sli3
+./build/sli3                        # boots, dumps systemdict, exits
+ctest --test-dir build              # run unit tests
 ```
 
 CMake ≥ 3.20, C++17, default Release. Per-target warnings; `-Wno-unused-parameter` because the original code ships with many.
+
+The build produces three targets:
+
+- `sli3_core` — static library with all interpreter sources
+- `sli3` — main binary (links `sli3_core` + `sli_main.cpp`)
+- `test_serialize`, `test_array` — CTest binaries linking `sli3_core`
+
+When adding a new test: drop `test_<thing>.cpp` next to the others, add a short `add_executable` + `target_link_libraries` + `add_test` block to `CMakeLists.txt`. No external test framework — bare assertions per Q8.
 
 ## Key architectural choices
 
@@ -58,28 +77,35 @@ CMake ≥ 3.20, C++17, default Release. Per-target warnings; `-Wno-unused-parame
 | Core types | `sli_token.{h,cpp}`, `sli_type.{h,cpp}`, `sli_aggregatetoken.h` |
 | Type implementations | `sli_{integer,double,bool,name,literal,string,array,dict,function,iostream}type.{h,cpp}` |
 | Containers | `sli_array.{h,cpp}`, `sli_dictionary.{h,cpp}`, `sli_dictstack.{h,cpp}`, `sli_tokenstack.{h,cpp}` |
+| Strings & streams | `sli_string.h` (`SLIString`), `sli_iostream.{h,cpp}` (`SLIistream`/`SLIostream`) — intrusive-refcount wrappers |
 | Names / interning | `sli_name.{h,cpp}` (Name is a uint handle into a global table) |
 | Parser/scanner | `sli_scanner.{h,cpp}`, `sli_parser.{h,cpp}`, `sli_charcode.{h,cpp}` |
 | Interpreter | `sli_interpreter.{h,cpp}`, `sli_main.cpp` |
 | Builtins / control / math | `sli_builtins.{h,cpp}`, `sli_control.{h,cpp}`, `sli_math.{h,cpp}`, `sli_stack.{h,cpp}`, `sli_typecheck.{h,cpp}` |
 | Tries (operator dispatch) | `sli_trie.h`, `sli_trietype.h`, `sli_type_trie.{h,cpp}` |
-| Exceptions / utility | `sli_exceptions.{h,cpp}`, `sli_allocator.{h,cpp}`, `sli_lockptr.h`, `sli_lockobj.h`, `compose.hpp` |
+| Serialization | `sli_serialize.{h,cpp}` (`Writer`/`Reader` abstract; `BinaryWriter`/`Reader` impls; `write_token`/`read_token` entry points) |
+| Tests | `test_serialize.cpp`, `test_array.cpp` (CTest, bare assertions) |
+| Exceptions / utility | `sli_exceptions.{h,cpp}`, `compose.hpp` |
 
-### On disk but **not** in the build (need porting before they can be wired up)
+### On disk but **not** in the build (rewrite, don't port)
 
 These files are NEST 2.x verbatim. They use the old `Datum*`/`LockPTR` API,
-not sli3's `Token`/`SLIType`. Each compiles with **hundreds of errors** and
-needs real porting work, not just a CMake entry. Tackle one at a time in
-Stage 3.
+not sli3's `Token`/`SLIType`, and would not compile against the modernized
+core. Per the rewrite directive: treat each as a **reference for which
+operators exist**, then write fresh implementations against the new
+container layer.
 
-- `sli_array_module.cpp` — Map/Sort/Reverse/Range/Partition (~63 KB). Many
-  ops also need `intvectortype` / `doublevectortype` to be implemented in
-  the type system first.
-- `sli_io.cpp` — stream I/O.
-- `sli_fdstream.{h,cpp}` — custom POSIX-fd `streambuf`. Per Q4, slated for
-  replacement with `std::fstream`.
-- `sli_startup.{h,cpp}` — locates and loads `sli-init.sli`. Highest
-  priority for Stage 3 — without it the interpreter is unusable.
+- `sli_array_module.cpp` — Map/Sort/Reverse/Range/Partition (~63 KB). The
+  source of truth for *what* operators the array stdlib needs. Slice 4
+  rewrites this against the new `TokenArray`. Some ops
+  (`array2intvector`, `intvector2array`) need `intvectortype` /
+  `doublevectortype` implemented in the type system first.
+- `sli_io.cpp` — stream I/O. Slice 6 will rewrite as a thin layer over
+  `std::fstream` / `std::stringstream`.
+- `sli_fdstream.{h,cpp}` — custom POSIX-fd `streambuf`. Replaced wholesale
+  by `std::fstream` per Q4; will be deleted, not ported.
+- `sli_startup.{h,cpp}` — locates and loads `sli-init.sli`. Slice 5
+  rewrites as a fresh `SLIModule` and vendors NEST 2.x `sli-init.sli`.
 - `sli_module.cpp`, `sli_tokenutils.cpp` — referenced from headers; check
   before excluding.
 
@@ -97,28 +123,38 @@ changed (16-byte value `Token` with type-side refcount, instead of NEST's
 exist**, not implementation to translate.
 
 - Containers (`TokenArray`, `Dictionary`, `TokenStack`): rewrite using
-  `std::vector<Token>`, `std::shared_ptr`, `std::string`, `std::unordered_map` where it helps.
+  `std::vector<Token>`, `std::unordered_map` where it helps. **TokenArray
+  done in Slice 2.**
+- String / stream wrappers: intrusive-refcount wrappers around
+  `std::string` / raw stream pointers. **Done in Slice 3** — `sli_lockptr.h`
+  and `sli_lockobj.h` are deleted. The `SLIType::add_reference /
+  remove_reference` virtual protocol is the public refcount interface;
+  implementations are intrusive `uint32_t refs_` on the heap object.
 - Stdlib operators (Map/Sort/Reverse/Partition/etc.): use `std::sort`,
   `std::reverse`, `std::transform`, range-for. Don't translate the
-  `Datum*` loops.
+  `Datum*` loops. **Slice 4 (next).**
 - I/O: build on `std::fstream`/`std::stringstream`. Don't carry forward
   `sli_fdstream`.
-- Drop the custom `sli_allocator` pool unless profiling shows it matters.
+- The custom `sli_allocator` pool is **gone (Slice 1)**; default heap
+  for everything. Reintroduce `std::pmr` only if profiling justifies.
 
 SLI was first written in 1996 — much of the existing scaffolding only
 existed because pre-C++98 stdlib was unreliable. We don't need it now.
 
 ## Known issues / gotchas
 
-- `Name` has a user-provided copy constructor but uses the implicit copy-assignment operator. Modern clang warns (`-Wdeprecated-copy-with-user-provided-copy`). Trivial to fix; deferred to Stage 2.
-- `Token::operator std::string() const` is **declared in the header but not defined**. Use `Token::operator std::string&()` (non-const ref form) — this is what `static_cast<std::string&>(token)` selects. Two call sites in `sli_interpreter.cpp` already use this.
-- `config.h` is empty. Only `sli_startup.cpp` actually consumes the `SLI_*` macros it would define; build works without them. Generate via `configure_file()` in Stage 3 when startup is wired in.
-- `evalstring` is pushed onto the execution stack in `SLIInterpreter::execute(const std::string&)` (line 494) but never registered as a function — the path is dead until startup is wired up.
-- Many files have `mode 100755` instead of `100644`. Cosmetic only. `git config core.fileMode false` to silence.
+- `Token::operator std::string&()` is the only string-conversion operator (the const-by-value form was removed in Stage 2). Callers needing a `std::string&` from a Token use `static_cast<std::string&>(token)` or `token.operator std::string&()`.
+- `config.h` is empty. Only `sli_startup.cpp` actually consumes the `SLI_*` macros it would define; build works without them. Generate via `configure_file()` in Slice 5 when startup is wired in.
+- `evalstring` is pushed onto the execution stack in `SLIInterpreter::execute(const std::string&)` (line 494) but never registered as a function — the path is dead until Slice 5 wires startup.
+- Streams are not serializable. `IstreamType` / `OstreamType::serialize` emit a stderr warning and write no payload; deserialize produces a Token whose underlying `SLIistream`/`SLIostream` has `valid() == false`. Per design — OS resources don't survive a snapshot.
+- The `sli_typeid` enum is a **permanent wire contract** (append-only). Renumbering an existing entry breaks every saved snapshot ever made. Adding a new type: append at the end and bump `kSerializeVersion`.
 
 ## When working in this repo
 
 - Don't touch the `goto`-driven loops in `execute_dispatch_` without a parity test in place. They are deliberate.
-- Don't enable `-Werror` yet — there are pre-existing warnings (`-Wdeprecated-copy`, infinite-recursion in unfixed code paths, etc.) that need separate cleanup.
+- Don't enable `-Werror` yet — there are 4 pre-existing unused-variable warnings (`proc` in `sli_control.cpp`, `d` in `sli_scanner.cpp`) that haven't been audited.
 - Don't add features to the C++ side that should live in `sli-init.sli`. The split-of-responsibility matters for performance.
 - The `.o` files, `sli3` binary, `build/`, `CMakeFiles/`, and `*~` backup files are gitignored. Don't commit them.
+- New `SLIType` subclasses **must** override `serialize` / `deserialize`. The base class default is no-op — fine for marker types, silently wrong for any type with payload.
+- Pointer-payload types must use `Writer::intern_object` / `Reader::lookup_object` for shared identity. See `ArrayType::serialize` and `StringType::serialize` for the pattern.
+- Run `ctest --test-dir build` before claiming a slice is done.

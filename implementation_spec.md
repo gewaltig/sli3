@@ -1,8 +1,13 @@
 # sli3 implementation spec
 
-Working document for reviving sli3. Stage 1 (clean build) is done. This spec
-covers Stages 2–5. **Edit the "Open questions" section first** — several
-later decisions depend on those answers.
+Working document for reviving sli3. **Status as of 2026-05-05:** Stages 1
+and 2 done; Stage 3 underway (slices 1, 1.5, 2, 3 landed). Work happens on
+the `revive` branch. See the Decisions log at the bottom for chronological
+entries.
+
+Open questions Q1–Q13 are answered (see Decisions). Stage 3 is now broken
+into slices, tracked in the section below; one commit per slice on
+`revive`.
 
 ---
 
@@ -203,43 +208,48 @@ and stdlib that sit on top would just bolt the old design onto the new
 one. Stage 3 is instead a **fresh modern-C++17 implementation** of the
 container layer and the stdlib modules built on it.
 
+**Slice progress:** ✅ done · ▶ in progress · ☐ pending
+
+| Slice | Title | Status | Commit |
+|---|---|---|---|
+| 1 | Drop `sli_allocator` | ✅ | `003b80b` |
+| 1.5 | Serialization protocol scaffolding | ✅ | `003b80b` |
+| 2 | TokenArray rewrite + serialization | ✅ | `0153017` |
+| 3 | Drop lockPTR; modern string/stream wrappers + serialization | ✅ | `dc10c09` |
+| 4 | Array stdlib rewrite (Map/Sort/Reverse/…) | ☐ | — |
+| 5 | Wire up startup, vendor `sli-init.sli`, smoke test | ☐ | — |
+| 6 | Modern I/O layer | ☐ | — |
+| 7 | argv-driven `sli_main.cpp`, REPL | ☐ | — |
+
 ### 3.1 Container audit
 
 Survey each container in the build:
 
-| File | Today | Modern shape |
+| File | Status | Modern shape |
 |---|---|---|
-| `sli_array.{h,cpp}` (TokenArray) | hand-rolled storage, custom `sli_allocator` pool, manual `refs_` field | `std::vector<Token>` storage, refcount via `std::shared_ptr` or kept on TokenArray for ArrayType protocol compatibility |
-| `sli_dictionary.{h,cpp}` | `std::map<Name, DictToken>` | possibly `std::unordered_map`; revisit DictToken (Token subclass) — may not need to be a subclass |
-| `sli_dictstack.{h,cpp}` | `std::vector<Dictionary*>` | mostly fine; modernize iteration |
-| `sli_tokenstack.{h,cpp}` | hand-rolled stack | `std::vector<Token>` + thin stack ops |
-| `sli_string.h` (SLIString) | thin wrapper | replace with `std::string` directly |
-| `sli_iostream.h`, `sli_lockptr.h`, `sli_lockobj.h` | custom refcounted ptr | `std::shared_ptr<std::iostream>` |
-| `sli_allocator.{h,cpp}` | custom slab pool | drop. Default `new`/`delete` is fast enough for this profile; reintroduce `std::pmr` only if profiling shows a hotspot |
+| `sli_array.{h,cpp}` (TokenArray) | ✅ Slice 2 | `std::vector<Token>` storage + intrusive `uint32_t refs_`. Move-aware via Token's noexcept move ctor. ArrayType serialize/deserialize via object table. |
+| `sli_string.h` (SLIString) | ✅ Slice 3 | Composes `std::string data_` + `uint32_t refs_`. Implicit conversion to `std::string&` so existing call sites compile unchanged. StringType serialize via object table. |
+| `sli_iostream.{h,cpp}` (SLI{i,o}stream) | ✅ Slice 3 | Plain intrusive-refcount wrappers over raw stream pointers; borrow vs. own via flag. `lockptr.h` / `lockobj.h` deleted. IstreamType / OstreamType refcount overrides added. |
+| `sli_allocator.{h,cpp}` | ✅ Slice 1 | Deleted. Default heap. |
+| `sli_dictionary.{h,cpp}` | ☐ | Currently `std::map<Name, DictToken>`. Future: probably `std::unordered_map`; revisit `DictToken` (Token subclass) — may not need to be a subclass. |
+| `sli_dictstack.{h,cpp}` | ☐ | Currently `std::vector<Dictionary*>`. Mostly fine; modernize iteration. |
+| `sli_tokenstack.{h,cpp}` | ☐ | Currently inherits from TokenArray (private). Could become `std::vector<Token>` directly. |
 
 **Constraint to preserve:** the protocol where `SLIType::add_reference(Token&)`
 and `remove_reference(Token&)` manipulate the refcount on the pointer
-payload (`data_.array_val`, etc.). The implementation under the hood can
-move to `shared_ptr`, but the type-side virtual interface stays.
+payload (`data_.array_val`, etc.). The implementation under the hood is
+intrusive `uint32_t refs_`; the type-side virtual interface stays.
 
-### 3.2 Rewrite TokenArray
+### 3.2 Rewrite TokenArray ✅ Slice 2
 
-Most-used container, biggest payoff. Vertical slice that proves the
-approach before touching the others.
+Done. `std::vector<Token>` backing + intrusive `uint32_t refs_`. Token
+gained noexcept move ctor / move-assign (essential for vector
+reallocation efficiency). API preserved for dispatcher and existing
+call sites. `ArrayType::serialize` / `deserialize` use the object table
+for shared-pointer de-duplication. Bug fix: `ArrayType::references()`
+was decrementing. Tests in `test_array.cpp`.
 
-- Storage: `std::vector<Token>` member.
-- API: keep the names the rest of the codebase already calls (`size()`,
-  `get(long)`, `index_is_valid`, `push_back`, etc.) so the dispatcher in
-  `execute_dispatch_` doesn't churn.
-- Refcount: keep the `add_reference()`/`remove_reference()` member
-  functions for the ArrayType protocol; back them with an embedded
-  count or a `shared_ptr` indirection.
-- Drop: `sli_allocator` pool, custom `operator new`/`delete`,
-  `ARRAY_ALLOC_SIZE`, the manual `p` / `begin_of_free_storage` / `end_of_free_storage` triple.
-- Tests: `test_token.cpp` already touches Token; add `test_array.cpp`
-  asserting size/push_back/clear/resize/refcount semantics.
-
-### 3.3 Rewrite the array stdlib (was `sli_array_module.cpp`)
+### 3.3 Rewrite the array stdlib (was `sli_array_module.cpp`) — Slice 4 (next)
 
 The 2256-line NEST 2.x file is the source of *what operators we need*,
 not *how to implement them*. New file (`sli_array_stdlib.{h,cpp}` or
@@ -254,37 +264,42 @@ Defer to a later pass: `area`/`area2`/`gabor_`/`gauss2d_`/`cv1d`/`cv2d`
 `doublevectortype` implemented first (currently listed only as user-type
 slots in the enum).
 
-### 3.4 Modernize the legacy infrastructure
+### 3.4 Modernize the legacy infrastructure ✅ Slices 1 + 3
 
-- Replace `lockPTR<T>` / `lockPTRDatum` usages with `std::shared_ptr<T>`.
-- Replace `SLIString` with `std::string`. Update all `data_.string_val`
-  consumers.
-- Drop `sli_allocator.{h,cpp}` once nothing uses it.
-- Rewrite `SLIistream`/`SLIostream` as `std::shared_ptr<std::istream>`
-  / `std::shared_ptr<std::ostream>` aliases.
+Done. Specifically:
 
-### 3.5 Wire up startup, run sli-init.sli
+- ✅ `sli_allocator.{h,cpp}` deleted; default heap (Slice 1).
+- ✅ `sli_lockptr.h`, `sli_lockobj.h` deleted; `SLIistream` / `SLIostream`
+  rewritten as plain intrusive-refcount wrappers over raw stream
+  pointers (Slice 3). Implementation diverged from the original Q4
+  proposal of `std::shared_ptr<std::iostream>` because intrusive count
+  matches the rest of the system better and avoids the shared_ptr
+  control block; outcome is the same — clean lifetime, no lockPTR.
+- ✅ `SLIString` no longer inherits `std::string` (composes); intrusive
+  refcount; implicit conversion preserves call-site syntax (Slice 3).
 
-After the container layer is solid:
+### 3.5 Wire up startup, run sli-init.sli — Slice 5
+
+After Slice 4 (array stdlib) is in:
 
 - Generate `config.h` via `configure_file()`. Define only the few macros
   the (rewritten) startup actually reads.
 - Rewrite `sli_startup.{h,cpp}` as a fresh `SLIModule` (do not port the
   NEST 2.x version — same 1996-era idioms).
 - Vendor NEST 2.x `lib/sli/sli-init.sli` into the repo (clone NEST at a
-  2.x tag, copy the file).
+  2.x tag like `v2.20.2`, copy the file).
 - Register `SLIStartup` in `SLIInterpreter::init_internal_functions`.
 - Register an `evalstring` function (currently pushed onto the estack
   but never registered) so `execute(const std::string&)` works.
 
-### 3.6 First end-to-end smoke test
+### 3.6 First end-to-end smoke test — part of Slice 5
 
 ```sh
 echo "1 1 add ==" | ./build/sli3
 # expected: 2
 ```
 
-### 3.7 Plug `sli_main.cpp` into argv
+### 3.7 Plug `sli_main.cpp` into argv — Slice 7
 
 - `sli3` → REPL.
 - `sli3 file.sli` → execute script.
@@ -293,29 +308,38 @@ echo "1 1 add ==" | ./build/sli3
 
 Hand-rolled arg parsing; no third-party dep.
 
-### 3.8 Modern I/O layer
+### 3.8 Modern I/O layer — Slice 6
 
 Rewrite the SLI I/O operators (`open-r`, `open-w`, `read`, `write`,
 `close`, `eof`, etc.) as a thin layer over `std::fstream` /
 `std::stringstream` / `std::cin` / `std::cout`. Don't carry forward
 `sli_fdstream` — modern stdlib covers what it was working around.
 
+The infrastructure for I/O Tokens is already in place: `SLIistream` and
+`SLIostream` (Slice 3) and `IstreamType` / `OstreamType` with refcount
++ serialize support. This slice adds the *operators*.
+
 ---
 
 ## Stage 4 — Tests
 
-Depends on: Q8, Q3.
+Depends on: Q8, Q3. **Partially in flight** — `test_serialize.cpp` and
+`test_array.cpp` landed alongside Slices 1.5 / 2 / 3.
 
 ### 4.1 Wire `test_token.cpp` and `test_dictionary.cpp`
 
-Already in the tree. Add `enable_testing()` + `add_test()` for each. Convert
-to the framework chosen in Q8 if not bare-assert.
+The legacy `test_token.cpp` / `test_dictionary.cpp` from the 2015 tree
+are NEST 2.x-era and don't compile against the new core. Replace
+piecemeal as we touch each container — `test_array.cpp` already covers
+TokenArray + Token semantics. Slice 4 (array stdlib) and onward will
+add `test_dict.cpp`, `test_tokenstack.cpp`, etc.
 
 ### 4.2 Unit tests for the dispatcher
 
 Each opcode in `execute_dispatch_` deserves a test that pushes a known
 estack/ostack state, runs one cycle, and asserts the post-state. Catches
-regressions if anyone "cleans up" the gotos.
+regressions if anyone "cleans up" the gotos. **Open after Slice 5** —
+needs working dispatch first.
 
 ### 4.3 Parity test against NEST sli
 
@@ -443,3 +467,34 @@ it's discoverable later without scrolling:
   string per occurrence and re-interned; `SLIFunction*`/`TypeNode*`
   re-resolved by name on load; streams are not serializable. Detail:
   see `project_serialization.md` memory.
+- 2026-05-05: **Slice 1.5 done** (commit `003b80b`). Serialization
+  protocol scaffolded: `Writer` / `Reader` abstract + `BinaryWriter` /
+  `BinaryReader` LE binary impl; `serialize` / `deserialize` virtuals
+  on `SLIType`; per-type implementations for scalars and Names.
+  Wire format: magic `SLI3`, version 1, `[u16 type_id][payload]`.
+  CMake restructured into `sli3_core` static lib + `sli3` exe + test
+  exe pattern; `enable_testing()` + first `test_serialize` CTest
+  target. CTest passes.
+- 2026-05-05: **Slice 2 done** (commit `0153017`). TokenArray rewritten
+  over `std::vector<Token>` + intrusive `uint32_t refs_`. Token gained
+  noexcept move ctor / move-assign. ArrayType serialize/deserialize
+  use the object table; aliasing preserved across save/load.
+  `ArrayType::references()` bug fixed. New `test_array.cpp` covers
+  container API, refcount, and shared-pointer round-trip.
+  Token: 16 / Dictionary: 32 unchanged.
+- 2026-05-05: **Slice 3 done** (commit `dc10c09`). `sli_lockptr.h` and
+  `sli_lockobj.h` deleted. `SLIString` no longer inherits `std::string`
+  (composes); `SLIistream` / `SLIostream` rewritten as plain
+  intrusive-refcount wrappers over raw stream pointers. `IstreamType` /
+  `OstreamType` refcount overrides added (silent leaks fixed).
+  StringType serialize via object table; stream types emit warning +
+  produce closed-stream Token on load. Same `references()` bug fixed
+  in `StringType` as in `ArrayType`. Call-site updates in
+  `sli_builtins.cpp` / `sli_control.cpp` for the new wrapper APIs.
+  Token: 16 / Dictionary: 32 unchanged.
+- 2026-05-05: Slice 4 (array stdlib rewrite) is the next block of
+  work — Map / Sort / Reverse / Range / Partition / etc. on the new
+  TokenArray, written against `std::sort` / `std::reverse` /
+  `std::transform`. NEST-specific signal-processing helpers (area,
+  gabor, gauss2d, cv1d, cv2d) and the int/double-vector conversions
+  are deferred to a later pass.
