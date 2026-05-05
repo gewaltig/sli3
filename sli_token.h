@@ -34,10 +34,11 @@ namespace sli3
 	Token();
 	Token(SLIType *);
 	Token(const Token &);
+	Token(Token&&) noexcept;
 	~Token();
-	
 
-	/** 
+
+	/**
 	 * Initialize from a Token. This function assumes that the object is uninitialized.
 	 */
 	Token & init(const Token &t);
@@ -48,8 +49,18 @@ namespace sli3
 	Token & operator=(const Token &t);
 
 	/**
-	 * Move contents of t to this token.
-	 * The after assigning the contents of t, t is cleared.
+	 * Move-assign. Transfers payload ownership from t (whose type_ is
+	 * nulled) to *this. No add_reference / remove_reference calls are
+	 * made on the transferred payload — the count is unchanged.
+	 *
+	 * std::vector<Token> uses this during reallocation, so it must be
+	 * noexcept for vector to take the strong-exception path.
+	 */
+	Token & operator=(Token&&) noexcept;
+
+	/**
+	 * Move contents of t to this token. Legacy method kept for
+	 * existing call sites; forwards to move-assign.
 	 */
 	Token & move(Token &t);
 
@@ -139,11 +150,19 @@ namespace sli3
 
     inline
     Token::Token(Token const& s)
-	:type_(s.type_), 
+	:type_(s.type_),
 	 data_(s.data_)
     {
 	if(type_ != 0)
 	    type_->add_reference(*this);
+    }
+
+    inline
+    Token::Token(Token&& s) noexcept
+	:type_(s.type_),
+	 data_(s.data_)
+    {
+	s.type_ = 0;
     }
 
     inline
@@ -170,12 +189,20 @@ namespace sli3
     }
 
     inline
+    Token& Token::operator=(Token&& t) noexcept
+    {
+      if (this == &t) return *this;
+      remove_reference();
+      type_ = t.type_;
+      data_ = t.data_;
+      t.type_ = 0;
+      return *this;
+    }
+
+    inline
     Token& Token::move( Token&t)
     {
-      clear();
-      init(t);
-      t.clear();
-      return *this;
+      return *this = static_cast<Token&&>(t);
     }
 
     inline

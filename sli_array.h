@@ -1,220 +1,132 @@
-/*
- *  tarrayobj.h
- *
- *  This file is part of NEST
- *
- *  Copyright (C) 2004 by
- *  The NEST Initiative
- *
- *  See the file AUTHORS for details.
- *
- *  Permission is granted to compile and modify
- *  this file for non-commercial use.
- *  See the file LICENSE for details.
- *
- */
-
 #ifndef TOKENARRAY_H
 #define TOKENARRAY_H
-/* 
-    Array of Token
-*/
 
-#include <typeinfo>
-#include <cstddef>
 #include "sli_token.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <iosfwd>
+#include <utility>
+#include <vector>
 
 namespace sli3
 {
-#define ARRAY_ALLOC_SIZE 64
 
-class Token;
+class Reader;
+class SLIInterpreter;
+class Writer;
 
+/**
+ * Reference-counted contiguous container of Tokens.
+ *
+ * Backing storage for arraytype, proceduretype, and litproceduretype
+ * (per the type-economical SLIType polymorphism: same payload, three
+ * execution semantics). One heap allocation per TokenArray header;
+ * std::vector<Token> owns the contiguous element storage.
+ *
+ * Refcount is intrusive (single-threaded; non-atomic uint32_t). The
+ * ArrayType protocol calls add_reference() / remove_reference() in
+ * response to Token copy / destruction. remove_reference() returns the
+ * new count and self-deletes when it reaches zero.
+ *
+ * Move/value-copy is intentionally disabled — TokenArrays are always
+ * shared via Token's array_val pointer. Use the copy constructor
+ * directly when a deep copy is needed (no current callers; reintroduce
+ * a deep_copy() helper if needed later).
+ */
 class TokenArray
 {
- private:
-  Token* p;
-  Token* begin_of_free_storage;
-  Token* end_of_free_storage;
-  unsigned int alloc_block_size;
-  unsigned int refs_;
-  
-  void allocate(size_t, size_t, size_t, const Token & = Token());
-    
- public:
-  static size_t allocations;
-    
-    TokenArray(void)
-            :p(NULL),begin_of_free_storage(NULL),
-             end_of_free_storage(NULL),
-             alloc_block_size(ARRAY_ALLOC_SIZE), 
-	     refs_(1)
-    {
-      ++allocations;
-    }
-    
-    TokenArray(size_t , const Token & = Token(), size_t =  0);
-    TokenArray(const TokenArray&);
+public:
+    static size_t allocations;  // diagnostic counter
 
-    virtual ~TokenArray();
-
+    TokenArray();
+    explicit TokenArray(size_t n, Token const& fill = Token());
+    TokenArray(size_t n, Token const& fill, size_t reserve_n);
+    TokenArray(TokenArray const& other);
+    TokenArray(TokenArray&&) = delete;
     /**
-     * This function returns a pointer to a copy of the token array with
-     * just one reference. 
-     */ 
-    TokenArray *detach()
-    {
-      if( refs_ ==1)
-	return this;
-
-      --refs_;
-      return new TokenArray(*this);
-    }
-
-    Token * begin() const
-    {
-        return p;
-    }
-    
-    Token * end() const
-    {
-        return begin_of_free_storage;
-    }
-
-    size_t size(void) const
-    {
-        return (size_t)(begin_of_free_storage-p);
-    }
-        
-    size_t capacity(void) const
-    {
-        return (size_t)(end_of_free_storage - p);
-    }
-    
-    Token & operator[](size_t i) { return p[i]; }
-    
-    const Token & operator[](size_t i) const
-    { return p[i]; }
-
-    const Token & get(long i) const
-    {
-      return *(p+i);
-      //      return p[i];
-    }
-
-    bool index_is_valid(size_t i) const
-    {
-      return ((p+i) < begin_of_free_storage);
-    }
-
-    void rotate(Token *, Token *, Token *);
-
-
-    // Memory allocation
-    
-    bool shrink(void);
-    bool reserve(size_t);
-    
-    unsigned int references(void)
-    {
-      return refs_;
-    }
-
-    unsigned int remove_reference()
-    {
-      --refs_;
-      if(refs_==0)
-	{
-	  delete this;
-	  return 0;
-	}
-      
-      return refs_;
-    }
-
-    unsigned int add_reference()
-    {
-      return ++refs_;
-    }
-
-    void resize(size_t, size_t, const Token & = Token());
-    void resize(size_t, const Token & = Token());
-
-    void reserve_token(int n)
-    {
-      if((end_of_free_storage-begin_of_free_storage) < n)
-      	reserve(size()+n);
-    }
-        // Insertion, deletion
-    void push_back(const Token &t)
-    {
-      reserve_token(1);
-      (begin_of_free_storage++)->init(t);
-    }
-
-    void pop_back(void)
-    {
-      (--begin_of_free_storage)->clear();
-    }
-
-  // Erase the range given by the iterators.
-    void erase(size_t , size_t);   
-    void erase(Token *, Token *);
-    void erase(Token *tp)
-    {
-        erase(tp,tp+1);
-    }
-
-  // Reduce the array to the range given by the iterators
-    void reduce(Token *, Token *);
-    void reduce(size_t, size_t);
-
-    /**
-       Insert n tokens, starting at position i.
+     * Replace contents with a copy of other's contents. refs_ is
+     * preserved — assignment is content-replace, not identity-replace.
      */
-    void insert(size_t i, size_t n= 1, const Token& = Token());
-    void insert(size_t i, const Token& t)
+    TokenArray& operator=(TokenArray const& other);
+    TokenArray& operator=(TokenArray&&) = delete;
+    ~TokenArray() = default;
+
+    // Element access
+    Token&       operator[](size_t i)             { return data_[i]; }
+    Token const& operator[](size_t i) const       { return data_[i]; }
+    Token const& get(long i)          const       { return data_[static_cast<size_t>(i)]; }
+    Token&       get(long i)                      { return data_[static_cast<size_t>(i)]; }
+
+    Token*       begin()                          { return data_.data(); }
+    Token*       end()                            { return data_.data() + data_.size(); }
+    Token const* begin() const                    { return data_.data(); }
+    Token const* end()   const                    { return data_.data() + data_.size(); }
+
+    size_t size()                  const          { return data_.size(); }
+    size_t capacity()              const          { return data_.capacity(); }
+    bool   empty()                 const          { return data_.empty(); }
+    bool   index_is_valid(size_t i) const         { return i < data_.size(); }
+
+    // Mutators
+    void push_back(Token const& t)                { data_.push_back(t); }
+    void push_back(Token&& t)                     { data_.push_back(std::move(t)); }
+    void pop_back()                               { data_.pop_back(); }
+    /** Ensure at least n free slots beyond current size. */
+    void reserve_token(size_t n)
     {
-        insert(i,1,t);
+        if (data_.capacity() - data_.size() < n)
+            data_.reserve(data_.size() + n);
     }
-    void insert(size_t, TokenArray const &);
-    
+    void clear();
+    void reserve(size_t n)                        { data_.reserve(n); }
+    void resize(size_t n, Token const& t = Token()) { data_.resize(n, t); }
+    bool shrink();
 
-    /**
-     * Assign sub-array.
-     */ 
-    void assign(const TokenArray &, size_t, size_t);
+    void erase(Token* first, Token* last);
+    void erase(size_t i, size_t n);
+    void erase(Token* tp)                         { erase(tp, tp + 1); }
+    void reduce(Token* first, Token* last);
+    void reduce(size_t i, size_t n);
+    void insert(size_t i, size_t n, Token const& t);
+    void insert(size_t i, Token const& t)         { insert(i, 1, t); }
+    void insert(size_t i, TokenArray const& a);
+    void assign(TokenArray const& a, size_t i, size_t n);
+    void append(TokenArray const& a);
+    void rotate(Token* first, Token* middle, Token* last);
 
-    void append(TokenArray const&);
+    bool operator==(TokenArray const& o) const    { return data_ == o.data_; }
+    bool operator!=(TokenArray const& o) const    { return !(*this == o); }
 
-    /**
-     * Erade contents of array and free memory.
-     */
-    void clear(void);
-        
-        
-    const TokenArray & operator=(const TokenArray &);
-    
-    bool operator==(const TokenArray &) const;
-
-    bool empty(void) const
+    // Refcount protocol — called by ArrayType::add_reference / remove_reference.
+    uint32_t add_reference()                      { return ++refs_; }
+    uint32_t remove_reference()
     {
-        return size()==0;
+        if (--refs_ == 0)
+        {
+            delete this;
+            return 0;
+        }
+        return refs_;
     }
-    
-    void info(std::ostream &) const;
+    uint32_t references() const                   { return refs_; }
 
-  static size_t getallocations(void)
-    { return allocations;}
+    // Serialization payload — caller (ArrayType) handles intern_object;
+    // these write/read the contents only.
+    void serialize_body(Writer&) const;
+    void deserialize_body(Reader&, SLIInterpreter&);
 
-  bool valid(void) const; // check integrity
+    void info(std::ostream&) const;
+    bool valid() const                            { return true; }
 
+private:
+    std::vector<Token> data_;
+    uint32_t refs_;
 };
 
-std::ostream & operator<<(std::ostream& , const TokenArray&);
+std::ostream& operator<<(std::ostream&, TokenArray const&);
 
-}
+}  // namespace sli3
 
 #endif
-
-

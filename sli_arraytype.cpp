@@ -1,5 +1,6 @@
 #include "sli_arraytype.h"
 #include "sli_interpreter.h"
+#include "sli_serialize.h"
 
 namespace sli3
 {
@@ -8,6 +9,32 @@ namespace sli3
 	if(t1.type_ != t2.type_)
 	  return false;
 	return t1.data_.array_val == t2.data_.array_val;
+    }
+
+    void ArrayType::serialize(Token const& t, Writer& w) const
+    {
+	TokenArray* arr = t.data_.array_val;
+	auto [id, is_new] = w.intern_object(arr);
+	w.write_u32(id);
+	if (is_new) arr->serialize_body(w);
+    }
+
+    void ArrayType::deserialize(Reader& r, Token& t) const
+    {
+	uint32_t id = r.read_u32();
+	TokenArray* arr = static_cast<TokenArray*>(r.lookup_object(id));
+	if (arr)
+	{
+	    arr->add_reference();
+	}
+	else
+	{
+	    arr = new TokenArray();
+	    r.register_object(id, arr);
+	    arr->deserialize_body(r, *sli_);
+	}
+	t.type_ = const_cast<ArrayType*>(this);
+	t.data_.array_val = arr;
     }
 
     std::ostream& ArrayType::print(std::ostream& out, const Token &t) const
