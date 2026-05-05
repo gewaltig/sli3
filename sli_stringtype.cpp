@@ -1,5 +1,6 @@
 #include "sli_stringtype.h"
 #include "sli_interpreter.h"
+#include "sli_serialize.h"
 
 namespace sli3
 {
@@ -18,6 +19,32 @@ namespace sli3
 	}
 	else
 	    return out;
-	
+
+    }
+
+    void StringType::serialize(Token const& t, Writer& w) const
+    {
+	SLIString* s = t.data_.string_val;
+	auto [id, is_new] = w.intern_object(s);
+	w.write_u32(id);
+	if (is_new)
+	    w.write_string(s->str());
+    }
+
+    void StringType::deserialize(Reader& r, Token& t) const
+    {
+	uint32_t id = r.read_u32();
+	SLIString* s = static_cast<SLIString*>(r.lookup_object(id));
+	if (s)
+	{
+	    s->add_reference();
+	}
+	else
+	{
+	    s = new SLIString(r.read_string());
+	    r.register_object(id, s);
+	}
+	t.type_ = const_cast<StringType*>(this);
+	t.data_.string_val = s;
     }
 }

@@ -44,13 +44,14 @@ namespace sli3
     refcount_t references(Token const &t) const
     {
       if(t.data_.string_val!=0)
-	return t.data_.string_val->remove_reference();
-      else
-	return 0;
+	return t.data_.string_val->references();
+      return 0;
     }
 
     bool compare(const Token&t1, const Token&t2) const;
     std::ostream & print(std::ostream&, const Token &) const;
+    void serialize(Token const&, Writer&) const override;
+    void deserialize(Reader&, Token&) const override;
   };
 }
 #endif

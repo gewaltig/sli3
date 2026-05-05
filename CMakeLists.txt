@@ -33,6 +33,7 @@ add_library(sli3_core STATIC
   sli_numerics.cpp
   sli_builtins.cpp
   sli_control.cpp
+  sli_iostream.cpp
   sli_iostreamtype.cpp
   sli_stack.cpp
   sli_type_trie.cpp

@@ -58,8 +58,9 @@ void IparseFunction::execute(SLIInterpreter *i) const
     
     SLIistream *is= i->EStack().top().data_.istream_val;
     assert(is != NULL);
+    assert(is->get() != NULL);
 
-    Token t=i->read_token(**is);
+    Token t=i->read_token(*is->get());
 
     if(t.is_of_type(sli3::symboltype))
 	i->EStack().pop(2);
@@ -391,8 +392,8 @@ void IforallindexedstringFunction::execute(SLIInterpreter *i) const
   if(count < limit)
     {
       SLIString *obj= i->EStack().pick(4).data_.string_val;
-      
-      i->push((*obj)[count]);  // push element to user
+
+      i->push(obj->str()[count]);  // push element to user
       i->push(count);          // push index to user
       ++count;
       i->EStack().push(i->EStack().pick(1));
@@ -436,7 +437,7 @@ void IforallstringFunction::execute(SLIInterpreter *i) const
   if(count < limit)
     {
       SLIString const *obj= i->EStack().pick(4).data_.string_val;
-      i->push<long>((*obj)[count]);  // push element to user
+      i->push<long>(obj->str()[count]);  // push element to user
       ++count;
       i->EStack().push(i->EStack().pick(1));
       if(i->step_mode())

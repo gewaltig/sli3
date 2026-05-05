@@ -25,7 +25,7 @@ namespace sli3
     Token::operator std::string&()
     {
 	require_type(sli3::stringtype);
-	return *data_.string_val;
+	return data_.string_val->str();
     }
 
     std::ostream & Token::print(std::ostream &out) const

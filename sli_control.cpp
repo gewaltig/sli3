@@ -1444,8 +1444,7 @@ void  Token_sFunction::execute(SLIInterpreter *i) const
       i->push(t);
       while(in.get(c))
 	  s+=c;
-      *sd = s;  // this is correct, since sd points to the stringdatum on the
-                // ostack.
+      sd->str() = s;  // sd points to the SLIString on the ostack.
       i->push(true);
   }
 }
@@ -1466,9 +1465,10 @@ void  Token_isFunction::execute(SLIInterpreter *i) const
 
   SLIistream *sd= i->top().data_.istream_val;
   assert(sd != 0);
+  assert(sd->get() != NULL);
 
   Token t;
-  t=i->read_token(**sd);
+  t=i->read_token(*sd->get());
   if(t == i->EndSymbol)
   {
       i->push(false);

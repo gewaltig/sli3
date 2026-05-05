@@ -2,6 +2,10 @@
 #include "sli_interpreter.h"
 #include "sli_exceptions.h"
 #include "sli_iostreamtype.h"
+#include "sli_serialize.h"
+
+#include <iostream>
+
 namespace sli3
 {
 
@@ -25,7 +29,7 @@ namespace sli3
 	  return false;
 	return t1.data_.ostream_val == t2.data_.ostream_val;
   }
-   
+
   void XIstreamType::execute(Token &t)
   {
     if(t.data_.istream_val)
@@ -35,6 +39,37 @@ namespace sli3
     }
     else
 	throw IOError();
+  }
+
+  // Streams are not serializable — OS resources don't survive a
+  // snapshot. We emit a null marker and warn so that callers know
+  // a stream slot was dropped.
+  static void warn_unserializable_stream(char const* dir)
+  {
+      std::cerr << "sli3: " << dir
+                << " stream is not serializable; replaced with closed stream\n";
+  }
+
+  void IstreamType::serialize(Token const&, Writer&) const
+  {
+      warn_unserializable_stream("input");
+  }
+
+  void IstreamType::deserialize(Reader&, Token& t) const
+  {
+      t.type_ = const_cast<IstreamType*>(this);
+      t.data_.istream_val = new SLIistream();  // valid()==false
+  }
+
+  void OstreamType::serialize(Token const&, Writer&) const
+  {
+      warn_unserializable_stream("output");
+  }
+
+  void OstreamType::deserialize(Reader&, Token& t) const
+  {
+      t.type_ = const_cast<OstreamType*>(this);
+      t.data_.ostream_val = new SLIostream();  // valid()==false
   }
 
 }

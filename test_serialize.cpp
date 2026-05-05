@@ -8,6 +8,7 @@
 
 #include "sli_serialize.h"
 #include "sli_interpreter.h"
+#include "sli_string.h"
 #include "sli_token.h"
 #include "sli_type.h"
 #include "sli_name.h"
@@ -99,6 +100,83 @@ int main()
         bool threw = false;
         try { r.read_header(); } catch (std::exception&) { threw = true; }
         CHECK(threw);
+    }
+
+    // String round-trip
+    {
+        Token in = interp.new_token<sli3::stringtype, std::string>(
+                       std::string("hello world"));
+        std::stringstream buf;
+        BinaryWriter w(buf);
+        w.write_header();
+        write_token(in, w);
+
+        BinaryReader r(buf);
+        r.read_header();
+        Token out = read_token(r, interp);
+
+        CHECK(out.is_valid());
+        CHECK(out.type_->get_typeid() == sli3::stringtype);
+        CHECK(out.data_.string_val != nullptr);
+        CHECK(out.data_.string_val != in.data_.string_val);  // distinct alloc
+        CHECK(out.data_.string_val->str() == "hello world");
+    }
+
+    // Empty string round-trip
+    {
+        Token in = interp.new_token<sli3::stringtype, std::string>(std::string{});
+        std::stringstream buf;
+        BinaryWriter w(buf);
+        w.write_header();
+        write_token(in, w);
+
+        BinaryReader r(buf);
+        r.read_header();
+        Token out = read_token(r, interp);
+
+        CHECK(out.is_valid());
+        CHECK(out.data_.string_val->str().empty());
+    }
+
+    // Shared string: two Tokens pointing at the same SLIString must
+    // deserialize to two Tokens pointing at the same (re-built) SLIString.
+    {
+        SLIString* shared = new SLIString(std::string("aliased"));
+        Token a(interp.get_type(sli3::stringtype));
+        a.data_.string_val = shared;
+        shared->add_reference();  // for b
+        Token b(interp.get_type(sli3::stringtype));
+        b.data_.string_val = shared;
+        CHECK(shared->references() == 2);
+
+        // Wrap both in an array so we can serialize them together.
+        Token arr_tok(interp.get_type(sli3::arraytype));
+        arr_tok.data_.array_val = new TokenArray();
+        arr_tok.data_.array_val->push_back(a);  // bumps to 3
+        arr_tok.data_.array_val->push_back(b);  // bumps to 4
+        CHECK(shared->references() == 4);
+
+        std::stringstream buf;
+        BinaryWriter w(buf);
+        w.write_header();
+        write_token(arr_tok, w);
+
+        BinaryReader r(buf);
+        r.read_header();
+        Token loaded = read_token(r, interp);
+
+        TokenArray* arr = loaded.data_.array_val;
+        CHECK(arr->size() == 2);
+        SLIString* sa = (*arr)[0].data_.string_val;
+        SLIString* sb = (*arr)[1].data_.string_val;
+        CHECK(sa == sb);            // aliasing preserved
+        CHECK(sa->str() == "aliased");
+        CHECK(sa->references() == 2);  // arr holds 2 Token refs
+
+        a.clear();
+        b.clear();
+        arr_tok.clear();
+        loaded.clear();
     }
 
     std::cerr << "test_serialize: all checks passed\n";
