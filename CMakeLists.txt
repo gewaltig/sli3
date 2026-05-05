@@ -40,6 +40,7 @@ add_library(sli3_core STATIC
   sli_typecheck.cpp
   sli_math.cpp
   sli_serialize.cpp
+  sli_array_module.cpp
 )
 target_include_directories(sli3_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(sli3_core PRIVATE
@@ -61,3 +62,7 @@ add_test(NAME test_serialize COMMAND test_serialize)
 add_executable(test_array test_array.cpp)
 target_link_libraries(test_array PRIVATE sli3_core)
 add_test(NAME test_array COMMAND test_array)
+
+add_executable(test_array_module test_array_module.cpp)
+target_link_libraries(test_array_module PRIVATE sli3_core)
+add_test(NAME test_array_module COMMAND test_array_module)

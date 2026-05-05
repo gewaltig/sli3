@@ -29,9 +29,10 @@ Work is on the `revive` branch.
   - **Slice 1.5:** Serialization protocol scaffolded — `Writer` / `Reader` abstract + `BinaryWriter` / `BinaryReader` with object table for shared-pointer de-duplication. `serialize` / `deserialize` virtuals on `SLIType`. Per-type implementations for scalars (Integer, Double, Bool) and Name/Literal/Symbol/Mark.
   - **Slice 2:** `TokenArray` rewritten over `std::vector<Token>` + intrusive `uint32_t refs_`. Token gained proper noexcept move ctor / move-assign. `ArrayType::serialize` / `deserialize` use the object table for de-duplication; round-tripped aliasing preserved. Bug fix: `ArrayType::references()` was decrementing.
   - **Slice 3:** `SLIString` no longer inherits `std::string` (composes); `SLIistream` / `SLIostream` rewritten as plain intrusive-refcount wrappers. `sli_lockptr.h` and `sli_lockobj.h` deleted. `IstreamType` / `OstreamType` got missing refcount overrides (silent leaks fixed). String type serializes via the object table; stream types emit a stderr warning and produce closed-stream Tokens on load.
-  - **Slice 4 (next):** array stdlib rewrite (Map / Sort / Reverse / Range / Partition / etc.) on the new TokenArray, using `std::sort` / `std::reverse` / `std::transform`.
-- **Stage 4 (tests):** partial. `test_serialize` and `test_array` wired into CTest; cover scalar/name/string/array round-trips, intrusive refcount, shared-pointer aliasing through serialization, basic container API.
-- **Runtime is not yet functional.** The interpreter binary starts up but has no `sli-init.sli` loader and no error-handler bootstrap, so user-level operators like `==`, `=`, `cvs` are not registered. Anything beyond stack manipulation will fail or crash. That comes in Slice 5+ (startup wiring + sli-init vendoring).
+  - **Slice 4:** Fresh `sli_array_module.{h,cpp}` (replaces the legacy 2288-line file). Registers Range / Reverse / Rotate / Flatten / Sort / Transpose / Partition_a_i_i / arrayload / arraystore / GetMin / GetMax / valid_a / finite_q_d, plus Map / MapIndexed_a / MapThread_a (with internal `::Map` / `::MapIndexed` / `::MapThread` iterator functions). Module exposes only `init_sliarray(SLIInterpreter*)`; operator function objects are anonymous-namespace statics. The Map family uses an iterator-on-EStack pattern: the entry function builds a frame `[mark, result, proc, pos, ::Iter]` (plus source for MapThread) and exits; the dispatcher re-invokes the iterator between user-procedure executions. Each iteration collects the prior call's result into the output slot, pushes the next argument(s), and pushes the procedure for the dispatcher.
+  - **Slice 5 (next):** startup wiring + vendor NEST 2.x `sli-init.sli`.
+- **Stage 4 (tests):** partial. `test_serialize`, `test_array`, and `test_array_module` wired into CTest; cover scalar/name/string/array round-trips, intrusive refcount, shared-pointer aliasing through serialization, basic container API, and the array-stdlib operators (direct execute() calls plus dispatcher-driven Map/MapIndexed/MapThread).
+- **Runtime is not yet functional.** The interpreter binary starts up but has no `sli-init.sli` loader and no error-handler bootstrap, so user-level operators like `==`, `=`, `cvs` are not registered. Anything beyond stack manipulation and the now-registered array stdlib will fail or crash. That comes in Slice 5+ (startup wiring + sli-init vendoring).
 - Full plan in `implementation_spec.md`.
 
 ## Build
@@ -45,11 +46,11 @@ ctest --test-dir build              # run unit tests
 
 CMake ≥ 3.20, C++17, default Release. Per-target warnings; `-Wno-unused-parameter` because the original code ships with many.
 
-The build produces three targets:
+The build produces these targets:
 
 - `sli3_core` — static library with all interpreter sources
 - `sli3` — main binary (links `sli3_core` + `sli_main.cpp`)
-- `test_serialize`, `test_array` — CTest binaries linking `sli3_core`
+- `test_serialize`, `test_array`, `test_array_module` — CTest binaries linking `sli3_core`
 
 When adding a new test: drop `test_<thing>.cpp` next to the others, add a short `add_executable` + `target_link_libraries` + `add_test` block to `CMakeLists.txt`. No external test framework — bare assertions per Q8.
 
@@ -84,7 +85,8 @@ When adding a new test: drop `test_<thing>.cpp` next to the others, add a short 
 | Builtins / control / math | `sli_builtins.{h,cpp}`, `sli_control.{h,cpp}`, `sli_math.{h,cpp}`, `sli_stack.{h,cpp}`, `sli_typecheck.{h,cpp}` |
 | Tries (operator dispatch) | `sli_trie.h`, `sli_trietype.h`, `sli_type_trie.{h,cpp}` |
 | Serialization | `sli_serialize.{h,cpp}` (`Writer`/`Reader` abstract; `BinaryWriter`/`Reader` impls; `write_token`/`read_token` entry points) |
-| Tests | `test_serialize.cpp`, `test_array.cpp` (CTest, bare assertions) |
+| Array stdlib | `sli_array_module.{h,cpp}` (`init_sliarray`: Range / Reverse / Rotate / Flatten / Sort / Transpose / Partition_a_i_i / arrayload / arraystore / GetMin / GetMax / valid_a / finite_q_d / Map / MapIndexed_a / MapThread_a + internal `::Map` / `::MapIndexed` / `::MapThread` iterator functions) |
+| Tests | `test_serialize.cpp`, `test_array.cpp`, `test_array_module.cpp` (CTest, bare assertions) |
 | Exceptions / utility | `sli_exceptions.{h,cpp}`, `compose.hpp` |
 
 ### On disk but **not** in the build (rewrite, don't port)
@@ -95,11 +97,6 @@ core. Per the rewrite directive: treat each as a **reference for which
 operators exist**, then write fresh implementations against the new
 container layer.
 
-- `sli_array_module.cpp` — Map/Sort/Reverse/Range/Partition (~63 KB). The
-  source of truth for *what* operators the array stdlib needs. Slice 4
-  rewrites this against the new `TokenArray`. Some ops
-  (`array2intvector`, `intvector2array`) need `intvectortype` /
-  `doublevectortype` implemented in the type system first.
 - `sli_io.cpp` — stream I/O. Slice 6 will rewrite as a thin layer over
   `std::fstream` / `std::stringstream`.
 - `sli_fdstream.{h,cpp}` — custom POSIX-fd `streambuf`. Replaced wholesale
@@ -132,7 +129,7 @@ exist**, not implementation to translate.
   implementations are intrusive `uint32_t refs_` on the heap object.
 - Stdlib operators (Map/Sort/Reverse/Partition/etc.): use `std::sort`,
   `std::reverse`, `std::transform`, range-for. Don't translate the
-  `Datum*` loops. **Slice 4 (next).**
+  `Datum*` loops. **Done in Slice 4** — `sli_array_module.{h,cpp}`.
 - I/O: build on `std::fstream`/`std::stringstream`. Don't carry forward
   `sli_fdstream`.
 - The custom `sli_allocator` pool is **gone (Slice 1)**; default heap

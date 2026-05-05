@@ -9,6 +9,7 @@
 #include "sli_numerics.h"
 #include "sli_parser.h"
 #include "sli_control.h"
+#include "sli_array_module.h"
 #include "sli_math.h"
 #include "sli_stack.h"
 #include "sli_typecheck.h"
@@ -274,6 +275,7 @@ namespace sli3
 	init_slistack(this);
 	init_slimath(this);
 	init_slitypecheck(this);
+	init_sliarray(this);
 	system_dict_->info(std::cerr);
     }
 

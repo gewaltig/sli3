@@ -216,7 +216,7 @@ container layer and the stdlib modules built on it.
 | 1.5 | Serialization protocol scaffolding | ✅ | `003b80b` |
 | 2 | TokenArray rewrite + serialization | ✅ | `0153017` |
 | 3 | Drop lockPTR; modern string/stream wrappers + serialization | ✅ | `dc10c09` |
-| 4 | Array stdlib rewrite (Map/Sort/Reverse/…) | ☐ | — |
+| 4 | Array stdlib rewrite (Map/Sort/Reverse/…) | ✅ | (uncommitted) |
 | 5 | Wire up startup, vendor `sli-init.sli`, smoke test | ☐ | — |
 | 6 | Modern I/O layer | ☐ | — |
 | 7 | argv-driven `sli_main.cpp`, REPL | ☐ | — |
@@ -249,17 +249,36 @@ call sites. `ArrayType::serialize` / `deserialize` use the object table
 for shared-pointer de-duplication. Bug fix: `ArrayType::references()`
 was decrementing. Tests in `test_array.cpp`.
 
-### 3.3 Rewrite the array stdlib (was `sli_array_module.cpp`) — Slice 4 (next)
+### 3.3 Rewrite the array stdlib (was `sli_array_module.cpp`) ✅ Slice 4
 
-The 2256-line NEST 2.x file is the source of *what operators we need*,
-not *how to implement them*. New file (`sli_array_stdlib.{h,cpp}` or
-keep the name) writes against the new TokenArray using `std::sort`,
-`std::reverse`, `std::transform`, `std::accumulate`. Reproduce the SLI
-semantics (Map, Sort, Reverse, Range, Partition, Flatten, Transpose,
-GetMin/GetMax, ArrayLoad/ArrayStore) but with modern idioms.
+Done. Old 2288-line file replaced by a fresh `sli_array_module.{h,cpp}`
+written against the new TokenArray. Operators registered:
 
-Defer to a later pass: `area`/`area2`/`gabor_`/`gauss2d_`/`cv1d`/`cv2d`
-— these are NEST-specific signal-processing helpers, not core SLI.
+- Range, Reverse, Rotate, Flatten, Sort (int/double/string),
+  Transpose, Partition_a_i_i
+- arrayload, arraystore, GetMin, GetMax, valid_a, finite_q_d
+- Map, MapIndexed_a, MapThread_a (entry functions) plus
+  ::Map / ::MapIndexed / ::MapThread iterator functions
+
+The Map family uses an iterator-on-EStack pattern: the entry function
+sets up a frame `[mark, result, proc, pos, ::Iter]` (plus source for
+MapThread), and the dispatcher keeps re-invoking the iterator
+between user-procedure executions. After each call the iterator
+collects the procedure's return value into the result slot, pushes
+the next argument(s), and pushes the procedure for the dispatcher to
+execute. When the source is exhausted the iterator pops its frame
+and pushes the result onto the operand stack.
+
+Module is a free-function `init_sliarray(SLIInterpreter*)` invoked
+from `SLIInterpreter::init_internal_functions`. Operator function
+objects are private (anonymous-namespace statics in the .cpp).
+
+Tests: `test_array_module.cpp` (CTest), 14 cases — direct execute()
+calls for the simple operators plus dispatcher-driven runs for
+Map/MapIndexed/MapThread.
+
+Deferred to a later pass: `area`/`area2`/`gabor_`/`gauss2d_`/`cv1d`/`cv2d`
+— NEST-specific signal-processing helpers, not core SLI.
 `array2intvector`/`intvector2array` need `intvectortype` /
 `doublevectortype` implemented first (currently listed only as user-type
 slots in the enum).
@@ -498,3 +517,17 @@ it's discoverable later without scrolling:
   `std::transform`. NEST-specific signal-processing helpers (area,
   gabor, gauss2d, cv1d, cv2d) and the int/double-vector conversions
   are deferred to a later pass.
+- 2026-05-05: **Slice 4 done** (uncommitted). New
+  `sli_array_module.{h,cpp}` replaces the legacy 2288-line file.
+  Registered: Range, Reverse, Rotate, Flatten, Sort (int/double/
+  string), Transpose, Partition_a_i_i, arrayload, arraystore, GetMin,
+  GetMax, valid_a, finite_q_d, Map, MapIndexed_a, MapThread_a, and
+  internal ::Map / ::MapIndexed / ::MapThread iterator functions.
+  Map family uses an iterator-on-EStack pattern: the entry function
+  builds the iteration frame and exits; the dispatcher then re-invokes
+  the iterator between user-procedure calls. Module is a free-function
+  `init_sliarray(SLIInterpreter*)` called from
+  `SLIInterpreter::init_internal_functions`. New `test_array_module`
+  CTest binary covers the simple operators directly and drives the
+  dispatcher for Map/MapIndexed/MapThread (3/3 tests pass).
+  Token: 16 / Dictionary: 32 unchanged.
