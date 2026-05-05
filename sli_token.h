@@ -5,7 +5,7 @@
 #include "sli_type.h"
 #include "sli_exceptions.h"
 
-/** 
+/**
  * Struct Datum is the smnallest memory unit. The linked type object decides
  * how this memory unit is interpreted.
  * The interpreter manages all memory for datums.
@@ -31,22 +31,22 @@ namespace sli3
     class Token
     {
     public:
-	Token();
-	Token(SLIType *);
-	Token(const Token &);
-	Token(Token&&) noexcept;
-	~Token();
+	  Token();
+	  Token(SLIType *);
+	  Token(const Token &);
+	  Token(Token&&) noexcept;
+	  ~Token();
 
 
 	/**
 	 * Initialize from a Token. This function assumes that the object is uninitialized.
 	 */
-	Token & init(const Token &t);
+	  Token & init(const Token &t);
 
 	/**
 	 * Initialize by assignment operation.
 	 */
-	Token & operator=(const Token &t);
+	  Token & operator=(const Token &t);
 
 	/**
 	 * Move-assign. Transfers payload ownership from t (whose type_ is
@@ -56,7 +56,7 @@ namespace sli3
 	 * std::vector<Token> uses this during reallocation, so it must be
 	 * noexcept for vector to take the strong-exception path.
 	 */
-	Token & operator=(Token&&) noexcept;
+	  Token & operator=(Token&&) noexcept;
 
 	/**
 	 * Move contents of t to this token. Legacy method kept for
@@ -72,10 +72,10 @@ namespace sli3
 
 	/**
 	 * Clear contents of token.
-	 * 
+	 *
 	 */
 	void clear();
-	
+
 	operator int() const;
 	operator long() const;
 	operator long&();
@@ -91,7 +91,7 @@ namespace sli3
 	refcount_t references() const;
 	refcount_t add_reference() const;
 	void remove_reference();
-	
+
 	bool operator==(const Token&) const;
 	bool operator==(Name) const;
 	bool operator==(int) const;
@@ -116,12 +116,12 @@ namespace sli3
 
 	std::ostream & print(std::ostream &) const;
 	std::ostream & pprint(std::ostream &) const;
-	
-	SLIType *type_; //!< If NULL, the datum is unused.	
+
+	SLIType *type_; //!< If NULL, the datum is unused.
 	union value
 	{
 	    double double_val;
-	    long   long_val;   
+	    long   long_val;
 	    bool   bool_val;
 	    size_t  name_val;
 	    TokenArray *array_val;
@@ -134,7 +134,7 @@ namespace sli3
 	    SLIType *type_val;
 	} data_;
     };
-    
+
     std::ostream & operator<<(std::ostream& , const Token&);
 
 
@@ -162,7 +162,7 @@ namespace sli3
 	:type_(s.type_),
 	 data_(s.data_)
     {
-	s.type_ = 0;
+	  s.type_ = 0;
     }
 
     inline
@@ -176,7 +176,6 @@ namespace sli3
     {
       remove_reference();
       type_=0;
-      //data_=value();
     }
 
     inline
@@ -208,15 +207,15 @@ namespace sli3
     inline
     Token& Token::swap(Token&t)
     {
-	SLIType *tmp_type=type_;
-	value   tmp_data=data_;
+	  SLIType *tmp_type=type_;
+	  value   tmp_data=data_;
 
-	type_=t.type_;
-	data_=t.data_;
-	t.type_=tmp_type;
-	t.data_=tmp_data;
+	  type_=t.type_;
+	  data_=t.data_;
+	  t.type_=tmp_type;
+	  t.data_=tmp_data;
 
-	return *this;
+	  return *this;
     }
 
     inline
@@ -229,73 +228,73 @@ namespace sli3
     inline
     bool Token::is_valid() const
     {
-	return type_ !=0;
+	  return type_ !=0;
     }
-    
+
     inline
     refcount_t Token::references() const
     {
-	return (is_valid()) ? type_->references(*this):1;
+	  return (is_valid()) ? type_->references(*this):1;
     }
-    
+
     inline
     refcount_t Token::add_reference() const
     {
-	return (is_valid()) ? type_->add_reference(*this) : 1;
+	  return (is_valid()) ? type_->add_reference(*this) : 1;
     }
 
     inline
     void Token::remove_reference()
     {
-	if(is_valid())
-	  type_->remove_reference(*this);
+	  if(is_valid())
+	    type_->remove_reference(*this);
     }
 
     inline
     Token::operator int() const
     {
-	require_type(sli3::integertype);
-	return data_.long_val;
+	  require_type(sli3::integertype);
+	  return data_.long_val;
     }
 
- 
+
     inline
     Token::operator long() const
     {
-	require_type(sli3::integertype);
-	return data_.long_val;
+	  require_type(sli3::integertype);
+	  return data_.long_val;
     }
 
     inline
-    Token::operator long&() 
+    Token::operator long&()
     {
-	require_type(sli3::integertype);
-	return data_.long_val;
+	  require_type(sli3::integertype);
+	  return data_.long_val;
     }
 
     inline
-   Token::operator double&()
+    Token::operator double&()
     {
+	  require_type(sli3::doubletype);
+	  return data_.double_val;
+    }
+
+  inline
+  Token::operator double() const
+  {
 	require_type(sli3::doubletype);
 	return data_.double_val;
-    }
+  }
 
-    inline
-   Token::operator double() const
-    {
-	require_type(sli3::doubletype);
-	return data_.double_val;
-    }
-
-    inline
-    Token::operator bool() const
-    {
+  inline
+  Token::operator bool() const
+  {
 	require_type(sli3::booltype);
 	return data_.bool_val;
-    }
+  }
 
-    inline
-    Token::operator bool&() 
+  inline
+    Token::operator bool&()
     {
 	require_type(sli3::booltype);
 	return data_.bool_val;
@@ -329,5 +328,5 @@ namespace sli3
 
 
 }
-    
+
 #endif
