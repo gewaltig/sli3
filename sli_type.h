@@ -55,14 +55,33 @@ namespace sli3
 
   class SLIInterpreter;
   class Token;
+  class Reader;
+  class Writer;
 
   class SLIType
   {
-    
+
   public:
-    
+
     SLIType(SLIInterpreter *, char const[], sli_typeid, bool=true);
     virtual ~SLIType(){}
+
+    /**
+     * Serialize the Token's payload only — the caller writes the type-id
+     * tag. Default implementation is a no-op (suitable for marker types
+     * with no payload: marktype, iiteratetype, irepeattype, etc.).
+     * Pointer-payload types must use the Writer's object table to
+     * deduplicate shared instances and break cycles. See
+     * project_serialization design notes.
+     */
+    virtual void serialize(Token const&, Writer&) const {}
+
+    /**
+     * Deserialize the Token's payload. The caller has already read the
+     * type-id and resolved this SLIType. Sets t.type_ to this and reads
+     * the payload from the Reader.
+     */
+    virtual void deserialize(Reader&, Token& t) const;
 
     virtual refcount_t add_reference(Token const&) const
     {

@@ -2,7 +2,7 @@
 #define SLI_INTEGERTYPE_H
 
 #include "sli_type.h"
-#include "SLI_token.h"
+#include "sli_token.h"
 #include "sli_array.h"
 namespace sli3
 {
@@ -14,6 +14,8 @@ namespace sli3
 
     bool compare(const Token&t1, const Token&t2) const;
     std::ostream & print(std::ostream&, const Token &) const;
+    void serialize(Token const&, Writer&) const override;
+    void deserialize(Reader&, Token&) const override;
   };
 
   class DoubleType: public SLIType
@@ -24,7 +26,8 @@ namespace sli3
 
     bool compare(const Token&t1, const Token&t2) const;
     std::ostream & print(std::ostream&, const Token &) const;
-
+    void serialize(Token const&, Writer&) const override;
+    void deserialize(Reader&, Token&) const override;
   };
 
   class BoolType: public SLIType
@@ -35,7 +38,8 @@ namespace sli3
 
     bool compare(const Token&t1, const Token&t2) const;
     std::ostream & print(std::ostream&, const Token &) const;
-
+    void serialize(Token const&, Writer&) const override;
+    void deserialize(Reader&, Token&) const override;
   };
    
 }

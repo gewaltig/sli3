@@ -56,9 +56,8 @@ namespace sli3
       Name(long h)            : handle_(h)
 	  {}
       
-      Name(const char s[])       : handle_(insert(std::string(s))) {} 
+      Name(const char s[])       : handle_(insert(std::string(s))) {}
       Name(const std::string &s) : handle_(insert(s)) {}
-      Name(const Name &n)        : handle_(n.handle_) {}
       operator int() const
       {
 	return handle_;

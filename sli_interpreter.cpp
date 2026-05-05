@@ -424,7 +424,7 @@ namespace sli3
 	// Read errorname from dictionary.
 	if(error_dict_->known(errorname_name))
 	{
-	    errorname = std::string(error_dict_->lookup(errorname_name));
+	    errorname = static_cast<std::string&>(error_dict_->lookup(errorname_name));
 	}
 	
 	// Find the correct message for the errorname.
@@ -477,7 +477,7 @@ namespace sli3
 	}
 	
 	// Error message header is defined as "$errorname in $cmd"
-	std::string from = std::string(cmd);
+	std::string from = static_cast<std::string&>(cmd);
 	
 	// Print error.
 	message(M_ERROR, from.c_str(), msg.str().c_str(), errorname.c_str());
@@ -974,16 +974,10 @@ catch(...)
 	std::exit(returnvalue);
     }
 
-    void SLIInterpreter::message(int level, const char from[], 
+    void SLIInterpreter::message(int level, const char from[],
 				 const char text[],
 				 const char errorname[]) const
     {
-	#ifdef HAVE_PTHREADS
-	static Mutex barrier;
-	
-	barrier.lock(); // Only one thread may write at a time.
-	#endif
-
 	if(level >= verbosity_level_)
 	{
 	    if (level >= M_FATAL)
@@ -1019,9 +1013,6 @@ catch(...)
 		message(std::cout, message_tag_[M_ALL].c_str(), from, text, errorname);
 	    }
 	}
-	#ifdef HAVE_PTHREADS
-	barrier.unlock(); // Now the next thread my write.
-	#endif
     }
 
 void SLIInterpreter::message(std::ostream& out, const char levelname[], 

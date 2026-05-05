@@ -204,11 +204,6 @@ SLIStartup::SLIStartup(int argc, char** argv)
   doublesize_name("double"),
   pointersize_name("void *"),
   architecturedict_name("architecture"),
-  have_mpi_name("have_mpi"),
-  ismpi_name("is_mpi"),
-  have_gsl_name("have_gsl"),
-  have_pthreads_name("have_pthreads"),
-  havemusic_name("have_music"),
   ndebug_name("ndebug"),
   exitcodes_name("exitcodes"),
   exitcode_success_name("success"),
@@ -350,30 +345,6 @@ void SLIStartup::init(SLIInterpreter *i)
   statusdict->insert(hostos_name,Token(new StringDatum(SLI_HOSTOS)));
   statusdict->insert(hostvendor_name,Token(new StringDatum(SLI_HOSTVENDOR)));
   statusdict->insert(hostcpu_name,Token(new StringDatum(SLI_HOSTCPU)));
-
-#ifdef HAVE_MPI
-  statusdict->insert(have_mpi_name, Token(new BoolDatum(true)));
-#else
-  statusdict->insert(have_mpi_name, Token(new BoolDatum(false)));
-#endif
-
-#ifdef HAVE_GSL
-  statusdict->insert(have_gsl_name, Token(new BoolDatum(true)));
-#else
-  statusdict->insert(have_gsl_name, Token(new BoolDatum(false)));
-#endif
-
-#ifdef HAVE_PTHREADS
-  statusdict->insert(have_pthreads_name, Token(new BoolDatum(true)));
-#else
-  statusdict->insert(have_pthreads_name, Token(new BoolDatum(false)));
-#endif
-
-#ifdef HAVE_MUSIC
-  statusdict->insert(havemusic_name, Token(new BoolDatum(true)));
-#else
-  statusdict->insert(havemusic_name, Token(new BoolDatum(false)));
-#endif
 
 #ifdef NDEBUG
   statusdict->insert(ndebug_name, Token(new BoolDatum(true)));

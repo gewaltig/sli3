@@ -72,13 +72,7 @@ namespace sli3
 	operator double&();
 	operator bool() const;
 	operator bool&();
-	operator std::string() const;
 	operator std::string&();
-
-	operator std::vector<long>() const;
-	operator std::vector<double>() const;
-	operator std::istream&();
-	operator std::ostream&();
 	operator TokenArray&();
 
 	bool is_valid() const;

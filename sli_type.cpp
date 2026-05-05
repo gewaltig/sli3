@@ -15,6 +15,11 @@ namespace sli3
       t.type_=0;
       t.data_ = Token::value(); //This clears all fields to 0
     }
+
+    void SLIType::deserialize(Reader&, Token& t) const
+    {
+        t.type_ = const_cast<SLIType*>(this);
+    }
  
     void SLIType::raise_type_mismatch_(unsigned int id) const
     {

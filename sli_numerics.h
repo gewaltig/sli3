@@ -20,10 +20,6 @@
 #include <limits>
 #include <cmath>
 
-#if HAVE_EXPM1
-#  include <math.h>
-#endif
-
 namespace numerics {
 
   extern  const double e;
@@ -34,10 +30,9 @@ namespace numerics {
  */
   inline
   double expm1(double x)
-  { 
-#if HAVE_EXPM1
-    return ::expm1(x);  // use library implementation if available
-#else
+  {
+    return ::expm1(x);
+#if 0
     // compute using Taylor series, see GSL
     // e^x-1 = x + x^2/2! + x^3/3! + ...
     if ( x == 0 )
@@ -49,7 +44,7 @@ namespace numerics {
       double sum = x;
       double term = x*x/2;
       long n = 2;
-      
+
       while ( std::abs(term) > 
 	      std::abs(sum) * std::numeric_limits<double>::epsilon() )
       {

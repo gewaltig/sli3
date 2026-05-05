@@ -3,7 +3,6 @@
 
 #include "sli_type.h"
 #include "sli_token.h"
-#include "sli_allocator.h"
 #include "sli_arraytype.h"
 #include "sli_integertype.h"
 #include "sli_tokenstack.h"
@@ -197,7 +196,7 @@ namespace sli3
 
 	Token const &top() const
 	    {
-		return top();
+		return operand_stack_.top();
 	    }
 
 	/**

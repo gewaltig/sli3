@@ -12,6 +12,8 @@ namespace sli3
 
     bool compare(const Token&t1, const Token&t2) const;
     std::ostream & print(std::ostream&, const Token &) const;
+    void serialize(Token const&, Writer&) const override;
+    void deserialize(Reader&, Token&) const override;
   };
 
   class NameType: public LiteralType

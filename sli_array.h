@@ -23,7 +23,6 @@
 #include <typeinfo>
 #include <cstddef>
 #include "sli_token.h"
-#include "sli_allocator.h"
 
 namespace sli3
 {
@@ -34,8 +33,6 @@ class Token;
 class TokenArray
 {
  private:
-  static sli3::pool memory;
-
   Token* p;
   Token* begin_of_free_storage;
   Token* end_of_free_storage;
@@ -211,25 +208,6 @@ class TokenArray
     { return allocations;}
 
   bool valid(void) const; // check integrity
-    
-  static void * operator new(size_t size)
-    {
-      if(size != memory.size_of())
-	return ::operator new(size);
-      return memory.alloc();
-    }
-
-  static void operator delete(void *p, size_t size)
-    {
-      if(p == NULL)
-	return;
-      if(size != memory.size_of())
-      {
-	::operator delete(p);
-	return;
-      }
-      memory.free(p);
-    }
 
 };
 

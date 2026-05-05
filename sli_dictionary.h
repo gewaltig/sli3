@@ -23,7 +23,6 @@
 #include "sli_name.h"
 #include "sli_token.h"
 #include "sli_exceptions.h"
-#include "sli_allocator.h"
 
 #include <map>
 namespace sli3
@@ -276,25 +275,6 @@ public:
     return refs_on_dictstack_ >0;
   }
 
-  static void * operator new(size_t size)
-    {
-      if(size != memory.size_of())
-	return ::operator new(size);
-      return memory.alloc();
-    }
-
-  static void operator delete(void *p, size_t size)
-    {
-      if(p == NULL)
-	return;
-      if(size != memory.size_of())
-      {
-	::operator delete(p);
-	return;
-      }
-      memory.free(p);
-    }
-
  private:
   /**
    * Worker function checking whether all elements have been accessed.
@@ -309,9 +289,7 @@ public:
   
   mutable
     refcount_t references_;
-  refcount_t refs_on_dictstack_; 
-  
-static sli3::pool memory;
+  refcount_t refs_on_dictstack_;
 
 };
 

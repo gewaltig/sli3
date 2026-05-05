@@ -38,15 +38,7 @@
 #include <sys/times.h>
 #include <sys/resource.h>
 #include <unistd.h>
-// sstream has functions std::?stringstream
-// strstream has functions std::?strstream
-// HEP 2002-10-06
-#define HAVE_SSTREAM 1
-#ifdef HAVE_SSTREAM
 #include <sstream>
-#else
-#include <strstream>
-#endif
 
 namespace sli3
 {
@@ -1434,11 +1426,7 @@ void  Token_sFunction::execute(SLIInterpreter *i) const
   i->require_stack_type(0,sli3::stringtype);
   SLIString *sd= i->top().data_.string_val;
   assert(sd != NULL);
-#ifdef HAVE_SSTREAM
   std::istringstream in(sd->c_str());
-#else
-  std::istrstream in(sd->c_str());
-#endif
 
   Token t;
   i->clear_parser_context(); // this clears the previously parsed strings.
