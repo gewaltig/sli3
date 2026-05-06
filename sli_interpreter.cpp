@@ -11,6 +11,7 @@
 #include "sli_control.h"
 #include "sli_array_module.h"
 #include "sli_container_ops.h"
+#include "sli_io_ops.h"
 #include "sli_iostreamtype.h"
 #include "sli_math.h"
 #include "sli_startup.h"
@@ -285,6 +286,7 @@ namespace sli3
 	init_slitypecheck(this);
 	init_sliarray(this);
 	init_container_ops(this);
+	init_io_ops(this);
 	// Startup must run AFTER the other modules so it can prime the
 	// execution stack with sli-init.sli — that script depends on the
 	// operators registered above.
@@ -410,7 +412,7 @@ namespace sli3
 	    }
 	    std::cerr << "\n  estack:";
 	    {
-	        size_t lim = std::min<size_t>(execution_stack_.load(), 5);
+	        size_t lim = std::min<size_t>(execution_stack_.load(), 8);
 	        for (size_t k = 0; k < lim; ++k)
 	        {
 	            std::cerr << "\n   [" << k << "] ";
@@ -423,6 +425,14 @@ namespace sli3
 	                 || t.type_->get_typeid() == sli3::symboltype))
 	            {
 	                std::cerr << " = " << Name(t.data_.name_val).toString();
+	            }
+	            else if (t.type_ &&
+	                (t.type_->get_typeid() == sli3::proceduretype
+	                 || t.type_->get_typeid() == sli3::litproceduretype)
+	                && t.data_.array_val)
+	            {
+	                std::cerr << " body: ";
+	                t.print(std::cerr);
 	            }
 	        }
 	    }
@@ -789,8 +799,32 @@ catch(...)
 		    break;
 		    
 		case sli3::functiontype:
+		{
+		    // Optional dispatch tracing for debugging the bootstrap.
+		    // Enabled when the SLI3_TRACE environment variable is set
+		    // and non-empty. Cached on first dispatch.
+		    static int trace = -1;
+		    if (trace == -1)
+		    {
+		        char const* env = std::getenv("SLI3_TRACE");
+		        trace = env && env[0] ? 1 : 0;
+		    }
+		    if (trace)
+		    {
+		        SLIFunction* fn = execution_stack_.top().data_.func_val;
+		        std::cerr << "[fn] " << fn->get_name().toString()
+		                  << " ostack=" << operand_stack_.load();
+		        size_t lim = std::min<size_t>(operand_stack_.load(), 4);
+		        for (size_t k = 0; k < lim; ++k)
+		        {
+		            std::cerr << " [" << k << "]=";
+		            operand_stack_.pick(k).pprint(std::cerr);
+		        }
+		        std::cerr << '\n';
+		    }
 		    execution_stack_.top().data_.func_val->execute(this);
 		    break;
+		}
 		    
 		case sli3::proceduretype:
 		    execution_stack_.push(null_val);

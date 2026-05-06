@@ -16,7 +16,7 @@ set(SLI3_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(SLI3_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(SLI3_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
 set(SLI3_VERSION       "${PROJECT_VERSION}")
-set(SLI3_DATADIR       "${CMAKE_CURRENT_SOURCE_DIR}/lib/sli")
+set(SLI3_DATADIR       "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/config.h
@@ -57,6 +57,7 @@ add_library(sli3_core STATIC
   sli_array_module.cpp
   sli_startup.cpp
   sli_container_ops.cpp
+  sli_io_ops.cpp
 )
 target_include_directories(sli3_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}

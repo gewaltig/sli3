@@ -217,8 +217,8 @@ container layer and the stdlib modules built on it.
 | 2 | TokenArray rewrite + serialization | ✅ | `0153017` |
 | 3 | Drop lockPTR; modern string/stream wrappers + serialization | ✅ | `dc10c09` |
 | 4 | Array stdlib rewrite (Map/Sort/Reverse/…) | ✅ | `d962dc6` |
-| 5a | Bootstrap scaffolding (config.h, fresh sli_startup, sli-init.sli vendored, partial bootstrap) | ▶ | (uncommitted) |
-| 5b | Fill in operators / fix issues until sli-init.sli loads cleanly | ☐ | — |
+| 5a | Bootstrap scaffolding (config.h, fresh sli_startup, sli-init.sli vendored, partial bootstrap) | ✅ | `5e40ced` |
+| 5b | Fill in operators / fix issues until sli-init.sli loads cleanly | ▶ | (uncommitted) |
 | 5c | Smoke test `1 1 add ==` passes | ☐ | — |
 | 6 | Modern I/O layer | ☐ | — |
 | 7 | argv-driven `sli_main.cpp`, REPL | ☐ | — |
@@ -519,7 +519,48 @@ it's discoverable later without scrolling:
   `std::transform`. NEST-specific signal-processing helpers (area,
   gabor, gauss2d, cv1d, cv2d) and the int/double-vector conversions
   are deferred to a later pass.
-- 2026-05-06: **Slice 5a in progress** (uncommitted). Bootstrap
+- 2026-05-06: **Slice 5b in progress** (uncommitted). Continuing from
+  Slice 5a, now iterating to fill in the operator surface that
+  sli-init.sli needs. Operators added in this slice:
+  - String / dict ops (sli_container_ops.cpp): `join_s`, `search_s`,
+    `cvi_s`, `cvd_s`, `known`, `where`, `undef`.
+  - Stream I/O (new sli_io_ops.{h,cpp}): `ifstream`, `ofstream`,
+    `cvx_f`, `close`, `eof`, `getline_is`. The minimal surface
+    sli-init.sli's `searchifstream` / `searchfile` chain calls. Full
+    modern I/O layer is still slice 6. `file` is intentionally NOT
+    a C++ op — sli-init.sli's `/file` trie wraps `ifstream`/`ofstream`
+    + searchifstream and reports `FileOpenError` itself.
+
+  **Bug fixes uncovered while iterating** (each was blocking the
+  bootstrap):
+  - `IfelseFunction::execute` checked `pick(1)==true`, but for stack
+    `bool tproc fproc` the bool is at `pick(2)` — so `pick(1)` (the
+    tproc) was being compared to bool true and the false branch always
+    ran. Replaced with a `pick(2).is_of_type(booltype) && bool_val`
+    check and clean push of the chosen branch.
+  - `PutArrayLikeFunction` (template put_a / put_p / put_lp) consumed
+    only 2 of the 3 operands, leaving the array on the stack. Per
+    PostScript convention `array index value put -> -` consumes all
+    three, and `bind`'s `2 copy ... put` relies on this so the
+    iteration's `[proc, idx]` survives across loop iterations.
+    Without the fix, `bind` would lose the proc after the first put.
+  - `TypeNode::lookup` had no actual handling for `anytype` wildcard —
+    the loop walked the alt-list comparing types, and when an
+    `anytype` node was reached the inner `if` only suppressed the
+    throw but then dereferenced its (potentially null) `alt_`.
+    Lookup now exits the inner loop when `pos->type_` is anytype,
+    treating it as a wildcard match. Also gracefully handles partial
+    trie nodes (next_ set, type_ unset) by throwing ArgumentType
+    instead of segfaulting on `pos->type_->get_typeid()`.
+
+  **Bootstrap progress**: configured SLI3_DATADIR points at the
+  parent of lib/sli/ (so sli-init.sli's `prgdatadir + "/sli"` builds
+  the right SLISearchPath). `(typeinit.sli) run` now reaches `bind`'s
+  for-loop iterating typeinit.sli's `/length` trie body — fails on
+  the first call to `get` with an unexpected stack shape (next round
+  of debugging).
+
+- 2026-05-06: **Slice 5a done** (`5e40ced`). Bootstrap
   scaffolding landed:
   - `config.h` generated via `configure_file` (`config.h.in` template).
     Defines version + `SLI3_DATADIR` (default search path for

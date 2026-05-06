@@ -191,31 +191,38 @@ namespace sli3
     inline
     Token& TypeNode::lookup(TokenStack &st)
     {
-      
-      const size_t load =st.load();
-      size_t level=0;
-      TypeNode *pos=this;
-	
-      while(pos->next_ != NULL)
+      const size_t load = st.load();
+      size_t level = 0;
+      TypeNode *pos = this;
+
+      while (pos->next_ != NULL)
         {
-          assert(pos->type_!=0);
-          
-          if(level>=load)
-            throw StackUnderflow(level+1, load);
-          
-          const SLIType *find_type=st.pick(level).type_;
-          while(pos->type_ != find_type)
+          // Empty / partial trie node: type_ unset but a next_ link
+          // exists. Treat as no-match so callers see a typed error
+          // instead of a segfault on `pos->type_->get_typeid()`.
+          if (pos->type_ == NULL)
+            throw ArgumentType(level);
+
+          if (level >= load)
+            throw StackUnderflow(level + 1, load);
+
+          const SLIType *find_type = st.pick(level).type_;
+          // Walk the alt-list looking for either an exact match or
+          // an anytype wildcard (always at the tail of the alt-list
+          // by construction in get_alternative). On no match, throw.
+          while (pos->type_ != find_type
+                 && pos->type_->get_typeid() != sli3::anytype)
             {
-              if ((pos->alt_ == NULL) and (pos->type_->get_typeid() != sli3::anytype))
+              if (pos->alt_ == NULL)
                 throw ArgumentType(level);
-              pos=pos->alt_;
-              assert(pos->type_ != NULL);
+              pos = pos->alt_;
+              if (pos == NULL || pos->type_ == NULL)
+                throw ArgumentType(level);
             }
           ++level;
-          pos=pos->next_;
+          pos = pos->next_;
         }
-      // We have reached a leaf, we can return the function.
-      //assert(pos->func_.type_ != NULL);
+      // Leaf — return the bound function.
       return pos->func_;
     }
 

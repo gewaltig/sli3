@@ -307,12 +307,15 @@ bool file_readable(std::string const& path)
     return in.good();
 }
 
+// Search for sli-init.sli under <datadir>/sli/sli-init.sli, mirroring
+// the NEST install layout where the data root contains a sli/
+// subdirectory of init scripts. Returns the resolved path or "".
 std::string locate_sli_init()
 {
     auto try_dir = [](std::string const& dir) -> std::string
     {
         if (dir.empty()) return std::string();
-        std::string p = dir + "/sli-init.sli";
+        std::string p = dir + "/sli/sli-init.sli";
         return file_readable(p) ? p : std::string();
     };
 
@@ -408,12 +411,21 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
 
     // 4. Build statusdict. Done after locate so prgdatadir reflects
     //    the actual location used.
+    // statusdict::prgdatadir is the data ROOT (the parent of sli/),
+    // so that sli-init.sli's `[ statusdict /prgdatadir get_d (/sli)
+    // join_s ]` produces the correct SLISearchPath entry.
     std::string datadir;
     if (!init_path.empty())
     {
-        // Strip "/sli-init.sli" off the resolved path.
-        auto pos = init_path.find_last_of('/');
-        datadir = (pos == std::string::npos) ? std::string() : init_path.substr(0, pos);
+        // init_path looks like "<datadir>/sli/sli-init.sli". Strip the
+        // last two path components.
+        auto p1 = init_path.find_last_of('/');
+        if (p1 != std::string::npos)
+        {
+            auto p2 = init_path.find_last_of('/', p1 - 1);
+            if (p2 != std::string::npos)
+                datadir = init_path.substr(0, p2);
+        }
     }
     Dictionary* statusdict = build_statusdict(*i, argc, argv, datadir);
     Token status_tok(i->get_type(sli3::dictionarytype));

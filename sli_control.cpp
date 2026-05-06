@@ -203,32 +203,19 @@ SeeAlso: if
 */
 void IfelseFunction::execute(SLIInterpreter *i) const
 {
-        // OStack: bool tproc fproc
-        //          2    1      0
+    // OStack: bool tproc fproc
+    //          2    1      0
+    // Push the chosen branch onto the execution stack and remove all
+    // three operand-stack entries.
     i->require_stack_load(3);
     i->EStack().pop();
 
-    if(i->pick(1)==true )
-    {
-	if(i->step_mode())
-	{
-	    std::cerr << "if:"
-		      << " Executing true branch."
-		      << std::endl;
-	}
-	i->EStack().push(i->top());
-	i->pop(2);
-    }
+    bool cond = i->pick(2).is_of_type(sli3::booltype)
+                && i->pick(2).data_.bool_val;
+    if (cond)
+        i->EStack().push(i->pick(1));   // tproc
     else
-    {
-      if(i->step_mode())
-      {
-	std::cerr << "ifelse:"
-		  << " Executing false branch."
-		  << std::endl;
-      }
-      i->EStack().push(i->top());
-    }
+        i->EStack().push(i->pick(0));   // fproc
     i->pop(3);
 }
 

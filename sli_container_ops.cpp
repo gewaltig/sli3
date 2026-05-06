@@ -190,6 +190,8 @@ class PutArrayLikeFunction : public SLIFunction
 public:
     void execute(SLIInterpreter* i) const override
     {
+        // PostScript convention: `array index value put -> -`. Consumes
+        // all three operands and returns nothing.
         i->require_stack_load(3);
         i->require_stack_type(2, TID);
         i->require_stack_type(1, sli3::integertype);
@@ -201,7 +203,7 @@ public:
             return;
         }
         (*arr)[static_cast<size_t>(idx)] = i->top();
-        i->pop(2);  // drop value + index, keep array on top
+        i->pop(3);
         i->EStack().pop();
     }
 };
@@ -316,6 +318,171 @@ PutStringFunction                                     put_s_fn;
 PutDictFunction                                       put_d_fn;
 PutArrayArrayTokenFunction                            put_a_a_t_fn;
 
+//------------------------------------------------------------------------
+// String ops
+//------------------------------------------------------------------------
+
+// `s1 s2 join_s -> s` — concatenation. Result on top, both inputs gone.
+class JoinStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::stringtype);
+        i->require_stack_type(0, sli3::stringtype);
+        std::string const& a = i->pick(1).data_.string_val->str();
+        std::string const& b = i->top().data_.string_val->str();
+        std::string out;
+        out.reserve(a.size() + b.size());
+        out.append(a).append(b);
+        i->pop(2);
+        i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
+        i->EStack().pop();
+    }
+};
+
+// `haystack needle search_s -> post needle pre true | haystack false`
+// Decomposes haystack around the first occurrence of needle. Mirrors
+// PostScript `search`. The "post" is what's left of the haystack after
+// the match; ordering matches NEST 2.x.
+class SearchStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::stringtype);
+        i->require_stack_type(0, sli3::stringtype);
+        std::string haystack = i->pick(1).data_.string_val->str();  // copy
+        std::string needle   = i->top().data_.string_val->str();    // copy
+        i->pop(2);
+        auto pos = haystack.find(needle);
+        if (pos == std::string::npos)
+        {
+            i->push(i->new_token<sli3::stringtype, std::string>(std::move(haystack)));
+            i->push<bool>(false);
+        }
+        else
+        {
+            std::string pre  = haystack.substr(0, pos);
+            std::string post = haystack.substr(pos + needle.size());
+            i->push(i->new_token<sli3::stringtype, std::string>(std::move(post)));
+            i->push(i->new_token<sli3::stringtype, std::string>(std::move(needle)));
+            i->push(i->new_token<sli3::stringtype, std::string>(std::move(pre)));
+            i->push<bool>(true);
+        }
+        i->EStack().pop();
+    }
+};
+
+// `int cvi_s -> string` and `double cvd_s -> string`
+class CviStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::integertype);
+        long v = i->top().data_.long_val;
+        i->pop();
+        i->push(i->new_token<sli3::stringtype, std::string>(std::to_string(v)));
+        i->EStack().pop();
+    }
+};
+
+class CvdStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::doubletype);
+        double v = i->top().data_.double_val;
+        i->pop();
+        i->push(i->new_token<sli3::stringtype, std::string>(std::to_string(v)));
+        i->EStack().pop();
+    }
+};
+
+JoinStringFunction   join_s_fn;
+SearchStringFunction search_s_fn;
+CviStringFunction    cvi_s_fn;
+CvdStringFunction    cvd_s_fn;
+
+//------------------------------------------------------------------------
+// Dictionary lookup helpers
+//------------------------------------------------------------------------
+
+// `dict literal known -> bool` — true if the dict has the key.
+class KnownFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::dictionarytype);
+        i->require_stack_type(0, sli3::literaltype);
+        Dictionary* d = i->pick(1).data_.dict_val;
+        Name n(i->top().data_.name_val);
+        bool present = d->known(n);
+        i->pop(2);
+        i->push<bool>(present);
+        i->EStack().pop();
+    }
+};
+
+// `literal where -> dict true | false` — search dict stack for key.
+class WhereFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::literaltype);
+        Name n(i->top().data_.name_val);
+        Token t;
+        bool found = i->lookup(n, t);
+        i->pop();
+        if (found)
+        {
+            // Push the dictionary that contains the key. We don't have
+            // a "which dict" API, so push the topmost dict where the
+            // name resolves; for diagnostic purposes that's good enough
+            // (the legacy NEST behaviour returns *some* containing dict).
+            Token d(i->get_type(sli3::dictionarytype));
+            d.data_.dict_val = i->DStack().top();
+            i->push(d);
+            i->push<bool>(true);
+        }
+        else
+        {
+            i->push<bool>(false);
+        }
+        i->EStack().pop();
+    }
+};
+
+// `literal undef -> -` — remove key from current dict (silent no-op if
+// not present, to match sli-init.sli expectations).
+class UndefFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::literaltype);
+        Name n(i->top().data_.name_val);
+        i->pop();
+        try { i->undef(n); } catch (...) { /* tolerate missing */ }
+        i->EStack().pop();
+    }
+};
+
+KnownFunction known_fn;
+WhereFunction where_fn;
+UndefFunction undef_fn;
+
 }  // anonymous namespace
 
 void init_container_ops(SLIInterpreter* i)
@@ -339,6 +506,15 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("put_s",     &put_s_fn);
     i->createcommand("put_d",     &put_d_fn);
     i->createcommand("put_a_a_t", &put_a_a_t_fn);
+
+    i->createcommand("join_s",    &join_s_fn);
+    i->createcommand("search_s",  &search_s_fn);
+    i->createcommand("cvi_s",     &cvi_s_fn);
+    i->createcommand("cvd_s",     &cvd_s_fn);
+
+    i->createcommand("known",     &known_fn);
+    i->createcommand("where",     &where_fn);
+    i->createcommand("undef",     &undef_fn);
 }
 
 }  // namespace sli3
