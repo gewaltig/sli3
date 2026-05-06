@@ -10,7 +10,10 @@
 #include "sli_parser.h"
 #include "sli_control.h"
 #include "sli_array_module.h"
+#include "sli_container_ops.h"
+#include "sli_iostreamtype.h"
 #include "sli_math.h"
+#include "sli_startup.h"
 #include "sli_stack.h"
 #include "sli_typecheck.h"
 #include "sli_trietype.h"
@@ -194,7 +197,9 @@ namespace sli3
 	types_[sli3::symboltype]=(new SymbolType(this,"symboltype",sli3::symboltype));
 	types_[sli3::stringtype]=(new StringType(this,"stringtype",sli3::stringtype));
 	types_[sli3::arraytype]=(new ArrayType(this,"arraytype",sli3::arraytype));
-	types_[sli3::litproceduretype]=(new LitprocedureType(this,"litproceduretype",sli3::litproceduretype));
+	// Name "literalproceduretype" matches what NEST 2.x's
+	// typeinit.sli / sli-init.sli use when keying type tries.
+	types_[sli3::litproceduretype]=(new LitprocedureType(this,"literalproceduretype",sli3::litproceduretype));
 	types_[sli3::proceduretype]=(new ProcedureType(this,"proceduretype",sli3::proceduretype));
 	types_[sli3::dictionarytype]=(new DictionaryType(this,"dictionarytype",sli3::dictionarytype));
 	types_[sli3::functiontype]=(new FunctionType(this,"functiontype",sli3::functiontype));
@@ -204,6 +209,9 @@ namespace sli3
 	types_[sli3::quittype]=(new OperatorType<sli3::quittype>(this,"quit"));
 	types_[sli3::iforalltype]=(new OperatorType<sli3::iforalltype>(this,"forall_continue"));
 	types_[sli3::trietype]=(new TrieType(this,"trietype", sli3::trietype));
+	types_[sli3::istreamtype]=(new IstreamType(this,"istreamtype", sli3::istreamtype));
+	types_[sli3::xistreamtype]=(new XIstreamType(this,"xistreamtype", sli3::xistreamtype));
+	types_[sli3::ostreamtype]=(new OstreamType(this,"ostreamtype", sli3::ostreamtype));
     }
 
     void SLIInterpreter::init_message_tags()
@@ -276,7 +284,11 @@ namespace sli3
 	init_slimath(this);
 	init_slitypecheck(this);
 	init_sliarray(this);
-	system_dict_->info(std::cerr);
+	init_container_ops(this);
+	// Startup must run AFTER the other modules so it can prime the
+	// execution stack with sli-init.sli — that script depends on the
+	// operators registered above.
+	init_slistartup(this, 0, nullptr);
     }
 
     int SLIInterpreter::startup()
@@ -285,7 +297,11 @@ namespace sli3
 
 	if (! is_initialized_ and execution_stack_.load()>0)
 	{
-	    exitcode=execute_();
+	    // Use the same dispatcher as the main run so trie / for /
+	    // forall / iiterate / etc. dispatch correctly during the
+	    // sli-init.sli bootstrap. exitlevel=0 → run until the
+	    // execution stack drains.
+	    exitcode=execute_dispatch_(0);
 	    is_initialized_=true;
 	}
 	return exitcode;
@@ -363,29 +379,85 @@ namespace sli3
 	
 	assert(error_dict_ != NULL);
   
-	if(error_dict_->lookup(newerror_name)== false)
+	// Read newerror as a value, not just presence — the original code
+	// used `lookup() == false` which means "name not found", but that
+	// flag stays present after the first error and would mark every
+	// subsequent independent error as a handler failure. Treat
+	// "not present" or "present-and-false" as a normal error.
+	Token nerr_tok;
+	bool already_in_error = false;
+	if (error_dict_->lookup(newerror_name, nerr_tok)
+	    && nerr_tok.is_of_type(sli3::booltype)
+	    && nerr_tok.data_.bool_val)
 	{
+	    already_in_error = true;
+	}
+
+	if (!already_in_error)
+	{
+	    // Diagnostic: print every first-time error so bootstrap
+	    // failures aren't silent. Include a quick dump of the top
+	    // few estack entries to point at the failure site.
+	    std::cerr << "[raiseerror] " << cmd.toString()
+	              << " : " << err.toString() << "\n  ostack:";
+	    {
+	        size_t lim = std::min<size_t>(operand_stack_.load(), 5);
+	        for (size_t k = 0; k < lim; ++k)
+	        {
+	            std::cerr << "\n   [" << k << "] ";
+	            operand_stack_.pick(k).pprint(std::cerr);
+	        }
+	    }
+	    std::cerr << "\n  estack:";
+	    {
+	        size_t lim = std::min<size_t>(execution_stack_.load(), 5);
+	        for (size_t k = 0; k < lim; ++k)
+	        {
+	            std::cerr << "\n   [" << k << "] ";
+	            Token const& t = execution_stack_.pick(k);
+	            t.pprint(std::cerr);
+	            // Resolve name handle to its string for readability.
+	            if (t.type_ &&
+	                (t.type_->get_typeid() == sli3::nametype
+	                 || t.type_->get_typeid() == sli3::literaltype
+	                 || t.type_->get_typeid() == sli3::symboltype))
+	            {
+	                std::cerr << " = " << Name(t.data_.name_val).toString();
+	            }
+	        }
+	    }
+	    std::cerr << '\n';
 	    error_dict_->insert(newerror_name, new_token<sli3::booltype>(true));
 	    error_dict_->insert(errorname_name,new_token<sli3::literaltype>(err));
 	    error_dict_->insert(commandname_name,new_token<sli3::literaltype>(cmd));
-	    if(error_dict_->lookup(recordstacks_name)== true)
+
+	    Token rs_tok;
+	    if (error_dict_->lookup(recordstacks_name, rs_tok)
+	        && rs_tok.is_of_type(sli3::booltype)
+	        && rs_tok.data_.bool_val)
 	    {
 		TokenArray old_dict_stack;
 		dictionary_stack_.toArray(*this, old_dict_stack);
-		
+
 		error_dict_->insert(estack_name, new_token<sli3::arraytype>(execution_stack_.toArray()));
 		error_dict_->insert(ostack_name, new_token<sli3::arraytype>(operand_stack_.toArray()));
 		error_dict_->insert(dstack_name, new_token<sli3::arraytype>(old_dict_stack));
 	    }
-	    
+
 	    operand_stack_.push(new_token<sli3::literaltype>(cmd));
-	    execution_stack_.push(baselookup(stop_name));        
+	    execution_stack_.push(baselookup(stop_name));
 	}
-	else // There might be an error in the error-handler
+	else
 	{
-	    error_dict_->insert(newerror_name,new_token<sli3::booltype>(false));
-	    raiseerror(Name("raiserror"), BadErrorHandler);
-	    return;
+	    // Error inside an error handler. Don't recurse — emit a
+	    // diagnostic, mark the error as consumed, and let `stop`
+	    // unwind to whatever stopped context (or the top-level
+	    // dispatcher).
+	    error_dict_->insert(newerror_name, new_token<sli3::booltype>(false));
+	    message(M_ERROR, "raiseerror",
+	            ("Error during error handling: " + std::string(err.toString())).c_str());
+	    operand_stack_.push(new_token<sli3::literaltype>(BadErrorHandler));
+	    execution_stack_.push(baselookup(stop_name));
 	}
     }
 
@@ -633,26 +705,26 @@ catch(...)
     return exitcode;
   }
 
-  int SLIInterpreter::execute_dispatch_(size_t)
+  int SLIInterpreter::execute_dispatch_(size_t exitlevel)
   {
     int exitcode=0;
     const Name exitcode_name("exitcode");
     const Token null_val=new_token<sli3::integertype>(0);
     SLIType* iiterate_t=types_[sli3::iiteratetype];
     SLIType* proc_type= types_[sli3::proceduretype];
-    (*status_dict_)[exitcode_name]=null_val;
+    if (status_dict_) (*status_dict_)[exitcode_name]=null_val;
 
     if(sli3::signalflag !=0)
       {
 	return sli3::unknown_error;
       }
-    
+
     try
     {
-	while (true)
+	while (execution_stack_.load() > exitlevel)
 	{
 	    try
-	    { 
+	    {
 		++cycle_count_;
 		
 		/*
@@ -878,12 +950,11 @@ catch(...)
 	    }
 	    catch(std::exception &exc)
 	    {
-		message(M_ERROR, "SLIInterpreter","A C++ library exception was caught.");
-		message(M_ERROR, "SLIInterpreter",exc.what());
-		operand_stack_.dump(std::cerr);
-		execution_stack_.dump(std::cerr);
-		//raiseerror(exc);
-		execution_stack_.pop();
+		// Funnel C++ exceptions through the SLI error machinery so
+		// a surrounding stopped/handleerror context can react.
+		// raiseerror pushes /cmd onto the operand stack and `stop`
+		// onto the execution stack.
+		raiseerror(exc);
 	    }
 	}// while(true);
     }
@@ -904,13 +975,21 @@ catch(...)
     } 
     
   exit_interpreter:
-    
-    Token exit_tk=(*status_dict_)["exitcode"];
-    exitcode = exit_tk.data_.long_val;
-    
-    if (exitcode != 0)
+
+    // Read exit code from statusdict if it's been set up by the
+    // bootstrap; otherwise default to 0. (During the very first call
+    // to the dispatcher the script may not have populated the entry
+    // yet.)
+    if (status_dict_)
+    {
+        Token exit_tk = (*status_dict_)["exitcode"];
+        if (exit_tk.is_of_type(sli3::integertype))
+            exitcode = exit_tk.data_.long_val;
+    }
+
+    if (exitcode != 0 && error_dict_)
 	error_dict_->insert(quitbyerror_name,new_token<sli3::booltype>(true));
-    
+
     return exitcode;
   }
     

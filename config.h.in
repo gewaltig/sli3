@@ -1,0 +1,20 @@
+// Generated from config.h.in by CMake. Do not edit directly.
+//
+// Only the few macros the rewritten startup actually reads are defined.
+// Legacy NEST defined many more (HAVE_*, SLI_PRGNAME, SLI_PREFIX, etc.);
+// they were only consumed by code we've already removed or rewritten.
+
+#ifndef SLI3_CONFIG_H
+#define SLI3_CONFIG_H
+
+#define SLI3_VERSION_MAJOR @SLI3_VERSION_MAJOR@
+#define SLI3_VERSION_MINOR @SLI3_VERSION_MINOR@
+#define SLI3_VERSION_PATCH "@SLI3_VERSION_PATCH@"
+#define SLI3_VERSION       "@SLI3_VERSION@"
+
+// Default search location for sli-init.sli. Set at configure time to the
+// vendored copy in the source tree. Overridable at runtime via the
+// SLIDATADIR environment variable.
+#define SLI3_DATADIR       "@SLI3_DATADIR@"
+
+#endif

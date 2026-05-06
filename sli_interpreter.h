@@ -255,6 +255,11 @@ namespace sli3
 	    {
 		return execution_stack_;
 	    }
+
+	DictionaryStack& DStack()
+	    {
+		return dictionary_stack_;
+	    }
 	
 	
 	bool step_mode() const {return false;}

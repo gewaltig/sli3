@@ -277,12 +277,68 @@ void TypeFunction::execute(SLIInterpreter *i) const
     i->EStack().pop();
 }
 
+// Convert nametype <-> literaltype (and the inert symbol form). Both
+// types share the same Name-handle payload — only the SLIType pointer
+// changes. typeinit.sli uses these to implement /cvlit (the trie).
+class Cvlit_nFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::nametype);
+        i->top().type_ = i->get_type(sli3::literaltype);
+        i->EStack().pop();
+    }
+};
+
+class Cvn_lFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::literaltype);
+        i->top().type_ = i->get_type(sli3::nametype);
+        i->EStack().pop();
+    }
+};
+
+// proceduretype <-> literalproceduretype share TokenArray payload.
+class Cvlit_pFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::proceduretype);
+        i->top().type_ = i->get_type(sli3::litproceduretype);
+        i->EStack().pop();
+    }
+};
+
+class Cvx_lpFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::litproceduretype);
+        i->top().type_ = i->get_type(sli3::proceduretype);
+        i->EStack().pop();
+    }
+};
+
 TrieFunction      triefunction;
 TrieInfoFunction  trieinfofunction;
 AddtotrieFunction addtotriefunction;
 Cva_tFunction     cva_tfunction;
 Cvt_aFunction     cvt_afunction;
 TypeFunction      typefunction;
+Cvlit_nFunction   cvlit_nfunction;
+Cvn_lFunction     cvn_lfunction;
+Cvlit_pFunction   cvlit_pfunction;
+Cvx_lpFunction    cvx_lpfunction;
 
 void init_slitypecheck(SLIInterpreter *i)
 {
@@ -292,6 +348,10 @@ void init_slitypecheck(SLIInterpreter *i)
     i->createcommand("cva_t", &cva_tfunction);
     i->createcommand("cvt_a", &cvt_afunction);
     i->createcommand("type",      &typefunction);
+    i->createcommand("cvlit_n",   &cvlit_nfunction);
+    i->createcommand("cvn_l",     &cvn_lfunction);
+    i->createcommand("cvlit_p",   &cvlit_pfunction);
+    i->createcommand("cvx_lp",    &cvx_lpfunction);
 }
 
 }

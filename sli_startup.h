@@ -1,108 +1,25 @@
-/*
- *  slistartup.h
- *
- *  This file is part of NEST
- *
- *  Copyright (C) 2004 by
- *  The NEST Initiative
- *
- *  See the file AUTHORS for details.
- *
- *  Permission is granted to compile and modify
- *  this file for non-commercial use.
- *  See the file LICENSE for details.
- *
- */
+// Slice 5 rewrite of the legacy slistartup.{h,cc}.
+//
+// Locates `sli-init.sli`, populates statusdict with a minimal set of
+// runtime parameters, defines cin/cout/cerr in the system dictionary,
+// pushes the startup file as an XIstream + iparse onto the execution
+// stack, and registers a small bootstrap surface (getenv, evalstring).
+//
+// Single entry point: init_slistartup(SLIInterpreter*, int argc, char** argv).
+// Called from SLIInterpreter::init_internal_functions so the interpreter
+// is ready to bootstrap itself once execute() is invoked.
 
 #ifndef SLI_STARTUP_H
 #define SLI_STARTUP_H
 
-#include "sli_config.h"
-#include "sli_module.h" 
-#include "sli_token.h"
-#include "sli_function.h"
-#include "sli_name.h"
-#include "compose.hpp"
-
-#include "dirent.h"
-#include "errno.h"
-#include <string>
-
-class SLIStartup: public SLIModule
+namespace sli3
 {
-  const std::string startupfilename;
-  const std::string slilibpath;
-  std::string slihomepath;
-  std::string slidocdir;
+class SLIInterpreter;
 
-  std::string locateSLIInstallationPath(void);
-  bool checkpath(std::string const &, std::string &) const;
-  std::string getenv(const std::string &) const;
-  std::string checkenvpath(std::string const &, SLIInterpreter *, std::string) const;
+// `argc`/`argv` are forwarded to statusdict::argv. Pass {0, nullptr}
+// when no command-line is available (e.g. unit tests).
+void init_slistartup(SLIInterpreter*, int argc, char** argv);
 
-  Token targs;
-  int verbosity_;
-  bool debug_;
-  public:
-
-  Name argv_name;
-  Name prgname_name;
-  Name exitcode_name;
-  Name prgmajor_name;
-  Name prgminor_name;
-  Name prgpatch_name;
-  Name prgbuilt_name;
-  Name prefix_name;
-  Name prgsourcedir_name;
-  Name prgbuilddir_name;
-  Name prgdatadir_name;
-  Name prgdocdir_name;
-
-  Name host_name;
-  Name hostos_name;
-  Name hostvendor_name;
-  Name hostcpu_name;
-  
-  Name getenv_name;
-  Name statusdict_name;
-  Name start_name;
-
-  Name intsize_name;
-  Name longsize_name;
-  Name havelonglong_name;
-  Name longlongsize_name;
-  Name doublesize_name;
-  Name pointersize_name;
-  Name architecturedict_name;
-
-  Name ndebug_name;
-
-  Name exitcodes_name;
-  Name exitcode_success_name;
-  Name exitcode_scripterror_name;
-  Name exitcode_abort_name;
-  Name exitcode_segfault_name;
-  Name exitcode_exception_name;
-  Name exitcode_fatal_name;
-  Name exitcode_unknownerror_name;
-  
-  class GetenvFunction: public SLIFunction
-  {
-    public:
-    void execute(SLIInterpreter *) const;
-  };
-
-  GetenvFunction getenvfunction;
-
-  SLIStartup(int, char**);
-  ~SLIStartup(){}
-
-  void init(SLIInterpreter *);
-
-  const std::string name(void) const
-    {
-      return "SLIStartup";
-    }
-};
+}  // namespace sli3
 
 #endif

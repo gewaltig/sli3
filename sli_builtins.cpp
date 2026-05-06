@@ -50,23 +50,29 @@ void IparsestdinFunction::execute(SLIInterpreter *i) const
 
 void IparseFunction::execute(SLIInterpreter *i) const
 {
+    // EStack layout:
+    //   pick(0) = iparse function (top, dispatched right now)
+    //   pick(1) = xistream (the stream we read from)
+    assert(i->EStack().load() >= 2);
+    assert(i->EStack().pick(1).is_of_type(sli3::xistreamtype));
 
-        // Estack: handle  iparse
-        // pick      1         0
-    assert(i->EStack().load()>0);
-    assert(i->EStack().top().is_of_type(sli3::xistreamtype));
-    
-    SLIistream *is= i->EStack().top().data_.istream_val;
-    assert(is != NULL);
-    assert(is->get() != NULL);
+    SLIistream *is = i->EStack().pick(1).data_.istream_val;
+    assert(is != nullptr);
+    assert(is->get() != nullptr);
 
-    Token t=i->read_token(*is->get());
+    Token t = i->read_token(*is->get());
 
-    if(t.is_of_type(sli3::symboltype))
-	i->EStack().pop(2);
+    if (t.is_of_type(sli3::symboltype))
+    {
+        // EOF (or other terminator) -> pop iparse and the stream.
+        i->EStack().pop(2);
+    }
     else
+    {
+        // Push the parsed token on top so the dispatcher executes it
+        // next; control returns to iparse afterwards.
         i->EStack().push(t);
-
+    }
 }
 
   

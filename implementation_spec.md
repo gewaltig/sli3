@@ -216,8 +216,10 @@ container layer and the stdlib modules built on it.
 | 1.5 | Serialization protocol scaffolding | ✅ | `003b80b` |
 | 2 | TokenArray rewrite + serialization | ✅ | `0153017` |
 | 3 | Drop lockPTR; modern string/stream wrappers + serialization | ✅ | `dc10c09` |
-| 4 | Array stdlib rewrite (Map/Sort/Reverse/…) | ✅ | (uncommitted) |
-| 5 | Wire up startup, vendor `sli-init.sli`, smoke test | ☐ | — |
+| 4 | Array stdlib rewrite (Map/Sort/Reverse/…) | ✅ | `d962dc6` |
+| 5a | Bootstrap scaffolding (config.h, fresh sli_startup, sli-init.sli vendored, partial bootstrap) | ▶ | (uncommitted) |
+| 5b | Fill in operators / fix issues until sli-init.sli loads cleanly | ☐ | — |
+| 5c | Smoke test `1 1 add ==` passes | ☐ | — |
 | 6 | Modern I/O layer | ☐ | — |
 | 7 | argv-driven `sli_main.cpp`, REPL | ☐ | — |
 
@@ -517,7 +519,73 @@ it's discoverable later without scrolling:
   `std::transform`. NEST-specific signal-processing helpers (area,
   gabor, gauss2d, cv1d, cv2d) and the int/double-vector conversions
   are deferred to a later pass.
-- 2026-05-05: **Slice 4 done** (uncommitted). New
+- 2026-05-06: **Slice 5a in progress** (uncommitted). Bootstrap
+  scaffolding landed:
+  - `config.h` generated via `configure_file` (`config.h.in` template).
+    Defines version + `SLI3_DATADIR` (default search path for
+    `sli-init.sli`); overridable via env `SLIDATADIR`.
+  - Fresh `sli_startup.{h,cpp}` (free-function `init_slistartup`,
+    statics in anon namespace). Sets up statusdict (argv, version,
+    architecture, exitcodes), binds `cin` / `cout` / `cerr` to
+    `std::cin/cout/cerr` in borrow mode, locates and opens
+    `sli-init.sli`, pushes the resulting XIstream onto the execution
+    stack so the dispatcher will parse and execute it on startup.
+  - `evalstring` registered (consumed by
+    `SLIInterpreter::execute(const std::string&)` — wraps the source
+    in an istringstream + iparse).
+  - Minimal stream output ops: `<-`, `<--`, `endl`, `flush`.
+  - Dictionary-stack ops: `begin`, `end`, `dict`, `currentdict` plus
+    public `SLIInterpreter::DStack()` accessor.
+  - Container ops in new `sli_container_ops.{h,cpp}`: `length_*`,
+    `get_*`, `put_*`, `put_a_a_t`. Needed by typeinit-style trie
+    construction in sli-init.sli.
+  - Type-conversion ops in `sli_typecheck.cpp`: `cvlit_n`, `cvn_l`,
+    `cvlit_p`, `cvx_lp`. Convert between name<->literal and
+    procedure<->literalprocedure (same payload, different SLIType*).
+  - Boolean op `or` added to `sli_math.cpp`.
+  - NEST 2.20.2 SLI sources vendored under `lib/sli/`: `sli-init.sli`,
+    `typeinit.sli`, `misc_helpers.sli`, `library.sli`, `ps-lib.sli`,
+    `FormattedIO.sli`, `debug.sli`, `helpinit.sli`, `mathematica.sli`,
+    `oosupport.sli`, `regexp.sli`, `arraylib.sli` (~14k lines total).
+
+  **Pre-existing bugs fixed along the way** (each would be required
+  for any startup, not just sli-init.sli):
+  - `XIstreamType::execute` pushed an extra copy of the stream onto
+    the estack, creating an infinite re-parse loop.
+  - `IparseFunction::execute` read the istream pointer from `top()`,
+    but at dispatch time top is the iparse function itself; the
+    stream lives at `pick(1)`. Now reads `pick(1)`.
+  - `raiseerror(cmd, err)` recursed into itself with `BadErrorHandler`
+    when `newerror` was stuck true, leading to stack overflow.
+    Now reads the boolean *value* (not just presence) and on a
+    nested error emits a diagnostic + pushes a single
+    BadErrorHandler stop, no recursion.
+  - `TrieType` had no `execute` override; only the inlined
+    `execute_dispatch_` switch case dispatched tries. The plain
+    `execute_` loop fell through to the base `SLIType::execute`
+    (push to operand stack), so tries didn't work in startup mode.
+    Override added that mirrors the dispatch logic.
+  - The dispatcher's catch handler had `raiseerror(exc)` commented
+    out and just popped the failing token — exceptions were silently
+    swallowed. Now funnels them through `raiseerror` so
+    `stopped`/`handleerror` contexts can react.
+  - `litproceduretype` was registered with the type-name string
+    `"litproceduretype"` but NEST 2.x `.sli` keys tries by
+    `"literalproceduretype"`. Renamed.
+  - `exit_interpreter` cleanup unconditionally read `status_dict_`
+    state — guarded for early-exit paths.
+  - `startup()` ran the slow `execute_` loop, which lacks the
+    inlined dispatch cases for tries / for / forall / iiterate;
+    switched to `execute_dispatch_(0)` so the bootstrap sees the
+    same dispatch semantics as the main run.
+
+  **Current bootstrap state**: `./build/sli3 < /dev/null` loads
+  `sli-init.sli`, gets through ~309 lines (definition + recursive
+  `bind` of bind itself), then fails on the first call to `join_s`
+  (string concatenation) — the next batch of operators that need
+  registering. Documented in the slice plan as 5b.
+
+- 2026-05-05: **Slice 4 done** (`d962dc6`). New
   `sli_array_module.{h,cpp}` replaces the legacy 2288-line file.
   Registered: Range, Reverse, Rotate, Flatten, Sort (int/double/
   string), Transpose, Partition_a_i_i, arrayload, arraystore, GetMin,

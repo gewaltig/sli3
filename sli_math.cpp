@@ -1013,11 +1013,27 @@ void AndFunction::execute(SLIInterpreter *i) const
 {
     // i->require_stack_load(2);
     i->EStack().pop();
-    
+
     i->pick(1).data_.bool_val = i->pick(1).data_.bool_val and i->pick(0).data_.bool_val ;
 
     i->pop();
 }
+
+namespace
+{
+class OrFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->EStack().pop();
+        i->pick(1).data_.bool_val =
+            i->pick(1).data_.bool_val or i->pick(0).data_.bool_val;
+        i->pop();
+    }
+};
+OrFunction orfunction;
+}  // namespace
 
 void And_iiFunction::execute(SLIInterpreter *i) const
 {
@@ -1529,6 +1545,7 @@ void init_slimath(SLIInterpreter *i)
     //
     i->createcommand("eq", &eqfunction);
     i->createcommand("and", &andfunction);
+    i->createcommand("or",  &orfunction);
     i->createcommand("and_ii", &and_iifunction);
     i->createcommand("or_ii", &or_iifunction);
     i->createcommand("or_bb", &or_bbfunction);

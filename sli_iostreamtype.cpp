@@ -32,13 +32,13 @@ namespace sli3
 
   void XIstreamType::execute(Token &t)
   {
-    if(t.data_.istream_val)
-    {
-	sli_->EStack().push(t);
-	sli_->EStack().push(sli_->new_token<sli3::nametype>(sli_->iparse_name));
-    }
+    // 't' is already on top of the execution stack — we just need to
+    // push iparse on top of it. iparse's execute() reads the stream
+    // from pick(1) and pops both itself and the stream on EOF.
+    if (t.data_.istream_val)
+        sli_->EStack().push(sli_->new_token<sli3::nametype, Name>(sli_->iparse_name));
     else
-	throw IOError();
+        throw IOError();
   }
 
   // Streams are not serializable — OS resources don't survive a

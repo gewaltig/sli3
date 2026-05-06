@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sli3 CXX)
+project(sli3 VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +8,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
+
+# config.h carries the few compile-time constants the rewritten startup
+# reads (version, default sli-init.sli location). Generated into the
+# build dir so a regenerate doesn't dirty the source tree.
+set(SLI3_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(SLI3_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(SLI3_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(SLI3_VERSION       "${PROJECT_VERSION}")
+set(SLI3_DATADIR       "${CMAKE_CURRENT_SOURCE_DIR}/lib/sli")
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
+  ${CMAKE_CURRENT_BINARY_DIR}/config.h
+  @ONLY
+)
 
 # Core library: everything except main(). Both the sli3 executable and
 # test executables link against it.
@@ -41,8 +55,13 @@ add_library(sli3_core STATIC
   sli_math.cpp
   sli_serialize.cpp
   sli_array_module.cpp
+  sli_startup.cpp
+  sli_container_ops.cpp
 )
-target_include_directories(sli3_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(sli3_core PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_BINARY_DIR}
+)
 target_compile_options(sli3_core PRIVATE
   -Wall
   -Wextra

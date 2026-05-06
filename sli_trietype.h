@@ -45,6 +45,26 @@ namespace sli3
       return *(t1.data_.trie_val) == *(t2.data_.trie_val);
     }
 
+    // Trie dispatch: pick the matching variant based on the operand
+    // stack and replace this trie's slot on the execution stack with
+    // the matched function (or push it to the operand stack if it is
+    // not executable). The execute_dispatch_ loop has the same logic
+    // inlined as a switch case; this override mirrors it so the
+    // simpler execute_ loop (used during startup) handles tries too.
+    void execute(Token &t) override
+    {
+      const Token &found = t.data_.trie_val->lookup(sli_->OStack());
+      if (found.is_executable())
+      {
+        sli_->EStack().top() = found;
+      }
+      else
+      {
+        sli_->push(found);
+        sli_->EStack().pop();
+      }
+    }
+
     std::ostream & print(std::ostream& out, const Token &t) const
       {
         out << '+' << t.data_.trie_val->get_name() << '+';

@@ -1,12 +1,12 @@
-# Build artefacts
+# Build artefacts (root-anchored so they don't shadow lib/sli/)
 *.o
 *.a
 *.dylib
 *.so
-sli
-sli3
-test_dictionary
-test_token
+/sli
+/sli3
+/test_dictionary
+/test_token
 
 # Editor backups
 *~

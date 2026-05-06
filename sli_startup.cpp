@@ -1,414 +1,449 @@
-/*
- *  slistartup.cc
- *
- *  This file is part of NEST
- *
- *  Copyright (C) 2004 by
- *  The NEST Initiative
- *
- *  See the file AUTHORS for details.
- *
- *  Permission is granted to compile and modify
- *  this file for non-commercial use.
- *  See the file LICENSE for details.
- *
- */
+// Slice 5 rewrite of the legacy slistartup.{h,cc}.
+//
+// Builds a minimal runtime environment for the SLI interpreter:
+//   - cin / cout / cerr bound to std::{cin,cout,cerr} via SLIistream /
+//     SLIostream "borrow" mode (the wrapper does not own the standard
+//     stream).
+//   - statusdict (compile-time version, runtime argv, exit codes,
+//     paths) inserted into the system dictionary.
+//   - errordict already exists from the interpreter constructor; we
+//     register a small set of operators the bootstrap script expects
+//     (getenv, evalstring, start).
+//   - Locates sli-init.sli (env SLIDATADIR override, else compile-time
+//     SLI3_DATADIR) and primes the execution stack with an XIstream
+//     Token + iparse so the dispatcher will start parsing/executing it
+//     once the user calls execute().
+
+#include "sli_startup.h"
+
+#include "config.h"
+#include "sli_array.h"
+#include "sli_dictionary.h"
+#include "sli_dictstack.h"
+#include "sli_function.h"
+#include "sli_interpreter.h"
+#include "sli_iostream.h"
+#include "sli_iostreamtype.h"
+#include "sli_name.h"
+#include "sli_string.h"
+#include "sli_token.h"
+#include "sli_type.h"
 
 #include <cstdlib>
-#include <cstring>
 #include <fstream>
-#include "slistartup.h"
-#include "interpret.h"
-#include "namedatum.h"
-#include "iostreamdatum.h"
-#include "arraydatum.h"
-#include "stringdatum.h"
-#include "integerdatum.h"
-#include "booldatum.h"
-#include "dictdatum.h"
-#include "config.h"
+#include <iostream>
+#include <sstream>
+#include <string>
 
-extern int SLIsignalflag;
-/*
-1.  Propagate commandline to the sli level.
-    Commandline options will be handled by the startup file.
-
-2.  Locate startup file and prepare the start symbol
-    to run the startup script.
-3.  If startup-script cannot be located, issue meaningful diagnostic
-    messages and exit gracefuly.
-*/
-
-/**
- * Returns true, if the interpreter startup file sli-init.sli 
- * is in the supplied path and false otherwise.
- */
-bool SLIStartup::checkpath(std::string const &path, std::string &result) const
+namespace sli3
 {
-  const std::string fullpath=path+slilibpath;
-  const std::string fullname=fullpath+"/"+startupfilename;
-  
-  std::ifstream in(fullname.c_str());
-  if(in)
-  {
-    result=fullname;
-  }
-  else
-    result.erase();
+namespace
+{
 
-  return(in);
+//------------------------------------------------------------------------
+// Helpers
+//------------------------------------------------------------------------
+
+std::string read_env(char const* var)
+{
+    char const* v = std::getenv(var);
+    return v ? std::string(v) : std::string();
 }
 
-  
-/*BeginDocumentation
-Name: getenv - evaluates if a string is an evironment variable
-
-Synopsis: string getenv -> path true
-string getenv -> false
-
-Description: getenv checks if the string is an environment variable. If
-this is the case the path of the variable and true is pushed on the stack,
-otherwise a false is pushed on the stack and the string is lost.
-
-Examples:
-
-SLI ] (HOME) getenv
-SLI [2] pstack
-true
-(/home/gewaltig)
-
-SLI ] (NONEXISTING) getenv =
-false
-
-SLI ] (SLIDATADIR) getenv
-SLI [2] { (Using root path: )  =only = }
-SLI [3] { (Warning: $SLIDATADIR undefined) =}
-SLI [4] ifelse
-Using root path: /home/gewaltig/nest/release/release
-
-SLI ] (/home) getenv
-false
-
-Remarks: if getenv is used with the wrong argument (e.g. integer), 
-the SLI Session is terminated
-
-Author: docu by Marc Oliver Gewaltig and Sirko Straube
-
-SeeAlso: environment, setenvironment
- */
-
-std::string SLIStartup::getenv(const std::string &v) const
+// Build an arraytype Token from argv.
+Token argv_to_array(SLIInterpreter& i, int argc, char** argv)
 {
-  char *s = ::getenv(v.c_str());
-  if(!s)
+    TokenArray* a = new TokenArray();
+    a->reserve(static_cast<size_t>(argc));
+    for (int k = 0; k < argc; ++k)
+    {
+        std::string s = argv && argv[k] ? argv[k] : "";
+        a->push_back(i.new_token<sli3::stringtype, std::string>(std::move(s)));
+    }
+    return i.new_token<sli3::arraytype>(a);
+}
+
+// Insert (literal-name, integer) into a dict.
+void insert_int(SLIInterpreter& i, Dictionary& d, char const* key, long v)
+{
+    d.insert(Name(key), i.new_token<sli3::integertype>(v));
+}
+
+void insert_str(SLIInterpreter& i, Dictionary& d, char const* key, std::string v)
+{
+    d.insert(Name(key), i.new_token<sli3::stringtype, std::string>(std::move(v)));
+}
+
+void insert_bool(SLIInterpreter& i, Dictionary& d, char const* key, bool v)
+{
+    d.insert(Name(key), i.new_token<sli3::booltype, bool>(v));
+}
+
+//------------------------------------------------------------------------
+// Builtins exposed by the startup module.
+//------------------------------------------------------------------------
+
+// `string getenv -> string true | false`
+class GetenvFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::stringtype);
+        std::string key = static_cast<std::string&>(i->top());
+        char const* v = std::getenv(key.c_str());
+        i->pop();
+        if (v)
+        {
+            i->push(i->new_token<sli3::stringtype, std::string>(std::string(v)));
+            i->push<bool>(true);
+        }
+        else
+        {
+            i->push<bool>(false);
+        }
+        i->EStack().pop();
+    }
+};
+
+// `string evalstring -> -` Parses and executes the given string. The
+// existing SLIInterpreter::execute(const std::string&) path pushes a
+// stringtype Token with the program source plus a /evalstring name; the
+// dispatcher resolves the name to this function. We wrap the string as
+// an XIstream and let iparse drive the execution.
+class EvalstringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::stringtype);
+        // Take the string off the operand stack.
+        std::string src = static_cast<std::string&>(i->top());
+        i->pop();
+        // Set up an owning istringstream wrapped in an SLIistream.
+        auto* iss = new std::istringstream(std::move(src));
+        auto* wrap = new SLIistream(iss);  // owns iss
+        // Replace ourselves on the estack with [xistream, iparse]: the
+        // dispatcher will run iparse repeatedly over the stream until
+        // EOF, executing each parsed token.
+        i->EStack().pop();  // pop /evalstring entry
+        Token x(i->get_type(sli3::xistreamtype));
+        x.data_.istream_val = wrap;
+        i->EStack().push(x);
+        // x.execute() (XIstreamType::execute) would push iparse, but
+        // we're already past the dispatch — push iparse manually.
+        i->EStack().push(i->new_token<sli3::nametype, Name>(i->iparse_name));
+    }
+};
+
+GetenvFunction      getenv_fn;
+EvalstringFunction  evalstring_fn;
+
+//------------------------------------------------------------------------
+// Stream-output operators. These match the names typeinit.sli expects
+// (`<-`, `<--`, `endl`) so the loaded init script can build print
+// helpers like `=` and `==` on top.
+//
+// For `<-`: write the value's print() representation to the stream and
+// leave the stream on the operand stack so the call can be chained
+// (`cout obj <- endl`).
+// For `<--`: same but uses pprint() (parser-readable form).
+// For `endl`: writes '\n' and flushes.
+//------------------------------------------------------------------------
+
+class StreamWriteFunction : public SLIFunction
+{
+    bool pprint_;
+public:
+    explicit StreamWriteFunction(bool pprint) : pprint_(pprint) {}
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::ostreamtype);
+        SLIostream* s = i->pick(1).data_.ostream_val;
+        std::ostream* os = s ? s->get() : nullptr;
+        if (!os)
+        {
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        if (pprint_) i->top().pprint(*os);
+        else         i->top().print(*os);
+        i->pop();  // drop the value, leave the stream on top
+        i->EStack().pop();
+    }
+};
+
+class StreamEndlFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::ostreamtype);
+        SLIostream* s = i->top().data_.ostream_val;
+        std::ostream* os = s ? s->get() : nullptr;
+        if (!os)
+        {
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        *os << '\n';
+        os->flush();
+        // Leave the stream on top.
+        i->EStack().pop();
+    }
+};
+
+class StreamFlushFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::ostreamtype);
+        SLIostream* s = i->top().data_.ostream_val;
+        std::ostream* os = s ? s->get() : nullptr;
+        if (!os)
+        {
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        os->flush();
+        i->EStack().pop();
+    }
+};
+
+StreamWriteFunction  write_fn(false);
+StreamWriteFunction  pwrite_fn(true);
+StreamEndlFunction   endl_fn;
+StreamFlushFunction  flush_fn;
+
+//------------------------------------------------------------------------
+// Minimal dictionary-stack operators that sli-init.sli needs to start
+// (`userdict begin systemdict begin` on its first lines). More extensive
+// dictionary surface will move to a dedicated module later.
+//------------------------------------------------------------------------
+
+class BeginFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::dictionarytype);
+        // DictionaryStack::push(Token) copies the Token; nothing to free.
+        i->DStack().push(i->top());
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
+class EndFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        if (i->DStack().size() <= 2)
+        {
+            // The bottom two dictionaries (systemdict, userdict) are
+            // the permanent base — refuse to pop them per PostScript
+            // semantics.
+            i->raiseerror(i->KernelError);
+            return;
+        }
+        i->DStack().pop();
+        i->EStack().pop();
+    }
+};
+
+class DictFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        // `int dict -> dict`. The integer hint is ignored; std::map
+        // grows as needed.
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::integertype);
+        auto* d = new Dictionary();
+        Token t(i->get_type(sli3::dictionarytype));
+        t.data_.dict_val = d;
+        i->pop();
+        i->push(t);
+        i->EStack().pop();
+    }
+};
+
+class CurrentdictFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        Dictionary* d = i->DStack().top();
+        Token t(i->get_type(sli3::dictionarytype));
+        t.data_.dict_val = d;
+        i->push(t);
+        i->EStack().pop();
+    }
+};
+
+BeginFunction        begin_fn;
+EndFunction          end_fn;
+DictFunction         dict_fn;
+CurrentdictFunction  currentdict_fn;
+
+//------------------------------------------------------------------------
+// Locate sli-init.sli. Search order:
+//   1. $SLIDATADIR/sli-init.sli
+//   2. SLI3_DATADIR/sli-init.sli (compile-time default)
+//------------------------------------------------------------------------
+
+bool file_readable(std::string const& path)
+{
+    std::ifstream in(path);
+    return in.good();
+}
+
+std::string locate_sli_init()
+{
+    auto try_dir = [](std::string const& dir) -> std::string
+    {
+        if (dir.empty()) return std::string();
+        std::string p = dir + "/sli-init.sli";
+        return file_readable(p) ? p : std::string();
+    };
+
+    if (auto p = try_dir(read_env("SLIDATADIR")); !p.empty()) return p;
+    if (auto p = try_dir(SLI3_DATADIR);            !p.empty()) return p;
     return std::string();
-  else
-    return std::string(s);
 }
 
-void SLIStartup::GetenvFunction::execute(SLIInterpreter *i) const
+//------------------------------------------------------------------------
+// Build the statusdict and bind it under /statusdict in systemdict.
+//------------------------------------------------------------------------
+
+Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
+                             std::string const& datadir)
 {
-  // string getenv -> string true
-  //               -> false
+    auto* d = new Dictionary();
+    d->insert(Name("argv"), argv_to_array(i, argc, argv));
+    insert_str(i, *d, "prgname",  "sli3");
+    insert_str(i, *d, "version",  SLI3_VERSION);
+    insert_int(i, *d, "prgmajor", SLI3_VERSION_MAJOR);
+    insert_int(i, *d, "prgminor", SLI3_VERSION_MINOR);
+    insert_str(i, *d, "prgpatch", SLI3_VERSION_PATCH);
+    insert_str(i, *d, "built",    std::string(__DATE__) + " " + __TIME__);
+    insert_str(i, *d, "prgdatadir", datadir);
+    insert_int(i, *d, "exitcode", EXIT_SUCCESS);
+    insert_bool(i, *d, "interactive", true);
 
-  i->assert_stack_load(1);
+    // Architecture sub-dict — sli-init.sli inspects it to print build
+    // info. Keep entries minimal; add more as scripts demand them.
+    auto* arch = new Dictionary();
+    insert_int(i, *arch, "int",     sizeof(int));
+    insert_int(i, *arch, "long",    sizeof(long));
+    insert_int(i, *arch, "double",  sizeof(double));
+    insert_int(i, *arch, "void *",  sizeof(void*));
+    insert_int(i, *arch, "Token",   sizeof(Token));
+    Token arch_tok(i.get_type(sli3::dictionarytype));
+    arch_tok.data_.dict_val = arch;
+    d->insert(Name("architecture"), arch_tok);
 
-  StringDatum  *sd= dynamic_cast<StringDatum *>(i->OStack.top().datum());
-  assert(sd !=NULL);
-  const char *s = ::getenv(sd->c_str());
-  i->OStack.pop();
-  if(s != NULL)
-  {
-    Token t(new StringDatum(s));
-    i->OStack.push_move(t);
-    i->OStack.push(i->baselookup(i->true_name));
-  }
-  else
-    i->OStack.push(i->baselookup(i->false_name));
+    // Standard exit codes consumed by quit_i.
+    auto* codes = new Dictionary();
+    insert_int(i, *codes, "success",      EXIT_SUCCESS);
+    insert_int(i, *codes, "scripterror",  126);
+    insert_int(i, *codes, "exception",    125);
+    insert_int(i, *codes, "fatal",        127);
+    insert_int(i, *codes, "unknownerror", 10);
+    insert_int(i, *codes, "userabort",    134);
+    Token codes_tok(i.get_type(sli3::dictionarytype));
+    codes_tok.data_.dict_val = codes;
+    d->insert(Name("exitcodes"), codes_tok);
 
-  i->EStack.pop();
+    return d;
 }
 
-/**
- * Checks if the environment variable envvar contains a directory. If yes, the
- * path is returned, else an empty string is returned.
- */
-std::string SLIStartup::checkenvpath(std::string const &envvar, SLIInterpreter *i, std::string defaultval = "") const
+}  // anonymous namespace
+
+void init_slistartup(SLIInterpreter* i, int argc, char** argv)
 {
-  const std::string envpath = getenv(envvar);
-
-  if (envpath != "")
-  {
-    DIR *dirptr = opendir(envpath.c_str());
-    if ( dirptr != NULL )
+    // 1. Standard streams. We borrow std::cin/cout/cerr — they outlive
+    //    the interpreter and must not be deleted.
+    auto bind_stream = [&](Name n, SLIType* type, auto* sli_stream)
     {
-      closedir(dirptr);
-      return envpath;
+        Token t(type);
+        if constexpr (std::is_same_v<decltype(sli_stream), SLIistream*>)
+            t.data_.istream_val = sli_stream;
+        else
+            t.data_.ostream_val = sli_stream;
+        i->def(n, t);
+    };
+    bind_stream(Name("cin"),  i->get_type(sli3::istreamtype),
+                new SLIistream(std::cin));
+    bind_stream(Name("cout"), i->get_type(sli3::ostreamtype),
+                new SLIostream(std::cout));
+    bind_stream(Name("cerr"), i->get_type(sli3::ostreamtype),
+                new SLIostream(std::cerr));
+
+    // 2. Operators registered by this module.
+    i->createcommand("getenv",     &getenv_fn);
+    i->createcommand("evalstring", &evalstring_fn);
+    i->createcommand("<-",         &write_fn);
+    i->createcommand("<--",        &pwrite_fn);
+    i->createcommand("endl",       &endl_fn);
+    i->createcommand("flush",      &flush_fn);
+    i->createcommand("begin",      &begin_fn);
+    i->createcommand("end",        &end_fn);
+    i->createcommand("dict",       &dict_fn);
+    i->createcommand("currentdict",&currentdict_fn);
+
+    // 3. Resolve sli-init.sli. If we can't find it, leave a clear
+    //    message and skip the bootstrap — the interpreter still has
+    //    its built-in functions and is usable for low-level testing.
+    std::string init_path = locate_sli_init();
+
+    // 4. Build statusdict. Done after locate so prgdatadir reflects
+    //    the actual location used.
+    std::string datadir;
+    if (!init_path.empty())
+    {
+        // Strip "/sli-init.sli" off the resolved path.
+        auto pos = init_path.find_last_of('/');
+        datadir = (pos == std::string::npos) ? std::string() : init_path.substr(0, pos);
     }
-    else
+    Dictionary* statusdict = build_statusdict(*i, argc, argv, datadir);
+    Token status_tok(i->get_type(sli3::dictionarytype));
+    status_tok.data_.dict_val = statusdict;
+    i->def(Name("statusdict"), status_tok);
+
+    // 5. Push sli-init.sli onto the execution stack so that as soon as
+    //    the dispatcher starts, the script bootstrap runs.
+    if (init_path.empty())
     {
-      std::string msg;
-      switch(errno)
-      {
-        case ENOTDIR:
-  	  msg = String::compose("'%1' is not a directory.", envpath);
-  	  break;
-  	case ENOENT:
-  	  msg = String::compose("Directory '%1' does not exist.", envpath);
-  	  break;
-  	default:
-  	  msg = String::compose("Errno %1 received when trying to open '%2'", errno, envpath);
-  	  break;
-      }
-
-      i->message(SLIInterpreter::M_ERROR, "SLIStartup", String::compose("%1 is not usable:", envvar).c_str());
-      i->message(SLIInterpreter::M_ERROR, "SLIStartup", msg.c_str());
-      if (defaultval != "")
-        i->message(SLIInterpreter::M_ERROR, "SLIStartup", String::compose("I'm using the default: %1", defaultval).c_str());
-    }
-  }
-  return std::string();
-}
-  
-
-SLIStartup::SLIStartup(int argc, char** argv)
-: startupfilename("sli-init.sli"),
-  slilibpath("/sli"),
-  slihomepath(PKGDATADIR),
-  slidocdir(PKGDOCDIR),
-  verbosity_(SLIInterpreter::M_INFO), // default verbosity level
-  debug_(false),
-  argv_name("argv"),
-  prgname_name("prgname"),
-  exitcode_name("exitcode"),
-  prgmajor_name("prgmajor"),
-  prgminor_name("prgminor"),
-  prgpatch_name("prgpatch"),
-  prgbuilt_name("built"),
-  prefix_name("prefix"),
-  prgsourcedir_name("prgsourcedir"),
-  prgbuilddir_name("prgbuilddir"),
-  prgdatadir_name("prgdatadir"),
-  prgdocdir_name("prgdocdir"),
-  host_name("host"),
-  hostos_name("hostos"),
-  hostvendor_name("hostvendor"),
-  hostcpu_name("hostcpu"),
-  getenv_name("getenv"),
-  statusdict_name("statusdict"),
-  start_name("start"),
-  intsize_name("int"),
-  longsize_name("long"),
-  havelonglong_name("have long long"),
-  longlongsize_name("long long"),
-  doublesize_name("double"),
-  pointersize_name("void *"),
-  architecturedict_name("architecture"),
-  ndebug_name("ndebug"),
-  exitcodes_name("exitcodes"),
-  exitcode_success_name("success"),
-  exitcode_scripterror_name("scripterror"),
-  exitcode_abort_name("abort"),
-  exitcode_segfault_name("segfault"),
-  exitcode_exception_name("exception"),
-  exitcode_fatal_name("fatal"),
-  exitcode_unknownerror_name("unknownerror")
-
-{
-  ArrayDatum ad;
-
-  // argv[0] is the name of the program that was given to the shell.
-  // This name must be given to SLI, otherwise initialization fails.
-  // To catch accidental removal, e.g. in pyNEST, we explicitly assert
-  // that argv[0] is a non-empty string.
-  assert(std::strlen(argv[0]) >0);
-  for(int i=0; i<argc; ++i)
-  {
-    StringDatum *sd= new StringDatum(argv[i]);
-    if(*sd == "-d" || *sd =="--debug")
-    {
-      debug_=true;
-      verbosity_=SLIInterpreter::M_ALL; // make the interpreter verbose.
-      continue;
+        i->message(M_WARNING, "SLIStartup",
+                   "sli-init.sli not found; bootstrap skipped. "
+                   "Set SLIDATADIR to override the default search path.");
+        return;
     }
 
-    if(*sd =="--verbosity=ALL")
+    auto* in = new std::ifstream(init_path);
+    if (!in->is_open())
     {
-      verbosity_=SLIInterpreter::M_ALL;
-      continue;
+        delete in;
+        i->message(M_ERROR, "SLIStartup",
+                   ("Failed to open " + init_path).c_str());
+        return;
     }
-    if(*sd =="--verbosity=DEBUG")
-    {
-      verbosity_=SLIInterpreter::M_DEBUG;
-      continue;
-    }
-    if(*sd =="--verbosity=STATUS")
-    {
-      verbosity_=SLIInterpreter::M_STATUS;
-      continue;
-    }
-    if(*sd =="--verbosity=INFO")
-    {
-      verbosity_=SLIInterpreter::M_INFO;
-      continue;
-    }
-    if(*sd =="--verbosity=WARNING")
-    {
-      verbosity_=SLIInterpreter::M_WARNING;
-      continue;
-    }
-    if(*sd =="--verbosity=ERROR")
-    {
-      verbosity_=SLIInterpreter::M_ERROR;
-      continue;
-    }
-    if(*sd =="--verbosity=FATAL")
-    {
-      verbosity_=SLIInterpreter::M_FATAL;
-      continue;
-    }
-    if(*sd =="--verbosity=QUIET")
-    {
-      verbosity_=SLIInterpreter::M_QUIET;
-      continue;
-    }
-
-    ad.push_back(Token(sd));
-  }
-  targs=ad;
+    auto* wrap = new SLIistream(in);  // takes ownership
+    Token x(i->get_type(sli3::xistreamtype));
+    x.data_.istream_val = wrap;
+    // The dispatcher reaches xistreamtype on top -> XIstreamType::execute
+    // pushes the stream + iparse to drive read-eval.
+    i->EStack().push(x);
 }
 
-void SLIStartup::init(SLIInterpreter *i)
-{
-  i->verbosity(verbosity_);
-
-  i->createcommand(getenv_name,&getenvfunction);
-  std::string fname;
-
-  // Check for supplied SLIDATADIR
-  std::string slihomepath_env = checkenvpath("SLIDATADIR", i, slihomepath);
-  if (slihomepath_env != "")
-  {
-    slihomepath = slihomepath_env;  // absolute path & directory exists
-    i->message(SLIInterpreter::M_INFO, "SLIStartup", String::compose("Using SLIDATADIR=%1", slihomepath).c_str());
-  }
-
-  // check for supplied SLIDOCDIR
-  std::string slidocdir_env = checkenvpath("SLIDOCDIR", i, slidocdir);
-  if (slidocdir_env != "")
-  {
-    slidocdir = slidocdir_env;  // absolute path & directory exists
-    i->message(SLIInterpreter::M_INFO, "SLIStartup", String::compose("Using SLIDOCDIR=%1", slidocdir).c_str());
-  }
-
-  if(!checkpath(slihomepath, fname))
-    {
-      i->message(SLIInterpreter::M_FATAL, "SLIStartup","Your NEST installation seems broken. \n"); 
-      i->message(SLIInterpreter::M_FATAL, "SLIStartup","I could not find the startup file that"); 
-      i->message(SLIInterpreter::M_FATAL, "SLIStartup", std::string(std::string("should have been in ") + 
-					slihomepath).c_str());
-      i->message(SLIInterpreter::M_FATAL, "SLIStartup","Please re-build NEST and try again.");
-      i->message(SLIInterpreter::M_FATAL, "SLIStartup","The file install.html in NEST's doc directory tells you how.");
-
-      i->message(SLIInterpreter::M_FATAL, "SLIStartup","Bye.");
-
-      SLIsignalflag=255; // this exits the interpreter.
-      debug_=false;    // switches off the -d/--debug switch!
-      i->verbosity(SLIInterpreter::M_QUIET);// suppress all further output.
-    }
-  else
-    {
-      std::string fname_msg=std::string("Initialising from file: ")+fname;
-      i->message(SLIInterpreter::M_DEBUG, "SLIStartup",fname_msg.c_str());
-    }
-
-  Token cin_token(new XIstreamDatum(std::cin));
-  Token start_token(new NameDatum(start_name));
-
-  DictionaryDatum statusdict(new Dictionary());
-  i->statusdict=&(*statusdict);
-  assert(statusdict.valid());
-
-  statusdict->insert_move(argv_name,targs);
-  statusdict->insert(prgname_name,Token(new StringDatum(SLI_PRGNAME)));
-  statusdict->insert(exitcode_name,Token(new IntegerDatum(EXIT_SUCCESS)));
-  statusdict->insert(prgmajor_name,Token(new IntegerDatum(SLI_MAJOR_REVISION)));
-  statusdict->insert(prgminor_name,Token(new IntegerDatum(SLI_MINOR_REVISION)));
-  statusdict->insert(prgpatch_name,Token(new StringDatum(SLI_PATCHLEVEL)));
-  statusdict->insert(prgbuilt_name,Token(new StringDatum(String::compose("%1 %2", __DATE__, __TIME__))));
-  statusdict->insert(prefix_name,Token(new StringDatum(SLI_PREFIX)));
-  statusdict->insert(prgsourcedir_name,Token(new StringDatum(PKGSOURCEDIR)));
-  statusdict->insert(prgbuilddir_name, Token(new StringDatum(SLI_BUILDDIR)));
-  statusdict->insert(prgdatadir_name,Token(new StringDatum(slihomepath)));
-  statusdict->insert(prgdocdir_name,Token(new StringDatum(slidocdir)));
-  statusdict->insert(host_name,Token(new StringDatum(SLI_HOST)));
-  statusdict->insert(hostos_name,Token(new StringDatum(SLI_HOSTOS)));
-  statusdict->insert(hostvendor_name,Token(new StringDatum(SLI_HOSTVENDOR)));
-  statusdict->insert(hostcpu_name,Token(new StringDatum(SLI_HOSTCPU)));
-
-#ifdef NDEBUG
-  statusdict->insert(ndebug_name, Token(new BoolDatum(true)));
-#else
-  statusdict->insert(ndebug_name, Token(new BoolDatum(false)));
-#endif
-
-  DictionaryDatum architecturedict(new Dictionary());
-  assert(architecturedict.valid());
-
-  architecturedict->insert(doublesize_name, Token(new IntegerDatum( sizeof(double) )));
-  architecturedict->insert(pointersize_name,Token(new IntegerDatum( sizeof(void *) )));
-  architecturedict->insert(intsize_name,    Token(new IntegerDatum( sizeof(int)    )));
-  architecturedict->insert(longsize_name,   Token(new IntegerDatum( sizeof(long)   )));
-  architecturedict->insert("Token",   Token(new IntegerDatum( sizeof(Token)   )));
-  architecturedict->insert("TokenMap",   Token(new IntegerDatum( sizeof(TokenMap)   )));
-  architecturedict->insert("Dictionary",   Token(new IntegerDatum( sizeof(Dictionary)   )));
-  architecturedict->insert("DictionaryDatum",   Token(new IntegerDatum( sizeof(DictionaryDatum)   )));
-  architecturedict->insert("IntegerDatum",   Token(new IntegerDatum( sizeof(IntegerDatum)   )));
-  architecturedict->insert("ArrayDatum",   Token(new IntegerDatum( sizeof(ArrayDatum)   )));
-  architecturedict->insert("TokenArray",   Token(new IntegerDatum( sizeof(TokenArray)   )));
-  architecturedict->insert("TokenArrayObj",   Token(new IntegerDatum( sizeof(TokenArrayObj)   )));
-
-  statusdict->insert(architecturedict_name, architecturedict); 
-
-  DictionaryDatum exitcodes(new Dictionary());
-  assert(exitcodes.valid());
-
-  exitcodes->insert(exitcode_success_name,Token(new IntegerDatum(EXIT_SUCCESS)));
-  exitcodes->insert(exitcode_scripterror_name,Token(new IntegerDatum(126)));
-  exitcodes->insert(exitcode_abort_name,Token(new IntegerDatum(SLI_EXITCODE_ABORT)));
-  exitcodes->insert(exitcode_segfault_name,Token(new IntegerDatum(SLI_EXITCODE_SEGFAULT)));
-  exitcodes->insert(exitcode_exception_name,Token(new IntegerDatum(125)));
-  exitcodes->insert(exitcode_fatal_name,Token(new IntegerDatum(127)));
-  exitcodes->insert(exitcode_unknownerror_name,Token(new IntegerDatum(10)));
-
-  statusdict->insert(exitcodes_name, exitcodes); 
-
-#ifdef HAVE_LONG_LONG
-  typedef long long longlong_t;
-  architecturedict->insert(havelonglong_name,   Token(new BoolDatum(true)));
-#else
-  typedef long longlong_t;
-  architecturedict->insert(havelonglong_name,   Token(new BoolDatum(false)));
-#endif
-
-  architecturedict->insert(longlongsize_name,   Token(new IntegerDatum( sizeof(longlong_t) )));
-  
-  i->def(statusdict_name, statusdict);
-
-  if(!fname.empty())
-  {
-    std::ifstream *input = new std::ifstream(fname.c_str());
-    Token input_token(new XIstreamDatum(input));
-            
-    i->EStack.push_move(input_token);
-    i->EStack.push(i->baselookup(i->iparse_name));
-  }
-
-  // If we start with debug option, we set the debugging mode, but disable stepmode.
-  // This way, the debugger is entered only on error.
-  if(debug_)
-  {
-    i->debug_mode_on();
-    i->backtrace_on();
-  }
-}
+}  // namespace sli3
