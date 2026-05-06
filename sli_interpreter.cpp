@@ -407,7 +407,15 @@ namespace sli3
 	        for (size_t k = 0; k < lim; ++k)
 	        {
 	            std::cerr << "\n   [" << k << "] ";
-	            operand_stack_.pick(k).pprint(std::cerr);
+	            Token const& t = operand_stack_.pick(k);
+	            t.pprint(std::cerr);
+	            if (t.type_ &&
+	                (t.type_->get_typeid() == sli3::nametype
+	                 || t.type_->get_typeid() == sli3::literaltype
+	                 || t.type_->get_typeid() == sli3::symboltype))
+	            {
+	                std::cerr << " = " << Name(t.data_.name_val).toString();
+	            }
 	        }
 	    }
 	    std::cerr << "\n  estack:";

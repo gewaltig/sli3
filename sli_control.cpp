@@ -163,22 +163,13 @@ SeeAlso: ifelse
 */
 void IfFunction::execute(SLIInterpreter *i) const
 {
-        // OStack: bool proc
-        //          1    0
+    // OStack: bool proc
+    //          1    0
     i->require_stack_load(2);
-    if(i->pick(1)==true)
-    {
-	i->EStack().top()=i->top();
-	if(i->step_mode())
-	{
-	    std::cerr << "if:"
-		      << " Executing true branch."
-		      << std::endl;
-	}
-    }
+    if (i->pick(1) == true)
+        i->EStack().top() = i->top();   // dispatch the proc next
     else
-	i->EStack().pop();
-    
+        i->EStack().pop();              // skip
     i->pop(2);
 }
 

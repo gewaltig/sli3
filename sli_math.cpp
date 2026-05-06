@@ -1546,6 +1546,10 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("eq", &eqfunction);
     i->createcommand("and", &andfunction);
     i->createcommand("or",  &orfunction);
+    // typeinit.sli aliases the bare names `xor` and `not` to the
+    // bool-typed implementations so it can build tries on top.
+    i->createcommand("xor", &xor_bbfunction);
+    i->createcommand("not", &not_bfunction);
     i->createcommand("and_ii", &and_iifunction);
     i->createcommand("or_ii", &or_iifunction);
     i->createcommand("or_bb", &or_bbfunction);

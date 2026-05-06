@@ -75,12 +75,12 @@ namespace sli3
 
     bool Token::operator==(double d) const
     {
-	return type_ and type_->get_typeid()==sli3::integertype and data_.double_val==d;
+	return type_ and type_->get_typeid()==sli3::doubletype and data_.double_val==d;
     }
 
     bool Token::operator==(bool b) const
     {
-	return type_ and type_->get_typeid()==sli3::integertype and data_.bool_val==b;
+	return type_ and type_->get_typeid()==sli3::booltype and data_.bool_val==b;
     }
 
     bool Token::operator==(Name n) const

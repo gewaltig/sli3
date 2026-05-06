@@ -519,6 +519,22 @@ it's discoverable later without scrolling:
   `std::transform`. NEST-specific signal-processing helpers (area,
   gabor, gauss2d, cv1d, cv2d) and the int/double-vector conversions
   are deferred to a later pass.
+- 2026-05-06: **Slice 5b iter 2** (uncommitted). Found and fixed the
+  load-bearing bug: `Token::operator==(bool)` and `operator==(double)`
+  both checked `get_typeid()==sli3::integertype` instead of booltype/
+  doubletype — copy-paste error from operator==(int). This was making
+  every `bool == true` comparison return false, which broke `if`'s
+  condition check (it always took the else branch). Fixing this got
+  the bootstrap past sli-init.sli's initial bind-itself step and into
+  `(typeinit.sli) run`. Reverted my earlier mis-fix to put_a (NEST 2.x
+  put_a leaves the array on top — pop 2, not pop 3 — so `bind`'s
+  `2 copy ... put` pattern preserves the for-loop's [proc, i] state
+  across iterations). Added: `xor`/`not` aliases (so typeinit.sli's
+  `/xor_ /xor load def` works), `append_a`/`append_p`/`append_lp`/
+  `append_s`. Bootstrap now stalls inside typeinit.sli on
+  `gt_ss : load DictError` (string-comparison ops not yet
+  registered). Roughly 30 more `_a`/`_s`/`_iter` ops missing.
+
 - 2026-05-06: **Slice 5b in progress** (uncommitted). Continuing from
   Slice 5a, now iterating to fill in the operator surface that
   sli-init.sli needs. Operators added in this slice:

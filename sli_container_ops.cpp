@@ -190,8 +190,10 @@ class PutArrayLikeFunction : public SLIFunction
 public:
     void execute(SLIInterpreter* i) const override
     {
-        // PostScript convention: `array index value put -> -`. Consumes
-        // all three operands and returns nothing.
+        // NEST 2.x convention: `array index value put_a -> array`.
+        // Consumes only the (idx, value) pair and leaves the array on
+        // top, so `bind`'s `2 copy ... put` pattern preserves the
+        // for-loop's [proc, i] state across iterations.
         i->require_stack_load(3);
         i->require_stack_type(2, TID);
         i->require_stack_type(1, sli3::integertype);
@@ -203,7 +205,7 @@ public:
             return;
         }
         (*arr)[static_cast<size_t>(idx)] = i->top();
-        i->pop(3);
+        i->pop(2);
         i->EStack().pop();
     }
 };
@@ -483,6 +485,47 @@ KnownFunction known_fn;
 WhereFunction where_fn;
 UndefFunction undef_fn;
 
+//------------------------------------------------------------------------
+// append_*: container value -> container'  (appends value, returns new
+// container). The arraytype/proceduretype/litproceduretype variants
+// share TokenArray storage — a single template covers them.
+//------------------------------------------------------------------------
+
+template <unsigned int TID>
+class AppendArrayLikeFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, TID);
+        TokenArray* arr = i->pick(1).data_.array_val;
+        arr->push_back(i->top());
+        i->pop();  // drop value, leave container on top
+        i->EStack().pop();
+    }
+};
+
+class AppendStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::stringtype);
+        i->require_stack_type(0, sli3::integertype);
+        std::string& s = i->pick(1).data_.string_val->str();
+        s.push_back(static_cast<char>(i->top().data_.long_val));
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
+AppendArrayLikeFunction<sli3::arraytype>          append_a_fn;
+AppendArrayLikeFunction<sli3::proceduretype>      append_p_fn;
+AppendArrayLikeFunction<sli3::litproceduretype>   append_lp_fn;
+AppendStringFunction                              append_s_fn;
+
 }  // anonymous namespace
 
 void init_container_ops(SLIInterpreter* i)
@@ -515,6 +558,11 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("known",     &known_fn);
     i->createcommand("where",     &where_fn);
     i->createcommand("undef",     &undef_fn);
+
+    i->createcommand("append_a",  &append_a_fn);
+    i->createcommand("append_p",  &append_p_fn);
+    i->createcommand("append_lp", &append_lp_fn);
+    i->createcommand("append_s",  &append_s_fn);
 }
 
 }  // namespace sli3
