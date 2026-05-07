@@ -182,22 +182,12 @@ public:
   void info(std::ostream &) const;
   
   bool operator==(const Dictionary &d) const { return sli3::operator==(*this, d); }
-  
-  /**
-   * Add the contents of this dictionary to another.
-   * The target dictionary is given by names and must be retrieved via
-   * the interpreter.
-   * @todo Allow for free formatting of target dictionary entries 
-   * via functor, and add traits to allow duplicates.
-   * @see remove_dict
-   */
-  void add_dict(const std::string&, SLIInterpreter&);
 
-  /**
-   * Remove entries found in another dictionary from this.
-   * @see add_dict
-   */
-  void remove_dict(const std::string&, SLIInterpreter&);
+  // add_dict / remove_dict (sli3::Dictionary -> sli3::Dictionary
+  // copies via interpreter lookup) were declared here but the cpp
+  // implementations have been commented out for years -- they
+  // referenced the legacy DictionaryDatum API. Removed as dead code
+  // in Stage 2.8; reintroduce when there is an actual caller.
 
   /**
    * Clear access flags on all dictionary elements.
@@ -299,16 +289,26 @@ public:
      TokenMap::iterator where = find(n);
      if(where != end())
        {
+	 // Set the access flag on the STORED DictToken before
+	 // copying out. Without this, the bool-returning overload
+	 // silently defeats access tracking (the flag would be set
+	 // on the result copy, not on the dict entry).
+	 (*where).second.set_access_flag();
 	 result= (*where).second;
 	 return true;
        }
      else
        return false;
    }
- 
+
  inline
    DictToken& Dictionary::lookup(Name const & n)
- {      
+ {
+   // Return-by-reference form: caller sees the stored DictToken
+   // directly and is responsible for calling set_access_flag()
+   // on it after the read. Auto-setting here would also dirty
+   // .accessed() queries (see test_dictionary.cpp -- queries
+   // must be observable as not-yet-accessed).
    TokenMap::iterator where = find(n);
    if(where != end())
      return (*where).second;

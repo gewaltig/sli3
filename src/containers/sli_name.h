@@ -18,6 +18,7 @@
 
 #include <cassert>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <deque>
 #include <iostream>
@@ -53,9 +54,17 @@ namespace sli3
        * Create Name without value.
        */
       Name()                  : handle_(0) {}
-      Name(long h)            : handle_(h)
-	  {}
-      
+      // Construct from a known handle. Used when a Token holds a
+      // Name as `data_.name_val` (size_t) and we want the Name back.
+      // The handle must already exist in the interning table —
+      // anything else is a programming error and would otherwise
+      // segfault inside std::deque::operator[].
+      Name(long h)            : handle_(static_cast<handle_t>(h))
+	  {
+	      if (h < 0 || static_cast<size_t>(h) >= num_handles())
+	          throw std::out_of_range("sli3::Name: handle out of range");
+	  }
+
       Name(const char s[])       : handle_(insert(std::string(s))) {}
       Name(const std::string &s) : handle_(insert(s)) {}
       operator int() const

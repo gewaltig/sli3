@@ -61,7 +61,10 @@ class DictionaryStack
 {
 private:
     std::list<Dictionary *> d;
-    Dictionary *base_;
+    // base_ is the bottom-of-stack dict (system dict in normal use).
+    // set_basedict() pins it after the first push. Until then it
+    // stays null; baselookup / basedef raise rather than segfault.
+    Dictionary *base_ = nullptr;
     std::vector<Token *> cache_;
     std::vector<Token *> basecache_;
 
@@ -193,6 +196,8 @@ public:
    */
   Token& baselookup(Name const & n) // lookup in a specified
   {                                           // base dictionary
+    if (base_ == nullptr)
+      throw UndefinedName("base dictionary not set");
     Name::handle_t key=n.toIndex();
     if (key<basecache_.size())
       {
@@ -221,7 +226,11 @@ public:
    */
   void def(Name const & , const Token &);
 
-  /** Unbind a previously defined Name from its token. Seach in all dictionaries.
+  /** Unbind a previously defined Name from the top dictionary.
+   *  PostScript spec: undef removes the binding from the topmost
+   *  (current) dict only, leaving any shadowed bindings in lower
+   *  dicts intact. Throws UndefinedName if the top dict has no
+   *  such key.
    */
   void undef(Name const & );
 

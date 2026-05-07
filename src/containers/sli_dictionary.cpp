@@ -62,12 +62,15 @@ void Dictionary::info(std::ostream &out) const
     out << "--------------------------------------------------" << std::endl;
     out << std::setw(25) <<  "Name" << std::setw(20) << "Type" <<  "Value" << std::endl;
     out << "--------------------------------------------------" << std::endl;
-      
-//    for(DataVec::const_iterator where = data.begin() ; 
-    for(TokenMap::const_iterator where = begin() ; 
-	where !=end() ; ++ where)
+
+    // Iterate the sorted vector. The previous code iterated `*this`
+    // directly, which yielded the std::map's natural Name-handle
+    // (i.e. interning) order rather than the lexicographic order
+    // the sort had just established.
+    for(DataVec::const_iterator where = data.begin() ;
+	where != data.end() ; ++ where)
     {
-      out  << std::setw(25) << where->first 
+      out  << std::setw(25) << where->first
 	   << std::setw(20) << where->second.get_typename()
 	   << where->second
 	   << std::endl;
@@ -80,27 +83,9 @@ void Dictionary::info(std::ostream &out) const
 
 }
 
-/*
-void Dictionary::add_dict(const std::string& target, 
-			  SLIInterpreter& i)
-{
-  DictionaryDatum targetdict;
+// add_dict / remove_dict removed in Stage 2.8 -- declared in the
+// header for years, bodies commented out, no callers.
 
-    // retrieve targetdict from interpreter
-    Token d = i.baselookup(Name(target));
-    targetdict = getValue<DictionaryDatum>(d);
-
-  for ( TokenMap::const_iterator it = TokenMap::begin() ; 
-	it != TokenMap::end() ; ++it )
-    if ( !targetdict->known(it->first) )
-      targetdict->insert(it->first, it->second);
-    else
-      {
-	throw UndefinedName((it->first).toString());
-	//      throw DictError();
-      }
-}
-*/
 void Dictionary::remove(Name const & n)
 {
   TokenMap::iterator it = find(n);
@@ -108,41 +93,22 @@ void Dictionary::remove(Name const & n)
     erase(it);
 }
 
-/*
-void Dictionary::remove_dict(const std::string& target, 
-			     SLIInterpreter& i)
-{
-  DictionaryDatum targetdict;
-
-  // retrieve targetdict from interpreter
-  Token d = i.baselookup(Name(target));
-  targetdict = getValue<DictionaryDatum>(d);
-
-  for ( TokenMap::const_iterator it = TokenMap::begin() ; 
-	it != TokenMap::end() ; ++it )
-  {
-    TokenMap::iterator tgt_it = targetdict->find(it->first); 
-    if ( tgt_it != targetdict->end() )
-      targetdict->erase(tgt_it);
-  }
-}
-*/
-
 void Dictionary::clear_access_flags()
 {
-  for ( TokenMap::iterator it = TokenMap::begin() ; 
+  for ( TokenMap::iterator it = TokenMap::begin() ;
 	it != TokenMap::end() ; ++it )
   {
-    /* 
-       Clear flags in nested dictionaries recursively.
-       We first test whether the token is a DictionaryDatum
-       and then call getValue(). This entails two dynamic casts,
-       but is likely more efficient than a try-catch construction.
-    */
-      if ( it->second.is_of_type(sli3::dictionarytype))
-      {
-	  it->second.data_.dict_val->clear_access_flags();
-      }
+    // Clear the flag on this entry. Previously the loop body only
+    // recursed into nested dicts and never reset its own entries'
+    // access flags -- so all_accessed() returned a stale answer
+    // for any non-dict entry that had been read before.
+    it->second.clear_access_flag();
+
+    if ( it->second.is_of_type(sli3::dictionarytype)
+         && it->second.data_.dict_val != nullptr )
+    {
+      it->second.data_.dict_val->clear_access_flags();
+    }
   }
 }
 
