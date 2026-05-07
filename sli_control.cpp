@@ -675,20 +675,22 @@ BeginDocumentation
 /******************************/
 void Forall_aFunction::execute(SLIInterpreter *i) const
 {
-    static Token forall(i->baselookup(i->iforallarray_name));
-
+    // Look up the iterator function freshly each call. A function-local
+    // `static Token` here outlived the SLIInterpreter and held a
+    // dangling SLIType pointer once the engine was destroyed, causing
+    // a heap-use-after-free in ~Token() during atexit cleanup.
     i->require_stack_load(2);
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::arraytype);
     TokenArray *proc= i->top().data_.array_val;
-    
+
     i->EStack().pop();
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
     i->EStack().push(i->new_token<sli3::integertype>(0));          // push array counter
     i->EStack().push(i->pick(0));       // push procedure
     i->EStack().push(i->new_token<sli3::integertype>(proc->size()));          // push procedure counter
-    i->EStack().push(forall);
+    i->EStack().push(i->baselookup(i->iforallarray_name));
     i->pop(2);
     i->inc_call_depth();
 }
