@@ -448,9 +448,20 @@ void SLIInterpreter::print_error(Token cmd) {
   std::string errorname;
   std::ostringstream msg;
 
-  // Read errorname from dictionary.
+  // Read errorname from dictionary. raiseerror() stores it as a
+  // literaltype Token (see raiseerror(Name,Name) in this file), so
+  // resolve via the Name handle. Casting to std::string& would throw
+  // TypeMismatch — and we are CALLED from handleerror in a stopped
+  // context, so that secondary error becomes BadErrorHandler.
   if (error_dict_->known(errorname_name)) {
-    errorname = static_cast<std::string &>(error_dict_->lookup(errorname_name));
+    Token const& t = error_dict_->lookup(errorname_name);
+    if (t.is_of_type(sli3::stringtype)) {
+      errorname = static_cast<std::string&>(const_cast<Token&>(t));
+    } else if (t.is_of_type(sli3::literaltype) ||
+               t.is_of_type(sli3::nametype) ||
+               t.is_of_type(sli3::symboltype)) {
+      errorname = Name(t.data_.name_val).toString();
+    }
   }
 
   // Find the correct message for the errorname.
@@ -495,8 +506,17 @@ void SLIInterpreter::print_error(Token cmd) {
     }
   }
 
-  // Error message header is defined as "$errorname in $cmd"
-  std::string from = static_cast<std::string &>(cmd);
+  // Error message header is defined as "$errorname in $cmd". cmd is
+  // pushed by raiseerror() as a literaltype Token holding the
+  // command Name; resolve it the same way as errorname above.
+  std::string from;
+  if (cmd.is_of_type(sli3::stringtype)) {
+    from = static_cast<std::string&>(cmd);
+  } else if (cmd.is_of_type(sli3::literaltype) ||
+             cmd.is_of_type(sli3::nametype) ||
+             cmd.is_of_type(sli3::symboltype)) {
+    from = Name(cmd.data_.name_val).toString();
+  }
 
   // Print error.
   message(M_ERROR, from.c_str(), msg.str().c_str(), errorname.c_str());
