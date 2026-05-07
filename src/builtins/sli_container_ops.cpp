@@ -19,6 +19,8 @@
 #include "sli_token.h"
 #include "sli_type.h"
 
+#include <algorithm>
+
 namespace sli3
 {
 namespace
@@ -374,6 +376,49 @@ public:
             i->push(i->new_token<sli3::stringtype, std::string>(std::move(pre)));
             i->push<bool>(true);
         }
+        i->EStack().pop();
+    }
+};
+
+// `haystack needle search_a -> post match pre true | haystack false`
+// Mirrors PostScript `search` and the existing search_s; differs only
+// in the container type.
+class SearchArrayFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::arraytype);
+        i->require_stack_type(0, sli3::arraytype);
+        TokenArray const* a = i->pick(1).data_.array_val;
+        TokenArray const* b = i->top().data_.array_val;
+        Token const* hit = std::search(a->begin(), a->end(),
+                                       b->begin(), b->end());
+        if (hit == a->end())
+        {
+            // Not found: leave a, push false. Pop only the needle (b).
+            Token bool_false = i->new_token<sli3::booltype, bool>(false);
+            i->pop();         // drop needle
+            i->push(bool_false);
+            i->EStack().pop();
+            return;
+        }
+        size_t pos = static_cast<size_t>(hit - a->begin());
+        TokenArray* pre  = new TokenArray();
+        TokenArray* post = new TokenArray();
+        pre->reserve(pos);
+        post->reserve(a->size() - pos - b->size());
+        for (size_t k = 0; k < pos; ++k)              pre->push_back(a->get(k));
+        for (size_t k = pos + b->size(); k < a->size(); ++k)
+            post->push_back(a->get(k));
+        // Save the needle Token (becomes "match"), then pop both inputs.
+        Token match = i->top();
+        i->pop(2);
+        i->push(i->new_token<sli3::arraytype>(post));
+        i->push(match);
+        i->push(i->new_token<sli3::arraytype>(pre));
+        i->push<bool>(true);
         i->EStack().pop();
     }
 };
@@ -816,6 +861,7 @@ public:
 
 JoinStringFunction         join_s_fn;
 SearchStringFunction       search_s_fn;
+SearchArrayFunction        search_a_fn;
 CviStringFunction          cvi_s_fn;
 CvdStringFunction          cvd_s_fn;
 GetintervalArrayFunction   getinterval_a_fn;
@@ -1010,6 +1056,7 @@ void init_container_ops(SLIInterpreter* i)
 
     i->createcommand("join_s",        &join_s_fn);
     i->createcommand("search_s",      &search_s_fn);
+    i->createcommand("search_a",      &search_a_fn);
     i->createcommand("cvi_s",         &cvi_s_fn);
     i->createcommand("cvd_s",         &cvd_s_fn);
     i->createcommand("getinterval_a", &getinterval_a_fn);

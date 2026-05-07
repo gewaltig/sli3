@@ -405,6 +405,34 @@ int main()
     EVAL_INT(i,    "() 88 prepend_s 0 get_s",                       'X');
     EVAL_DEPTH(i,  "(a) 66 prepend_s",                              1);
 
+    // -------- search_a -------------------------------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc Search_aFunction:
+    //   c1 needle search_a -> post match pre true   (when found)
+    //                      -> c1 false              (when not found)
+
+    // Not found: stack ends with [c1, false]; depth 2 disambiguates.
+    EVAL_DEPTH(i,  "[1 2 3] [9] search_a",                          2);
+    EVAL_BOOL(i,   "[1 2 3] [9] search_a exch pop",                 false);
+    EVAL_INT(i,    "[1 2 3] [9] search_a pop length_a",             3);  // c1 intact
+    EVAL_INT(i,    "[1 2 3] [9] search_a pop 0 get_a",              1);
+
+    // Found in the middle: stack [post match pre true], depth 4 disambiguates.
+    EVAL_DEPTH(i,  "[10 20 30 40 50] [20 30] search_a",             4);
+    // Pop bool, pre, match → top is `post` = [40 50]; depth=1 after pops.
+    EVAL_INT(i,    "[10 20 30 40 50] [20 30] search_a pop pop pop length_a", 2);
+    EVAL_INT(i,    "[10 20 30 40 50] [20 30] search_a pop pop pop 0 get_a", 40);
+    // Pop bool, pre → leaves post match; verify match length via exch pop.
+    EVAL_INT(i,    "[10 20 30 40 50] [20 30] search_a pop pop length_a exch pop", 2);
+    EVAL_INT(i,    "[10 20 30 40 50] [20 30] search_a pop pop 0 get_a exch pop",   20);
+    // Pop bool only → post match pre; verify pre length via exch pop exch pop.
+    EVAL_INT(i,    "[10 20 30 40 50] [20 30] search_a pop length_a exch pop exch pop", 1);
+    EVAL_INT(i,    "[10 20 30 40 50] [20 30] search_a pop 0 get_a exch pop exch pop",  10);
+
+    // Match at start (pre empty).
+    EVAL_INT(i,    "[1 2 3] [1] search_a pop length_a exch pop exch pop", 0);
+    // Match at end (post empty).
+    EVAL_INT(i,    "[1 2 3] [3] search_a pop pop pop length_a",     0);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }
