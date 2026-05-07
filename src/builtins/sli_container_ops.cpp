@@ -407,10 +407,87 @@ public:
     }
 };
 
-JoinStringFunction   join_s_fn;
-SearchStringFunction search_s_fn;
-CviStringFunction    cvi_s_fn;
-CvdStringFunction    cvd_s_fn;
+// `arr index count getinterval_a -> subarr`
+// Returns a fresh arraytype with elements [index, index+count). Validation
+// matches NEST 2.20.2 sli/slidata.cc (Getinterval_aFunction):
+//   count < 0           -> PositiveIntegerExpectedError
+//   index < 0           -> RangeCheckError
+//   index >= size       -> RangeCheckError  (so empty source always fails)
+//   index + count > size -> RangeCheckError
+class GetintervalArrayFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, sli3::arraytype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::integertype);
+        long count = i->top().data_.long_val;
+        long idx   = i->pick(1).data_.long_val;
+        TokenArray* arr = i->pick(2).data_.array_val;
+        if (count < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        if (idx < 0
+            || static_cast<size_t>(idx) >= arr->size()
+            || static_cast<size_t>(idx) + static_cast<size_t>(count) > arr->size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        TokenArray* out = new TokenArray();
+        out->reserve(static_cast<size_t>(count));
+        for (long k = 0; k < count; ++k)
+            out->push_back(arr->get(static_cast<size_t>(idx + k)));
+        i->pop(3);
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `str index count getinterval_s -> substr`. Same validation as the array
+// variant; result is a fresh stringtype.
+class GetintervalStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, sli3::stringtype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::integertype);
+        long count = i->top().data_.long_val;
+        long idx   = i->pick(1).data_.long_val;
+        std::string const& s = i->pick(2).data_.string_val->str();
+        if (count < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        if (idx < 0
+            || static_cast<size_t>(idx) >= s.size()
+            || static_cast<size_t>(idx) + static_cast<size_t>(count) > s.size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        std::string out = s.substr(static_cast<size_t>(idx),
+                                   static_cast<size_t>(count));
+        i->pop(3);
+        i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
+        i->EStack().pop();
+    }
+};
+
+JoinStringFunction       join_s_fn;
+SearchStringFunction     search_s_fn;
+CviStringFunction        cvi_s_fn;
+CvdStringFunction        cvd_s_fn;
+GetintervalArrayFunction  getinterval_a_fn;
+GetintervalStringFunction getinterval_s_fn;
 
 //------------------------------------------------------------------------
 // Dictionary lookup helpers
@@ -550,10 +627,12 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("put_d",     &put_d_fn);
     i->createcommand("put_a_a_t", &put_a_a_t_fn);
 
-    i->createcommand("join_s",    &join_s_fn);
-    i->createcommand("search_s",  &search_s_fn);
-    i->createcommand("cvi_s",     &cvi_s_fn);
-    i->createcommand("cvd_s",     &cvd_s_fn);
+    i->createcommand("join_s",        &join_s_fn);
+    i->createcommand("search_s",      &search_s_fn);
+    i->createcommand("cvi_s",         &cvi_s_fn);
+    i->createcommand("cvd_s",         &cvd_s_fn);
+    i->createcommand("getinterval_a", &getinterval_a_fn);
+    i->createcommand("getinterval_s", &getinterval_s_fn);
 
     i->createcommand("known",     &known_fn);
     i->createcommand("where",     &where_fn);

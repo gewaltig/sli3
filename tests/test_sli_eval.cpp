@@ -199,6 +199,35 @@ int main()
     EVAL_INT(i,    "12.0 frexp_d exch pop",     4);            // exponent
     EVAL_DOUBLE(i, "12.0 frexp_d pop",         0.75,  1e-12);  // mantissa
 
+    // -------- getinterval_a / getinterval_s -----------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc:
+    //   obj index count getinterval -> subobj
+    // Strict bounds: index in [0, size), count >= 0, index+count <= size.
+    // Result is a fresh container (copy of [index, index+count)).
+
+    // Array success cases — check value via length / get / arrayload.
+    EVAL_INT(i,    "[10 20 30 40 50] 0 3 getinterval_a length_a",    3);
+    EVAL_INT(i,    "[10 20 30 40 50] 0 3 getinterval_a 0 get_a", 10);
+    EVAL_INT(i,    "[10 20 30 40 50] 0 3 getinterval_a 2 get_a", 30);
+    EVAL_INT(i,    "[10 20 30 40 50] 2 3 getinterval_a 0 get_a", 30);
+    EVAL_INT(i,    "[10 20 30 40 50] 2 3 getinterval_a 2 get_a", 50);
+    EVAL_INT(i,    "[10 20 30 40 50] 4 1 getinterval_a 0 get_a", 50);
+    EVAL_INT(i,    "[10 20 30] 0 0 getinterval_a length_a",          0);  // empty
+    EVAL_INT(i,    "[10 20 30] 0 3 getinterval_a length_a",          3);  // full
+    EVAL_INT(i,    "[42] 0 1 getinterval_a 0 get_a",            42);  // size-1
+
+    // String success cases — confirm length and a probe character.
+    EVAL_INT(i,    "(hello) 0 5 getinterval_s length_s",             5);
+    EVAL_INT(i,    "(hello) 1 3 getinterval_s length_s",             3);
+    EVAL_INT(i,    "(hello) 1 3 getinterval_s 0 get_s",            'e');
+    EVAL_INT(i,    "(hello) 1 3 getinterval_s 2 get_s",            'l');
+    EVAL_INT(i,    "(hello) 4 1 getinterval_s 0 get_s",            'o');
+    EVAL_INT(i,    "(hello) 0 0 getinterval_s length_s",             0);  // empty
+
+    // Source must be popped — only the result remains.
+    EVAL_DEPTH(i,  "[10 20 30] 0 2 getinterval_a",                 1);
+    EVAL_DEPTH(i,  "(hello) 1 3 getinterval_s",                    1);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }
