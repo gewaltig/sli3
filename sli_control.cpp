@@ -768,6 +768,7 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
     TokenArray *proc= i->top().data_.array_val;
     assert(proc !=0);
 
+    i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
@@ -780,7 +781,6 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->baselookup(i->iforallindexedarray_name));
     i->inc_call_depth();
     i->pop(2);
-    i->EStack().pop();
 }
 
 /******************************/
@@ -797,6 +797,7 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
     TokenArray *proc= i->top().data_.array_val;
     assert(proc !=0);
 
+    i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
@@ -809,7 +810,6 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->baselookup(i->iforallindexedstring_name));
     i->inc_call_depth();
     i->pop(2);
-    i->EStack().pop();
 }
 
 /******************************/
@@ -826,6 +826,7 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
     TokenArray *proc= i->top().data_.array_val;
     assert(proc !=0);
 
+    i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
@@ -838,7 +839,6 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->baselookup(i->iforallstring_name));
     i->inc_call_depth();
     i->pop(2);
-    i->EStack().pop();
 }
 
 /* BeginDocumentation

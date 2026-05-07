@@ -563,7 +563,6 @@ Gt_diFunction() {}
 
     void execute(SLIInterpreter *) const;
 };
-  /*
 class Gt_ssFunction: public SLIFunction
 {
 public:
@@ -572,7 +571,6 @@ Gt_ssFunction() {}
 
     void execute(SLIInterpreter *) const;
 };
-  */
 class Lt_iiFunction: public SLIFunction
 {
 public:
@@ -608,7 +606,6 @@ Lt_diFunction() {}
     void execute(SLIInterpreter *) const;
 };
 
-  /*
 class Lt_ssFunction: public SLIFunction
 {
 public:
@@ -617,7 +614,6 @@ Lt_ssFunction() {}
 
     void execute(SLIInterpreter *) const;
 };
-  */
 class IntegerFunction: public SLIFunction
 {
 public:

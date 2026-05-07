@@ -86,3 +86,7 @@ add_test(NAME test_array COMMAND test_array)
 add_executable(test_array_module test_array_module.cpp)
 target_link_libraries(test_array_module PRIVATE sli3_core)
 add_test(NAME test_array_module COMMAND test_array_module)
+
+add_executable(test_sli_eval test_sli_eval.cpp)
+target_link_libraries(test_sli_eval PRIVATE sli3_core)
+add_test(NAME test_sli_eval COMMAND test_sli_eval)

@@ -1180,42 +1180,39 @@ void Lt_ddFunction::execute(SLIInterpreter *i) const
     i->top().type_=bool_tid;
 }
 
-/* move to string functions 
+// `s1 s2 gt_ss -> bool` — lexicographic compare. Mirrors gt_ii/gt_dd.
 void Gt_ssFunction::execute(SLIInterpreter *i) const
 {
-// call: string string gt bool
-    assert(i->OStack.load() >1);
+    static SLIType *bool_tid = i->get_type(sli3::booltype);
+
+    i->require_stack_load(2);
+    i->require_stack_type(1, sli3::stringtype);
+    i->require_stack_type(0, sli3::stringtype);
     i->EStack().pop();
 
-    StringDatum *op1 = static_cast<StringDatum *>(i->OStack.pick(1).datum());
-    StringDatum *op2 = static_cast<StringDatum *>(i->OStack.pick(0).datum());
-    assert(op1 !=NULL && op2 != NULL);
-
-    bool result = *op1 > *op2;
-
-    i->OStack.pop(2);    
-    i->OStack.push_by_pointer(new BoolDatum(result));
+    bool result = i->pick(1).data_.string_val->str()
+                > i->pick(0).data_.string_val->str();
+    i->pop();
+    i->top().data_.bool_val = result;
+    i->top().type_ = bool_tid;
 }
 
-
-
+// `s1 s2 lt_ss -> bool` — lexicographic compare.
 void Lt_ssFunction::execute(SLIInterpreter *i) const
 {
-// call: string string gt bool
-    assert(i->OStack.load() >1);
+    static SLIType *bool_tid = i->get_type(sli3::booltype);
+
+    i->require_stack_load(2);
+    i->require_stack_type(1, sli3::stringtype);
+    i->require_stack_type(0, sli3::stringtype);
     i->EStack().pop();
 
-    StringDatum *op1 = static_cast<StringDatum *>(i->OStack.pick(1).datum());
-    StringDatum *op2 = static_cast<StringDatum *>(i->OStack.pick(0).datum());
-    assert(op1 !=NULL && op2 != NULL);
-
-    bool result = *op1 < *op2;
-
-    i->OStack.pop(2);    
-    i->OStack.push_by_pointer(new BoolDatum(result));
+    bool result = i->pick(1).data_.string_val->str()
+                < i->pick(0).data_.string_val->str();
+    i->pop();
+    i->top().data_.bool_val = result;
+    i->top().type_ = bool_tid;
 }
-
-*/
 
 
 // Documentation can be found in file synod2/lib/sli/mathematica.sli
@@ -1464,13 +1461,13 @@ Gt_iiFunction gt_iifunction;
 Gt_ddFunction gt_ddfunction;
 Gt_idFunction gt_idfunction;
 Gt_diFunction gt_difunction;
-//Gt_ssFunction gt_ssfunction;
+Gt_ssFunction gt_ssfunction;
 
 Lt_iiFunction lt_iifunction;
 Lt_ddFunction lt_ddfunction;
 Lt_idFunction lt_idfunction;
 Lt_diFunction lt_difunction;
-//Lt_ssFunction lt_ssfunction;
+Lt_ssFunction lt_ssfunction;
 
 UnitStep_iFunction unitstep_ifunction;
 UnitStep_dFunction unitstep_dfunction;
@@ -1574,13 +1571,13 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("gt_dd", &gt_ddfunction);
     i->createcommand("gt_id", &gt_idfunction);
     i->createcommand("gt_di", &gt_difunction);
-//    i->createcommand("gt_ss", &gt_ssfunction);
+    i->createcommand("gt_ss", &gt_ssfunction);
     //
     i->createcommand("lt_ii", &lt_iifunction);
     i->createcommand("lt_dd", &lt_ddfunction);
     i->createcommand("lt_id", &lt_idfunction);
     i->createcommand("lt_di", &lt_difunction);
-//    i->createcommand("lt_ss", &lt_ssfunction);
+    i->createcommand("lt_ss", &lt_ssfunction);
     //
     i->createcommand("UnitStep_i", &unitstep_ifunction);
     i->createcommand("UnitStep_d", &unitstep_dfunction);
