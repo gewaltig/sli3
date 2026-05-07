@@ -1900,6 +1900,15 @@ moduleinitializers
 % is supported.
 % (FormattedIO.sli) run
 
+% sli3 prelude: minimal array helpers normally provided by
+% mathematica.sli. /:commandline (defined later in this file) uses
+% First and Rest to walk argv; we cannot load all of mathematica.sli
+% here because it depends on vector types we do not have. These
+% one-liners are taken verbatim from mathematica.sli.
+/First { 0 get } bind def
+/Last  { size 1 sub_ii get } bind def
+/Rest  { 0 1 erase } bind def
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    Debugging Features        %% 

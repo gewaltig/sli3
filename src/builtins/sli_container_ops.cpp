@@ -452,6 +452,93 @@ public:
     }
 };
 
+// `c n reserve_<a|s> -> c` — request capacity, leave c on the stack.
+class ReserveArrayLikeFunction : public SLIFunction
+{
+    sli3::sli_typeid tid_;
+public:
+    explicit ReserveArrayLikeFunction(sli3::sli_typeid t) : tid_(t) {}
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, tid_);
+        i->require_stack_type(0, sli3::integertype);
+        long n = i->top().data_.long_val;
+        if (n < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        i->pick(1).data_.array_val->reserve(static_cast<size_t>(n));
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
+class ReserveStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::stringtype);
+        i->require_stack_type(0, sli3::integertype);
+        long n = i->top().data_.long_val;
+        if (n < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        i->pick(1).data_.string_val->str().reserve(static_cast<size_t>(n));
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
+// `c empty_<a|s|D> -> c bool` — non-destructive emptiness check.
+// Mirrors NEST 2.20.2 sli/slidata.cc Empty_aFunction etc: leaves the
+// source on the stack and pushes a bool on top.
+class EmptyArrayLikeFunction : public SLIFunction
+{
+    sli3::sli_typeid tid_;
+public:
+    explicit EmptyArrayLikeFunction(sli3::sli_typeid t) : tid_(t) {}
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, tid_);
+        bool e = i->top().data_.array_val->size() == 0;
+        i->push<bool>(e);
+        i->EStack().pop();
+    }
+};
+
+class EmptyStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::stringtype);
+        bool e = i->top().data_.string_val->size() == 0;
+        i->push<bool>(e);
+        i->EStack().pop();
+    }
+};
+
+class EmptyDictFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::dictionarytype);
+        bool e = i->top().data_.dict_val->empty();
+        i->push<bool>(e);
+        i->EStack().pop();
+    }
+};
+
 // `c size_<a|s> -> c n` — like length, but leaves the source on the
 // stack and pushes the size on top. Mirrors NEST 2.20.2
 // sli/slidata.cc Size_aFunction / Size_sFunction (lines 954-967, 1116).
@@ -892,6 +979,11 @@ public:
 
 SizeArrayLikeFunction      size_a_fn(sli3::arraytype);
 SizeStringFunction         size_s_fn;
+EmptyArrayLikeFunction     empty_a_fn(sli3::arraytype);
+EmptyStringFunction        empty_s_fn;
+EmptyDictFunction          empty_d_fn;
+ReserveArrayLikeFunction   reserve_a_fn(sli3::arraytype);
+ReserveStringFunction      reserve_s_fn;
 JoinStringFunction         join_s_fn;
 SearchStringFunction       search_s_fn;
 SearchArrayFunction        search_a_fn;
@@ -1096,6 +1188,11 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("getinterval_s", &getinterval_s_fn);
     i->createcommand("size_a",        &size_a_fn);
     i->createcommand("size_s",        &size_s_fn);
+    i->createcommand("empty_a",       &empty_a_fn);
+    i->createcommand("empty_s",       &empty_s_fn);
+    i->createcommand("empty_D",       &empty_d_fn);
+    i->createcommand("reserve_a",     &reserve_a_fn);
+    i->createcommand("reserve_s",     &reserve_s_fn);
     i->createcommand("join_a",        &join_a_fn);
     i->createcommand("join_p",        &join_p_fn);
     i->createcommand("insert_a",      &insert_a_fn);

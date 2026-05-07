@@ -591,7 +591,11 @@ namespace sli3
     {
 	startup();
 	execution_stack_.push(new_token<sli3::quittype>());
-	execution_stack_.push(new_token<sli3::nametype>(Name("::parsestdin")));
+	// /start is the SLI-defined entry point set up by sli-init.sli:
+	// it inspects argv (via :commandline) and either calls executive
+	// (interactive) or runs the named scripts and quits. executive
+	// drives the prompt+readline+cst+exec loop.
+	execution_stack_.push(new_token<sli3::nametype>(Name("start")));
 	switch(v)
 	{
 	case 0:

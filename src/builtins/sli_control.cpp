@@ -1046,10 +1046,22 @@ SeeAlso: typestack, type
 */
 void TypeinfoFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(1);  
-
+    // `obj typeinfo -> obj /typename` — leaves the source on the
+    // operand stack and pushes a LITERAL of its type-name on top.
+    // Critical: the result MUST be literaltype (not nametype),
+    // because callers (e.g. typeinit.sli's :def_) compare it with
+    // /trietype using eq, which checks both type and value.
+    static SLIType *literal_t = i->get_type(sli3::literaltype);
+    i->require_stack_load(1);
+    if (i->top().type_ == nullptr)
+    {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    Token t(literal_t);
+    t.data_.name_val = i->top().get_typename().toIndex();
+    i->push(t);
     i->EStack().pop();
-    i->push(i->top().get_typename());
 }
 
 void SwitchFunction::execute(SLIInterpreter *i) const

@@ -50,11 +50,21 @@ std::string read_env(char const* var)
     return v ? std::string(v) : std::string();
 }
 
-// Build an arraytype Token from argv.
+// Build an arraytype Token from argv. Always contains the program
+// name as element 0 — `:commandline` in sli-init.sli does
+// `statusdict /argv get Rest` (drops element 0 = program name) before
+// scanning for options. With a truly empty argv, `Rest` raises
+// RangeCheck via erase_a. NEST always gets argv[0] from main(), so
+// matching that shape keeps the script verbatim-compatible.
 Token argv_to_array(SLIInterpreter& i, int argc, char** argv)
 {
     TokenArray* a = new TokenArray();
-    a->reserve(static_cast<size_t>(argc));
+    a->reserve(static_cast<size_t>(argc > 0 ? argc : 1));
+    if (argc <= 0 || argv == nullptr || argv[0] == nullptr)
+    {
+        a->push_back(i.new_token<sli3::stringtype, std::string>(
+            std::string("sli3")));
+    }
     for (int k = 0; k < argc; ++k)
     {
         std::string s = argv && argv[k] ? argv[k] : "";
@@ -454,12 +464,10 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
         "cva_d",
         "cvlp_p", "cvn_s", "cvx_a",
         "doublevector2array",
-        "empty_a", "empty_D", "empty_s",
         "intvector2array",
         "keys", "values",
         "references_a",
         "regerror_", "regexec_",
-        "reserve_a", "reserve_s",
         "shrink_a",
         // FormattedIO.sli — typed-stream read helpers, not on the
         // interactive-prompt path.

@@ -64,8 +64,10 @@ namespace sli3
       TypeFunction() {}
       void execute(SLIInterpreter *) const;
     };
-    
-  
+
+    // TypeinfoFunction is declared in sli_control.h (next to other
+    // type/dict introspection ops); we just provide the body here.
+
 }
 
 #endif

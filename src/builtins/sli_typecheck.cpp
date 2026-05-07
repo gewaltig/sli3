@@ -18,6 +18,7 @@
 #include "sli_interpreter.h"
 #include "sli_trietype.h"
 #include "sli_typecheck.h"
+#include "sli_control.h"  // TypeinfoFunction lives here
 #include "sli_iostream.h"
 #include <iostream>
 #include <sstream>
@@ -285,6 +286,7 @@ void TypeFunction::execute(SLIInterpreter *i) const
     i->EStack().pop();
 }
 
+
 // Convert nametype <-> literaltype (and the inert symbol form). Both
 // types share the same Name-handle payload — only the SLIType pointer
 // changes. typeinit.sli uses these to implement /cvlit (the trie).
@@ -356,6 +358,7 @@ void init_slitypecheck(SLIInterpreter *i)
     i->createcommand("cva_t", &cva_tfunction);
     i->createcommand("cvt_a", &cvt_afunction);
     i->createcommand("type",      &typefunction);
+    // typeinfo is registered by init_slicontrol, see sli_control.cpp.
     i->createcommand("cvlit_n",   &cvlit_nfunction);
     i->createcommand("cvn_l",     &cvn_lfunction);
     i->createcommand("cvlit_p",   &cvlit_pfunction);
