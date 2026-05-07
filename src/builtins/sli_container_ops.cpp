@@ -653,6 +653,88 @@ public:
     }
 };
 
+// `c1 idx n erase_<a|p> -> c1'` — remove n elements of c1 starting
+// at idx. Result is a fresh container of the same SLI type. NEST
+// 2.20.2 sli/slidata.cc uses c1->erase(idx, n) on the underlying
+// TokenArray (same impl shared by erase_a and erase_p; differs only
+// in typeid).
+//
+// Validation per NEST:
+//   idx < 0 || idx >= c1.size() -> RangeCheckError
+//   n   < 0                     -> PositiveIntegerExpectedError
+// idx+n > size silently clamps to remaining length.
+class EraseArrayLikeFunction : public SLIFunction
+{
+    sli3::sli_typeid tid_;
+public:
+    explicit EraseArrayLikeFunction(sli3::sli_typeid t) : tid_(t) {}
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, tid_);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::integertype);
+        TokenArray const* a1 = i->pick(2).data_.array_val;
+        long idx = i->pick(1).data_.long_val;
+        long n   = i->top().data_.long_val;
+        if (idx < 0 || static_cast<size_t>(idx) >= a1->size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        if (n < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        size_t pos = static_cast<size_t>(idx);
+        size_t cnt = static_cast<size_t>(n);
+        if (pos + cnt > a1->size()) cnt = a1->size() - pos;
+        TokenArray* out = new TokenArray();
+        out->reserve(a1->size() - cnt);
+        for (size_t k = 0; k < pos; ++k)               out->push_back(a1->get(k));
+        for (size_t k = pos + cnt; k < a1->size(); ++k) out->push_back(a1->get(k));
+        i->pop(3);
+        // Build the result Token directly (the new_token specialization
+        // is keyed by static typeid, but we need the runtime tid_).
+        Token t(i->get_type(tid_));
+        t.data_.array_val = out;
+        i->push(t);
+        i->EStack().pop();
+    }
+};
+
+// `s1 idx n erase_s -> s1'` — same shape, stringtype payload.
+class EraseStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, sli3::stringtype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::integertype);
+        std::string const& s1 = i->pick(2).data_.string_val->str();
+        long idx = i->pick(1).data_.long_val;
+        long n   = i->top().data_.long_val;
+        if (idx < 0 || static_cast<size_t>(idx) >= s1.size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        if (n < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        std::string out = s1;
+        out.erase(static_cast<size_t>(idx), static_cast<size_t>(n));  // clamps
+        i->pop(3);
+        i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
+        i->EStack().pop();
+    }
+};
+
 // `p1 p2 join_p -> p1++p2` — same shape as join_a, proceduretype payload.
 class JoinProcedureFunction : public SLIFunction
 {
@@ -686,6 +768,9 @@ InsertArrayFunction        insert_a_fn;
 InsertStringFunction       insert_s_fn;
 ReplaceArrayFunction       replace_a_fn;
 ReplaceStringFunction      replace_s_fn;
+EraseArrayLikeFunction     erase_a_fn(sli3::arraytype);
+EraseArrayLikeFunction     erase_p_fn(sli3::proceduretype);
+EraseStringFunction        erase_s_fn;
 
 //------------------------------------------------------------------------
 // Dictionary lookup helpers
@@ -837,6 +922,9 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("insert_s",      &insert_s_fn);
     i->createcommand("replace_a",     &replace_a_fn);
     i->createcommand("replace_s",     &replace_s_fn);
+    i->createcommand("erase_a",       &erase_a_fn);
+    i->createcommand("erase_p",       &erase_p_fn);
+    i->createcommand("erase_s",       &erase_s_fn);
 
     i->createcommand("known",     &known_fn);
     i->createcommand("where",     &where_fn);

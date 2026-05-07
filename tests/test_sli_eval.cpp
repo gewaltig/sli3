@@ -330,6 +330,35 @@ int main()
 
     EVAL_DEPTH(i,  "(abc) 0 1 (X) replace_s",                       1);
 
+    // -------- erase_a / erase_s / erase_p ------------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc:
+    //   c1 idx n erase_<a|p|s> -> c1'
+    // Same validation as replace; n clamps when idx+n > size.
+
+    // Doc example: [1 2 3 4 5 6] 5 1 erase -> [1 2 3 4 5]
+    EVAL_INT(i,    "[1 2 3 4 5 6] 5 1 erase_a length_a",            5);
+    EVAL_INT(i,    "[1 2 3 4 5 6] 5 1 erase_a 4 get_a",             5);
+    EVAL_INT(i,    "[1 2 3] 0 1 erase_a length_a",                  2);
+    EVAL_INT(i,    "[1 2 3] 0 1 erase_a 0 get_a",                   2);
+    EVAL_INT(i,    "[1 2 3 4 5] 1 2 erase_a length_a",              3);
+    EVAL_INT(i,    "[1 2 3 4 5] 1 2 erase_a 0 get_a",               1);
+    EVAL_INT(i,    "[1 2 3 4 5] 1 2 erase_a 1 get_a",               4);
+    EVAL_INT(i,    "[1 2 3] 0 0 erase_a length_a",                  3);  // erase 0
+    EVAL_INT(i,    "[1 2 3] 0 0 erase_a 0 get_a",                   1);
+    EVAL_DEPTH(i,  "[1 2] 0 1 erase_a",                             1);
+
+    // String erase
+    EVAL_INT(i,    "(hello) 1 3 erase_s length_s",                  2);
+    EVAL_INT(i,    "(hello) 1 3 erase_s 0 get_s",                   'h');
+    EVAL_INT(i,    "(hello) 1 3 erase_s 1 get_s",                   'o');
+    EVAL_INT(i,    "(hello) 0 1 erase_s 0 get_s",                   'e');
+    EVAL_INT(i,    "(abc) 0 0 erase_s length_s",                    3);
+
+    // Procedure erase
+    EVAL_INT(i,    "{1 2 3 4} 1 2 erase_p length_p",                2);
+    EVAL_INT(i,    "{1 2 3 4 5} 0 1 erase_p length_p",              4);
+    EVAL_DEPTH(i,  "{1 2 3} 0 1 erase_p",                           1);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }
