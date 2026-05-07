@@ -359,6 +359,29 @@ int main()
     EVAL_INT(i,    "{1 2 3 4 5} 0 1 erase_p length_p",              4);
     EVAL_DEPTH(i,  "{1 2 3} 0 1 erase_p",                           1);
 
+    // -------- insertelement_a / insertelement_s ------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc:
+    //   arr idx tok insertelement_a -> arr'   (insert any Token at idx)
+    //   str idx ch  insertelement_s -> str'   (insert one char from int)
+    //   idx < 0 || idx >= size -> RangeCheckError
+
+    EVAL_INT(i,    "[10 20 30] 1 99 insertelement_a length_a",      4);
+    EVAL_INT(i,    "[10 20 30] 1 99 insertelement_a 0 get_a",      10);
+    EVAL_INT(i,    "[10 20 30] 1 99 insertelement_a 1 get_a",      99);
+    EVAL_INT(i,    "[10 20 30] 1 99 insertelement_a 2 get_a",      20);
+    EVAL_INT(i,    "[10 20 30] 1 99 insertelement_a 3 get_a",      30);
+    EVAL_INT(i,    "[10 20 30] 0 99 insertelement_a 0 get_a",      99);  // prepend
+    EVAL_INT(i,    "[1] 0 42 insertelement_a length_a",             2);
+    EVAL_DEPTH(i,  "[1 2] 0 9 insertelement_a",                     1);
+
+    // String element insertion: 88 == 'X'
+    EVAL_INT(i,    "(hello) 1 88 insertelement_s length_s",         6);
+    EVAL_INT(i,    "(hello) 1 88 insertelement_s 0 get_s",          'h');
+    EVAL_INT(i,    "(hello) 1 88 insertelement_s 1 get_s",          'X');
+    EVAL_INT(i,    "(hello) 1 88 insertelement_s 2 get_s",          'e');
+    EVAL_INT(i,    "(abc) 0 90 insertelement_s 0 get_s",            'Z');  // prepend
+    EVAL_DEPTH(i,  "(ab) 0 67 insertelement_s",                     1);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }

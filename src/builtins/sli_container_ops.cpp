@@ -735,6 +735,64 @@ public:
     }
 };
 
+// `arr idx tok insertelement_a -> arr'` — insert a single token at
+// position idx of arr. NEST 2.20.2 sli/slidata.cc Insert_Element_a uses
+// a1->insert_move(idx, top()). idx is strict in [0, size).
+class InsertElementArrayFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, sli3::arraytype);
+        i->require_stack_type(1, sli3::integertype);
+        TokenArray const* a1 = i->pick(2).data_.array_val;
+        long idx = i->pick(1).data_.long_val;
+        Token const& elem = i->top();
+        if (idx < 0 || static_cast<size_t>(idx) >= a1->size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        TokenArray* out = new TokenArray();
+        out->reserve(a1->size() + 1);
+        size_t pos = static_cast<size_t>(idx);
+        for (size_t k = 0; k < pos; ++k)         out->push_back(a1->get(k));
+        out->push_back(elem);
+        for (size_t k = pos; k < a1->size(); ++k) out->push_back(a1->get(k));
+        i->pop(3);
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `str idx ch insertelement_s -> str'` — insert one character (int
+// cast to char) at position idx. Validation as for the array form.
+class InsertElementStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, sli3::stringtype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::integertype);
+        std::string const& s1 = i->pick(2).data_.string_val->str();
+        long idx = i->pick(1).data_.long_val;
+        long ch  = i->top().data_.long_val;
+        if (idx < 0 || static_cast<size_t>(idx) >= s1.size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        std::string out = s1;
+        out.insert(static_cast<size_t>(idx), 1, static_cast<char>(ch));
+        i->pop(3);
+        i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
+        i->EStack().pop();
+    }
+};
+
 // `p1 p2 join_p -> p1++p2` — same shape as join_a, proceduretype payload.
 class JoinProcedureFunction : public SLIFunction
 {
@@ -771,6 +829,8 @@ ReplaceStringFunction      replace_s_fn;
 EraseArrayLikeFunction     erase_a_fn(sli3::arraytype);
 EraseArrayLikeFunction     erase_p_fn(sli3::proceduretype);
 EraseStringFunction        erase_s_fn;
+InsertElementArrayFunction  insertelement_a_fn;
+InsertElementStringFunction insertelement_s_fn;
 
 //------------------------------------------------------------------------
 // Dictionary lookup helpers
@@ -925,6 +985,8 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("erase_a",       &erase_a_fn);
     i->createcommand("erase_p",       &erase_p_fn);
     i->createcommand("erase_s",       &erase_s_fn);
+    i->createcommand("insertelement_a", &insertelement_a_fn);
+    i->createcommand("insertelement_s", &insertelement_s_fn);
 
     i->createcommand("known",     &known_fn);
     i->createcommand("where",     &where_fn);
