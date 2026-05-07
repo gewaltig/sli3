@@ -23,44 +23,64 @@ configure_file(
   @ONLY
 )
 
-# Core library: everything except main(). Both the sli3 executable and
-# test executables link against it.
+# --- Core library ---------------------------------------------------------
+# Everything except main(). Both the sli3 executable and test executables
+# link against it. Sources are grouped by concern under src/<area>/; every
+# subdir is a PUBLIC include path so existing bare-name #includes work.
 add_library(sli3_core STATIC
-  sli_array.cpp
-  sli_token.cpp
-  sli_type.cpp
-  sli_arraytype.cpp
-  sli_stringtype.cpp
-  sli_integertype.cpp
-  sli_nametype.cpp
-  sli_dicttype.cpp
-  sli_functiontype.cpp
-  sli_tokenstack.cpp
-  sli_name.cpp
-  sli_dictionary.cpp
-  sli_exceptions.cpp
-  sli_dictstack.cpp
-  sli_charcode.cpp
-  sli_scanner.cpp
-  sli_parser.cpp
-  sli_interpreter.cpp
-  sli_numerics.cpp
-  sli_builtins.cpp
-  sli_control.cpp
-  sli_iostream.cpp
-  sli_iostreamtype.cpp
-  sli_stack.cpp
-  sli_type_trie.cpp
-  sli_typecheck.cpp
-  sli_math.cpp
-  sli_serialize.cpp
-  sli_array_module.cpp
-  sli_startup.cpp
-  sli_container_ops.cpp
-  sli_io_ops.cpp
+  # types
+  src/types/sli_token.cpp
+  src/types/sli_type.cpp
+  src/types/sli_integertype.cpp
+  src/types/sli_stringtype.cpp
+  src/types/sli_arraytype.cpp
+  src/types/sli_nametype.cpp
+  src/types/sli_dicttype.cpp
+  src/types/sli_functiontype.cpp
+  src/types/sli_iostreamtype.cpp
+
+  # containers
+  src/containers/sli_array.cpp
+  src/containers/sli_dictionary.cpp
+  src/containers/sli_dictstack.cpp
+  src/containers/sli_tokenstack.cpp
+  src/containers/sli_iostream.cpp
+  src/containers/sli_name.cpp
+
+  # parser
+  src/parser/sli_scanner.cpp
+  src/parser/sli_parser.cpp
+  src/parser/sli_charcode.cpp
+
+  # interpreter
+  src/interpreter/sli_interpreter.cpp
+  src/interpreter/sli_numerics.cpp
+
+  # builtins / stdlib
+  src/builtins/sli_builtins.cpp
+  src/builtins/sli_control.cpp
+  src/builtins/sli_math.cpp
+  src/builtins/sli_stack.cpp
+  src/builtins/sli_typecheck.cpp
+  src/builtins/sli_array_module.cpp
+  src/builtins/sli_container_ops.cpp
+  src/builtins/sli_io_ops.cpp
+  src/builtins/sli_startup.cpp
+
+  # trie / serialize / util
+  src/trie/sli_type_trie.cpp
+  src/serialize/sli_serialize.cpp
+  src/util/sli_exceptions.cpp
 )
 target_include_directories(sli3_core PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/types
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/containers
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/parser
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/interpreter
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/builtins
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/trie
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/serialize
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/util
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 target_compile_options(sli3_core PRIVATE
@@ -69,24 +89,31 @@ target_compile_options(sli3_core PRIVATE
   -Wno-unused-parameter
 )
 
-add_executable(sli3 sli_main.cpp)
+# --- Main binary ----------------------------------------------------------
+add_executable(sli3 src/interpreter/sli_main.cpp)
 target_link_libraries(sli3 PRIVATE sli3_core)
 
-# --- Tests ---------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------
 enable_testing()
 
-add_executable(test_serialize test_serialize.cpp)
+# tests/ is a PUBLIC include path on each test target so they can pick up
+# test_harness.h without a relative ../tests/ prefix.
+add_executable(test_serialize tests/test_serialize.cpp)
 target_link_libraries(test_serialize PRIVATE sli3_core)
+target_include_directories(test_serialize PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 add_test(NAME test_serialize COMMAND test_serialize)
 
-add_executable(test_array test_array.cpp)
+add_executable(test_array tests/test_array.cpp)
 target_link_libraries(test_array PRIVATE sli3_core)
+target_include_directories(test_array PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 add_test(NAME test_array COMMAND test_array)
 
-add_executable(test_array_module test_array_module.cpp)
+add_executable(test_array_module tests/test_array_module.cpp)
 target_link_libraries(test_array_module PRIVATE sli3_core)
+target_include_directories(test_array_module PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 add_test(NAME test_array_module COMMAND test_array_module)
 
-add_executable(test_sli_eval test_sli_eval.cpp)
+add_executable(test_sli_eval tests/test_sli_eval.cpp)
 target_link_libraries(test_sli_eval PRIVATE sli3_core)
+target_include_directories(test_sli_eval PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 add_test(NAME test_sli_eval COMMAND test_sli_eval)

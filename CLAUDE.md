@@ -75,25 +75,22 @@ When adding a new test: drop `test_<thing>.cpp` next to the others, add a short 
 
 ## File map
 
-| Area | Files |
+Sources are grouped by concern under `src/<area>/`. Every subdir is a
+PUBLIC include path on `sli3_core`, so `#include "sli_token.h"` keeps
+working regardless of where the includer lives.
+
+| Subdir | Contents |
 |---|---|
-| Core types | `sli_token.{h,cpp}`, `sli_type.{h,cpp}` |
-| Type implementations | `sli_{integer,double,bool,name,literal,string,array,dict,function,iostream}type.{h,cpp}` |
-| Containers | `sli_array.{h,cpp}`, `sli_dictionary.{h,cpp}`, `sli_dictstack.{h,cpp}`, `sli_tokenstack.{h,cpp}` |
-| Strings & streams | `sli_string.h` (`SLIString`), `sli_iostream.{h,cpp}` (`SLIistream`/`SLIostream`) — intrusive-refcount wrappers |
-| Names / interning | `sli_name.{h,cpp}` (Name is a uint handle into a global table) |
-| Parser/scanner | `sli_scanner.{h,cpp}`, `sli_parser.{h,cpp}`, `sli_charcode.{h,cpp}` |
-| Interpreter | `sli_interpreter.{h,cpp}`, `sli_main.cpp`, `sli_module.h` (SLIModule base; declared but no concrete subclass yet) |
-| Builtins / control / math | `sli_builtins.{h,cpp}`, `sli_control.{h,cpp}`, `sli_math.{h,cpp}`, `sli_stack.{h,cpp}`, `sli_typecheck.{h,cpp}` |
-| Tries (operator dispatch) | `sli_trie.h`, `sli_trietype.h`, `sli_type_trie.{h,cpp}` |
-| Serialization | `sli_serialize.{h,cpp}` (`Writer`/`Reader` abstract; `BinaryWriter`/`Reader` impls; `write_token`/`read_token` entry points) |
-| Array stdlib | `sli_array_module.{h,cpp}` (`init_sliarray`: Range / Reverse / Rotate / Flatten / Sort / Transpose / Partition_a_i_i / arrayload / arraystore / GetMin / GetMax / valid_a / finite_q_d / Map / MapIndexed_a / MapThread_a + internal `::Map` / `::MapIndexed` / `::MapThread` iterator functions) |
-| Container ops | `sli_container_ops.{h,cpp}` (`init_container_ops`: length_* / get_* / put_* / put_a_a_t / join_s / search_s / cvi_s / cvd_s / known / where / undef) |
-| Stream I/O | `sli_io_ops.{h,cpp}` (`init_io_ops`: ifstream / ofstream / cvx_f / close / eof / getline_is; `file` is a SLI trie defined by sli-init.sli) |
-| Startup | `sli_startup.{h,cpp}` (`init_slistartup`: statusdict, cin/cout/cerr, getenv / evalstring / `<-` / `<--` / endl / flush / begin / end / dict / currentdict; locates and opens sli-init.sli) |
-| Vendored .sli | `lib/sli/*.sli` (NEST 2.20.2 — sli-init, typeinit, misc_helpers, library, ps-lib, FormattedIO, debug, helpinit, mathematica, oosupport, regexp, arraylib) |
-| Tests | `test_serialize.cpp`, `test_array.cpp`, `test_array_module.cpp`, `test_sli_eval.cpp` (+ `test_harness.h`) — CTest, bare assertions |
-| Exceptions / utility | `sli_exceptions.{h,cpp}`, `compose.hpp` |
+| `src/types/` | Core types (`sli_token.{h,cpp}`, `sli_type.{h,cpp}`) and per-typeid implementations (`sli_{integer,string,array,name,dict,function,iostream}type.{h,cpp}`). Double, bool, literal, mark and other discriminator-only types live inside `sli_type.cpp`. |
+| `src/containers/` | Backing storage referenced from Tokens: `sli_array.{h,cpp}` (`TokenArray`), `sli_dictionary.{h,cpp}`, `sli_dictstack.{h,cpp}`, `sli_tokenstack.{h,cpp}`, `sli_string.h` (`SLIString`), `sli_iostream.{h,cpp}` (`SLIistream`/`SLIostream`), `sli_name.{h,cpp}` (Name interning). |
+| `src/parser/` | `sli_scanner.{h,cpp}`, `sli_parser.{h,cpp}`, `sli_charcode.{h,cpp}`. |
+| `src/interpreter/` | `sli_interpreter.{h,cpp}`, `sli_main.cpp`, `sli_module.h` (SLIModule base; declared but no concrete subclass yet), `sli_function.h` (SLIFunction interface), `sli_numerics.{h,cpp}`. |
+| `src/builtins/` | All registered C++ operators. `sli_builtins.{h,cpp}`, `sli_control.{h,cpp}`, `sli_math.{h,cpp}`, `sli_stack.{h,cpp}`, `sli_typecheck.{h,cpp}` for the core surface; `sli_array_module.{h,cpp}` for the array stdlib (Range / Reverse / Rotate / Flatten / Sort / Transpose / Partition / arrayload / arraystore / GetMin / GetMax / valid_a / finite_q_d / Map / MapIndexed / MapThread); `sli_container_ops.{h,cpp}` for length / get / put / join_s / search_s / cvi_s / cvd_s / known / where / undef; `sli_io_ops.{h,cpp}` for ifstream / ofstream / cvx_f / close / eof / getline_is; `sli_startup.{h,cpp}` for statusdict / evalstring / cin / cout / cerr / `<-` / `<--` / endl / flush / begin / end / dict / currentdict and the sli-init.sli locator. |
+| `src/trie/` | `sli_trie.h`, `sli_trietype.h`, `sli_type_trie.{h,cpp}` — the trie-based operator dispatch. |
+| `src/serialize/` | `sli_serialize.{h,cpp}` — `Writer` / `Reader` abstract, `BinaryWriter` / `BinaryReader`, `write_token` / `read_token` entry points. |
+| `src/util/` | `sli_exceptions.{h,cpp}`, `compose.hpp`. |
+| `tests/` | `test_serialize.cpp`, `test_array.cpp`, `test_array_module.cpp`, `test_sli_eval.cpp` (+ `test_harness.h`) — CTest, bare assertions. |
+| `lib/sli/` | Vendored NEST 2.20.2 startup scripts: sli-init, typeinit, misc_helpers, library, ps-lib, FormattedIO, debug, helpinit, mathematica, oosupport, regexp, arraylib. |
 
 ### `unported/` — out-of-scope or NEST 2.x-only
 
