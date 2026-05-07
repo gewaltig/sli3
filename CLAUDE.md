@@ -77,13 +77,13 @@ When adding a new test: drop `test_<thing>.cpp` next to the others, add a short 
 
 | Area | Files |
 |---|---|
-| Core types | `sli_token.{h,cpp}`, `sli_type.{h,cpp}`, `sli_aggregatetoken.h` |
+| Core types | `sli_token.{h,cpp}`, `sli_type.{h,cpp}` |
 | Type implementations | `sli_{integer,double,bool,name,literal,string,array,dict,function,iostream}type.{h,cpp}` |
 | Containers | `sli_array.{h,cpp}`, `sli_dictionary.{h,cpp}`, `sli_dictstack.{h,cpp}`, `sli_tokenstack.{h,cpp}` |
 | Strings & streams | `sli_string.h` (`SLIString`), `sli_iostream.{h,cpp}` (`SLIistream`/`SLIostream`) — intrusive-refcount wrappers |
 | Names / interning | `sli_name.{h,cpp}` (Name is a uint handle into a global table) |
 | Parser/scanner | `sli_scanner.{h,cpp}`, `sli_parser.{h,cpp}`, `sli_charcode.{h,cpp}` |
-| Interpreter | `sli_interpreter.{h,cpp}`, `sli_main.cpp` |
+| Interpreter | `sli_interpreter.{h,cpp}`, `sli_main.cpp`, `sli_module.h` (SLIModule base; declared but no concrete subclass yet) |
 | Builtins / control / math | `sli_builtins.{h,cpp}`, `sli_control.{h,cpp}`, `sli_math.{h,cpp}`, `sli_stack.{h,cpp}`, `sli_typecheck.{h,cpp}` |
 | Tries (operator dispatch) | `sli_trie.h`, `sli_trietype.h`, `sli_type_trie.{h,cpp}` |
 | Serialization | `sli_serialize.{h,cpp}` (`Writer`/`Reader` abstract; `BinaryWriter`/`Reader` impls; `write_token`/`read_token` entry points) |
@@ -92,30 +92,44 @@ When adding a new test: drop `test_<thing>.cpp` next to the others, add a short 
 | Stream I/O | `sli_io_ops.{h,cpp}` (`init_io_ops`: ifstream / ofstream / cvx_f / close / eof / getline_is; `file` is a SLI trie defined by sli-init.sli) |
 | Startup | `sli_startup.{h,cpp}` (`init_slistartup`: statusdict, cin/cout/cerr, getenv / evalstring / `<-` / `<--` / endl / flush / begin / end / dict / currentdict; locates and opens sli-init.sli) |
 | Vendored .sli | `lib/sli/*.sli` (NEST 2.20.2 — sli-init, typeinit, misc_helpers, library, ps-lib, FormattedIO, debug, helpinit, mathematica, oosupport, regexp, arraylib) |
-| Tests | `test_serialize.cpp`, `test_array.cpp`, `test_array_module.cpp` (CTest, bare assertions) |
+| Tests | `test_serialize.cpp`, `test_array.cpp`, `test_array_module.cpp`, `test_sli_eval.cpp` (+ `test_harness.h`) — CTest, bare assertions |
 | Exceptions / utility | `sli_exceptions.{h,cpp}`, `compose.hpp` |
 
-### On disk but **not** in the build (rewrite, don't port)
+### `unported/` — out-of-scope or NEST 2.x-only
 
-These files are NEST 2.x verbatim. They use the old `Datum*`/`LockPTR` API,
-not sli3's `Token`/`SLIType`, and would not compile against the modernized
-core. Per the rewrite directive: treat each as a **reference for which
-operators exist**, then write fresh implementations against the new
-container layer.
+Reference for what existed in the 2015 tree, not built. Two flavours:
 
-- `sli_io.cpp` — stream I/O. Slice 6 will rewrite as a thin layer over
-  `std::fstream` / `std::stringstream`.
-- `sli_fdstream.{h,cpp}` — custom POSIX-fd `streambuf`. Replaced wholesale
-  by `std::fstream` per Q4; will be deleted, not ported.
-- `sli_startup.{h,cpp}` — locates and loads `sli-init.sli`. Slice 5
-  rewrites as a fresh `SLIModule` and vendors NEST 2.x `sli-init.sli`.
-- `sli_module.cpp`, `sli_tokenutils.cpp` — referenced from headers; check
-  before excluding.
+1. **Out-of-scope but useful later:** `sli_processes.{h,cpp}` — POSIX
+   `fork`/`exec`/`waitpid` wrappers, deferred per Q4.
+2. **Dead-on-disk reference:** files using the legacy `Datum*` /
+   `LockPTR` / `*Datum` API that don't match the modern core. Kept as
+   documentation of what operators existed; the equivalents are being
+   rewritten in fresh files in the project root.
+   - `sli_io.{h,cpp}` — full I/O surface. Slice 6 rewrites as a thin
+     layer over `std::fstream` / `std::stringstream`. The minimal
+     subset already lives in `sli_io_ops.{h,cpp}`.
+   - `sli_fdstream.{h,cpp}` — custom POSIX-fd `streambuf`. Replaced
+     wholesale by `std::fstream` per Q4; will be deleted, not ported.
+   - `sli_module.cpp` — `SLIModule::install` / `commandstring`
+     definitions. Header stays in the build (declares the base class
+     `SLIInterpreter::addmodule` accepts), but no concrete subclass
+     exists, so the .cpp's symbols are not needed at link time. Also
+     has a typo (`sli3::std::string`) that breaks compilation.
+   - `sli_tokenutils.{h,cpp}` — `getValue<T>` / `setValue<T>` over the
+     legacy `Datum*` abstraction. Modern code uses direct field
+     access (`token.data_.<field>_val`) instead.
+   - `sli_array_functions.h` — header for the legacy 2k-line array
+     stdlib. Replaced by `sli_array_module.{h,cpp}` (Slice 4).
+   - `sli_aggregatetoken.h` — NEST 2.x templated aggregate-token
+     wrapper. The 16-byte `Token` + `SLIType` polymorphism covers the
+     same job; nothing in the modern build references it.
+   - `sli_config.h` — autoconf-style `@FOO@` placeholder header.
+     Replaced by `config.h.in` + CMake `configure_file()` (Slice 5a).
+   - `test_dictionary.cpp`, `test_token.cpp` — original 2015 tests
+     against the legacy API. Replacements built incrementally
+     (`test_array.cpp`, `test_serialize.cpp`, etc.).
 
-### `unported/`
-
-`sli_processes.{h,cpp}` — POSIX `fork`/`exec`/`waitpid` wrappers. Out of
-scope for the core-language phase per Q4.
+   See `unported/README.md` for the full per-file rationale.
 
 ## Important: don't port NEST-era code line-by-line
 
