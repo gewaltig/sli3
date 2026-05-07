@@ -5,7 +5,17 @@
 //        Reads one edited line. Returns false on EOF (Ctrl-D) or
 //        when the user hits Ctrl-C.
 //   `(line)   GNUaddhistory -> -`
-//        Appends `line` to the in-memory history ring (up-arrow, etc).
+//        Appends `line` to the in-memory history ring (up-arrow, etc)
+//        and saves the ring to $HOME/.sli3_history so it survives
+//        across sessions.
+//
+// History persistence:
+//   - On init we load $HOME/.sli3_history (if present) into the ring.
+//   - On every GNUaddhistory we save the ring back to disk. Doing it
+//     per-line costs one fast file write but means history survives
+//     crashes / SIGKILL / `quit` paths that don't run an exithook.
+//   - If $HOME isn't set or the file can't be opened we silently
+//     run without persistence — matches GNU readline's behaviour.
 //
 // linenoise itself falls back to fgets when stdin is not a tty, so
 // non-interactive (piped) input still works without changes.
@@ -20,12 +30,20 @@
 
 #include "linenoise/linenoise.h"
 
+#include <cstdlib>
 #include <string>
 
 namespace sli3
 {
 namespace
 {
+
+// Resolved at init time. Empty if $HOME wasn't set, in which case
+// the load/save calls become no-ops.
+std::string history_file;
+
+// Maximum history entries kept in memory and saved to disk.
+constexpr int kHistoryMaxLen = 1000;
 
 class GNUreadlineFunction : public SLIFunction
 {
@@ -63,7 +81,14 @@ public:
         std::string const& s = i->top().data_.string_val->str();
         // Skip empty lines so they don't clutter the history ring.
         if (!s.empty())
+        {
             linenoiseHistoryAdd(s.c_str());
+            // Persist after every add so unexpected exits don't lose
+            // recent history. If history_file is empty (no $HOME),
+            // skip silently — this is best-effort, not load-bearing.
+            if (!history_file.empty())
+                linenoiseHistorySave(history_file.c_str());
+        }
         i->pop();
         i->EStack().pop();
     }
@@ -78,6 +103,21 @@ void init_sli_readline(SLIInterpreter* i)
 {
     i->createcommand("GNUreadline",   &gnureadline_fn);
     i->createcommand("GNUaddhistory", &gnuaddhistory_fn);
+
+    // Configure the linenoise history ring before loading: the cap
+    // applies to both the in-memory ring and the saved file.
+    linenoiseHistorySetMaxLen(kHistoryMaxLen);
+
+    // Resolve $HOME once and remember the path. On startup, prime the
+    // ring from disk so up-arrow recalls commands from earlier
+    // sessions. If the file doesn't exist yet, linenoiseHistoryLoad
+    // returns -1 silently — the first GNUaddhistory will create it.
+    char const* home = std::getenv("HOME");
+    if (home && *home)
+    {
+        history_file = std::string(home) + "/.sli3_history";
+        linenoiseHistoryLoad(history_file.c_str());
+    }
 }
 
 }  // namespace sli3
