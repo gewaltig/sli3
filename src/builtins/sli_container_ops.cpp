@@ -505,6 +505,73 @@ public:
     }
 };
 
+// `a1 idx a2 insert_a -> a1'` — insert all elements of a2 into a1
+// starting at position idx; existing elements at idx and beyond shift
+// right. Result is a fresh arraytype. NEST 2.20.2 sli/slidata.cc uses
+// a1->insert_move(idx, a2); we copy.
+//
+// Validation per NEST: idx >= 0 && idx < a1.size() (strict — idx==size
+// rejected; empty source always rejected). Out-of-range raises
+// RangeCheckError.
+class InsertArrayFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, sli3::arraytype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::arraytype);
+        TokenArray const* a1 = i->pick(2).data_.array_val;
+        long idx = i->pick(1).data_.long_val;
+        TokenArray const* a2 = i->top().data_.array_val;
+        if (idx < 0 || static_cast<size_t>(idx) >= a1->size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        TokenArray* out = new TokenArray();
+        out->reserve(a1->size() + a2->size());
+        size_t pos = static_cast<size_t>(idx);
+        for (size_t k = 0; k < pos; ++k)         out->push_back(a1->get(k));
+        for (size_t k = 0; k < a2->size(); ++k)  out->push_back(a2->get(k));
+        for (size_t k = pos; k < a1->size(); ++k) out->push_back(a1->get(k));
+        i->pop(3);
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `s1 idx s2 insert_s -> s1'` — same shape as insert_a, stringtype payload.
+class InsertStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        i->require_stack_type(2, sli3::stringtype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::stringtype);
+        std::string const& s1 = i->pick(2).data_.string_val->str();
+        long idx = i->pick(1).data_.long_val;
+        std::string const& s2 = i->top().data_.string_val->str();
+        if (idx < 0 || static_cast<size_t>(idx) >= s1.size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        std::string out;
+        out.reserve(s1.size() + s2.size());
+        size_t pos = static_cast<size_t>(idx);
+        out.append(s1, 0, pos);
+        out.append(s2);
+        out.append(s1, pos, std::string::npos);
+        i->pop(3);
+        i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
+        i->EStack().pop();
+    }
+};
+
 // `p1 p2 join_p -> p1++p2` — same shape as join_a, proceduretype payload.
 class JoinProcedureFunction : public SLIFunction
 {
@@ -534,6 +601,8 @@ GetintervalArrayFunction   getinterval_a_fn;
 GetintervalStringFunction  getinterval_s_fn;
 JoinArrayFunction          join_a_fn;
 JoinProcedureFunction      join_p_fn;
+InsertArrayFunction        insert_a_fn;
+InsertStringFunction       insert_s_fn;
 
 //------------------------------------------------------------------------
 // Dictionary lookup helpers
@@ -681,6 +750,8 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("getinterval_s", &getinterval_s_fn);
     i->createcommand("join_a",        &join_a_fn);
     i->createcommand("join_p",        &join_p_fn);
+    i->createcommand("insert_a",      &insert_a_fn);
+    i->createcommand("insert_s",      &insert_s_fn);
 
     i->createcommand("known",     &known_fn);
     i->createcommand("where",     &where_fn);

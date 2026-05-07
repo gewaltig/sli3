@@ -248,6 +248,44 @@ int main()
     EVAL_INT(i,    "{} {} join_p length_p",                        0);
     EVAL_DEPTH(i,  "{1 2} {3 4} join_p",                           1);
 
+    // -------- insert_a / insert_s --------------------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc:
+    //   c1 idx c2 insert_<a|s> -> c1'   (c2 inserted at idx; tail shifts right)
+    // Strict validation: idx in [0, size); idx==size is RangeCheck.
+
+    // Doc example: [20 21 22 24 25 26] 3 [23] insert -> [20 21 22 23 24 25 26]
+    EVAL_INT(i,    "[20 21 22 24 25 26] 3 [23] insert_a length_a", 7);
+    EVAL_INT(i,    "[20 21 22 24 25 26] 3 [23] insert_a 0 get_a", 20);
+    EVAL_INT(i,    "[20 21 22 24 25 26] 3 [23] insert_a 3 get_a", 23);
+    EVAL_INT(i,    "[20 21 22 24 25 26] 3 [23] insert_a 4 get_a", 24);
+    EVAL_INT(i,    "[20 21 22 24 25 26] 3 [23] insert_a 6 get_a", 26);
+
+    // Insert multi-element at front (prepend equivalent).
+    EVAL_INT(i,    "[1 2 3] 0 [99 100] insert_a length_a",         5);
+    EVAL_INT(i,    "[1 2 3] 0 [99 100] insert_a 0 get_a",         99);
+    EVAL_INT(i,    "[1 2 3] 0 [99 100] insert_a 1 get_a",        100);
+    EVAL_INT(i,    "[1 2 3] 0 [99 100] insert_a 2 get_a",          1);
+
+    // Empty insert leaves source unchanged.
+    EVAL_INT(i,    "[1 2 3] 0 [] insert_a length_a",               3);
+    EVAL_INT(i,    "[1 2 3] 0 [] insert_a 0 get_a",                1);
+
+    EVAL_DEPTH(i,  "[1 2] 0 [9] insert_a",                         1);
+
+    // Doc example: (spikesimulation) 5 (train) insert -> (spiketrainsimulation)
+    EVAL_INT(i,    "(spikesimulation) 5 (train) insert_s length_s", 20);
+    EVAL_INT(i,    "(spikesimulation) 5 (train) insert_s 5 get_s",  't');
+    EVAL_INT(i,    "(spikesimulation) 5 (train) insert_s 9 get_s",  'n');
+    EVAL_INT(i,    "(spikesimulation) 5 (train) insert_s 10 get_s", 's');  // shifted
+
+    EVAL_INT(i,    "(abc) 0 (XYZ) insert_s length_s",               6);
+    EVAL_INT(i,    "(abc) 0 (XYZ) insert_s 0 get_s",                'X');
+    EVAL_INT(i,    "(abc) 0 (XYZ) insert_s 3 get_s",                'a');
+
+    EVAL_INT(i,    "(hello) 0 () insert_s length_s",                5);  // empty insert
+
+    EVAL_DEPTH(i,  "(abc) 0 (X) insert_s",                          1);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }
