@@ -231,6 +231,52 @@ public:
     }
 };
 
+// `src dst CopyFile -> --` — file-system copy. Mirrors NEST 2.20.2
+// sli/filesystem.cc CopyFileFunction. Pops both arguments on success;
+// raises BadIO on failure — critically, also pops them in the error
+// path so the operand stack is clean for the surrounding stopped
+// handler. The previous "CopyFile : DictError" trace left two
+// strings stranded on the stack, which then polluted every later
+// dispatch and made the executive REPL unusable.
+class CopyFileFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::stringtype);
+        i->require_stack_type(0, sli3::stringtype);
+        std::string src = i->pick(1).data_.string_val->str();
+        std::string dst = i->top().data_.string_val->str();
+        i->pop(2);
+
+        std::ifstream in(src, std::ios::binary);
+        if (!in)
+        {
+            i->message(M_ERROR, "CopyFile",
+                       ("Could not open source file: " + src).c_str());
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        std::ofstream out(dst, std::ios::binary);
+        if (!out)
+        {
+            i->message(M_ERROR, "CopyFile",
+                       ("Could not create destination file: " + dst).c_str());
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        out << in.rdbuf();
+        if (!out)
+        {
+            i->message(M_ERROR, "CopyFile", "Error during copy.");
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        i->EStack().pop();
+    }
+};
+
 // `ostream str -> string` — extract the accumulated contents of an
 // ostrstream-style output stream. Only meaningful for streams backed
 // by std::ostringstream; for other ostreamtype values it returns the
@@ -263,6 +309,7 @@ EofStreamFunction      eof_fn;
 GetlineIsFunction      getline_is_fn;
 OstrstreamFunction     ostrstream_fn;
 StrFunction            str_fn;
+CopyFileFunction       copyfile_fn;
 
 }  // anonymous namespace
 
@@ -276,6 +323,7 @@ void init_io_ops(SLIInterpreter* i)
     i->createcommand("getline_is", &getline_is_fn);
     i->createcommand("ostrstream", &ostrstream_fn);
     i->createcommand("str",        &str_fn);
+    i->createcommand("CopyFile",   &copyfile_fn);
 }
 
 }  // namespace sli3

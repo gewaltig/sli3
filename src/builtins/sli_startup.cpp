@@ -462,7 +462,7 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
         ":resize_a", ":resize_s",
         "capacity_a", "capacity_s",
         "cva_d",
-        "cvlp_p", "cvn_s", "cvx_a",
+        "cvlp_p", "cvn_s",
         "doublevector2array",
         "intvector2array",
         "keys", "values",

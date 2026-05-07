@@ -265,6 +265,23 @@ Name: type - Return the type of an object
 Synopsis: obj type -> /typename
 Examples: 1 type -> /integertype
 */
+// `arr cvx_a -> proc` — convert array to executable procedure. Same
+// underlying TokenArray; only the SLIType discriminator changes.
+// Mirrors NEST 2.20.2 sli/slidata.cc Cvx_aFunction.
+class CvxAFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::arraytype);
+        i->top().type_ = i->get_type(sli3::proceduretype);
+        i->EStack().pop();
+    }
+};
+
+CvxAFunction cvx_a_fn;
+
 void TypeFunction::execute(SLIInterpreter *i) const
 {
     static SLIType *literal_t=i->get_type(sli3::literaltype);
@@ -358,6 +375,7 @@ void init_slitypecheck(SLIInterpreter *i)
     i->createcommand("cva_t", &cva_tfunction);
     i->createcommand("cvt_a", &cvt_afunction);
     i->createcommand("type",      &typefunction);
+    i->createcommand("cvx_a",     &cvx_a_fn);
     // typeinfo is registered by init_slicontrol, see sli_control.cpp.
     i->createcommand("cvlit_n",   &cvlit_nfunction);
     i->createcommand("cvn_l",     &cvn_lfunction);

@@ -85,7 +85,19 @@ namespace sli3
 
     bool Token::operator==(Name n) const
     {
-	return type_ and type_->get_typeid()==sli3::nametype and data_.name_val==n.toIndex();
+	// nametype / literaltype / symboltype all carry a Name handle in
+	// data_.name_val; they differ only in execution semantics. The
+	// parser returns a symboltype for EndSymbol, and Token_sFunction
+	// compares the result against the EndSymbol Name to detect
+	// end-of-input. Restricting to nametype here silently made that
+	// comparison always false, so cst's tokenize loop never
+	// terminated.
+	if (!type_) return false;
+	const auto tid = type_->get_typeid();
+	return (tid == sli3::nametype
+	        || tid == sli3::literaltype
+	        || tid == sli3::symboltype)
+	    && data_.name_val == n.toIndex();
     }
 
 
