@@ -81,8 +81,13 @@ void DictionaryStack::pop(void)
 
   Dictionary *top = *(d.begin());
 
+  // Cache invalidation. Cached pointers into `top`'s entries become
+  // dangling as soon as `top` is gone (and once we drop our reference,
+  // it may actually be deleted). Same rationale as push: cache_token
+  // is unconditional, so invalidation must be too.
+  clear_dict_from_cache(top);
+
 #ifdef DICTSTACK_CACHE
-    clear_dict_from_cache(top);
     top->remove_dictstack_reference();
 #endif
     d.pop_front();
@@ -146,10 +151,16 @@ void DictionaryStack::push(Token dicttoken)
   // DictionaryStack::pop().
   dict->add_reference();
 
+  // The name cache (cache_[]) holds raw Token* pointers into dictionary
+  // entries. Names already cached for a dict that's not yet on the stack
+  // would shadow same-named bindings from the new top dict. Pushing a
+  // dict therefore always invalidates any cached entries that share its
+  // keys. (cache_token() in lookup is called regardless of the
+  // DICTSTACK_CACHE macro, so invalidation must be too.)
+  clear_dict_from_cache(dict);
+
 #ifdef DICTSTACK_CACHE
     dict->add_dictstack_reference();
-    // This call will remove all names in the dict from the name cache.
-    clear_dict_from_cache(dict);
 #endif
 
     d.push_front(dict);

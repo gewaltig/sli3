@@ -443,6 +443,17 @@ int main()
     EVAL_STRING(i, "(hello) ostrstream pop exch <- str",            "hello");
     EVAL_STRING(i, "ostrstream pop str",                            "");
 
+    // -------- call (oosupport) -----------------------------------
+    // `dict key call`: look up `key` in `dict`, push `dict` onto the
+    // dictstack, execute the resulting name, then pop the dict back
+    // off. Non-executable values just land on the operand stack;
+    // procedures get executed with `dict` as the current namespace.
+    // From NEST 2.20.2 sli/oosupport.cc CallMemberFunction.
+    EVAL_INT(i,    "<< /x 42 >> /x call",                           42);
+    EVAL_STRING(i, "<< /msg (hi) >> /msg call",                     "hi");
+    // Procedure value: dict-resident proc executed in dict's scope.
+    EVAL_INT(i,    "<< /two { 1 1 add_ii } >> /two call",            2);
+
     // -------- search_a -------------------------------------------
     // Semantics from NEST 2.20.2 sli/slidata.cc Search_aFunction:
     //   c1 needle search_a -> post match pre true   (when found)

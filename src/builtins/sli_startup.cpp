@@ -372,6 +372,10 @@ Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
     insert_str(i, *d, "prgpatch", SLI3_VERSION_PATCH);
     insert_str(i, *d, "built",    std::string(__DATE__) + " " + __TIME__);
     insert_str(i, *d, "prgdatadir", datadir);
+    // prgdocdir is consumed by helpinit.sli (HelpRoot, HelpdeskURL).
+    // We don't ship help docs yet — point at datadir as a harmless
+    // default so the lookups succeed and helpinit.sli loads.
+    insert_str(i, *d, "prgdocdir",  datadir);
     insert_int(i, *d, "exitcode", EXIT_SUCCESS);
     insert_bool(i, *d, "interactive", true);
 
@@ -457,6 +461,9 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
         "regerror_", "regexec_",
         "reserve_a", "reserve_s",
         "shrink_a",
+        // FormattedIO.sli — typed-stream read helpers, not on the
+        // interactive-prompt path.
+        "ReadDouble", "ReadInt", "ReadWord",
     };
     for (const char* name : unimplemented_ops)
     {
@@ -486,6 +493,20 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
                 datadir = init_path.substr(0, p2);
         }
     }
+    // sli-init.sli runs `moduleinitializers { initialize_module } forall`
+    // late in the bootstrap. In NEST 2.x both are populated by C++
+    // modules via SLIModule::commandstring; sli3 has no concrete
+    // SLIModule subclasses (per the scope decision), so bind harmless
+    // empties and the forall becomes a no-op. iterate-over-empty-string
+    // matches NEST's data shape (commandstring is a string).
+    i->def(Name("moduleinitializers"),
+           i->new_token<sli3::stringtype, std::string>(std::string()));
+    {
+        TokenArray* p = new TokenArray();
+        Token init_proc = i->new_token<sli3::proceduretype, TokenArray*>(p);
+        i->def(Name("initialize_module"), init_proc);
+    }
+
     Dictionary* statusdict = build_statusdict(*i, argc, argv, datadir);
     Token status_tok(i->get_type(sli3::dictionarytype));
     status_tok.data_.dict_val = statusdict;

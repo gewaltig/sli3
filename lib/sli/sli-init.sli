@@ -1890,10 +1890,15 @@ moduleinitializers
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Mathematica Style Formatted IO % 
+%% Mathematica Style Formatted IO %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-(FormattedIO.sli) run
+% sli3 scope cut: FormattedIO.sli relies on /Options /GetOption
+% defined in mathematica.sli, which sli-init.sli does not load. The
+% interactive REPL doesn't need ReadList / Read / Export, so this
+% script is skipped. Re-enable once mathematica.sli's option machinery
+% is supported.
+% (FormattedIO.sli) run
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1908,12 +1913,16 @@ moduleinitializers
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    Online Help System        %% 
-%%                              %%   
+%%                              %%
 %%   run after modules are      %%
-%%   initialized                %%   
+%%   initialized                %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-(helpinit.sli) run
+% sli3 scope cut: helpinit.sli relies on regcomp / regexec (POSIX
+% regex), which are not yet implemented. The interactive REPL doesn't
+% need the help system, so this script is skipped. Re-enable once a
+% regex layer (or stubs that satisfy the Keyword defs) is in.
+% (helpinit.sli) run
 
 
 

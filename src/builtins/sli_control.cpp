@@ -561,6 +561,35 @@ void LookupFunction::execute(SLIInterpreter *i) const
 
 }
 
+// `dict key call -> ...` — look up `key` in `dict`, push `dict` onto
+// the dictstack as a new namespace, execute the value, then pop `dict`
+// back off. Mirrors NEST 2.20.2 sli/oosupport.cc CallMemberFunction.
+//
+// The dispatcher will execute the next item on the estack; we leave
+// behind [..., end, /key] so that:
+//   1. /key resolves under the new top dict (= the one we pushed)
+//      and produces the bound value, executing it if it's executable.
+//   2. /end pops the dict back off the dictstack.
+class CallMemberFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::dictionarytype);
+        i->require_stack_type(0, sli3::literaltype);
+        Token dict_tok = i->pick(1);   // copy (refcount via Token)
+        Name key = i->top().data_.name_val;
+        i->pop(2);
+        i->EStack().pop();             // pop self
+        i->DStack().push(dict_tok);    // open namespace
+        i->EStack().push(i->baselookup(i->end_name));  // schedule close
+        i->EStack().push(i->new_token<sli3::nametype, Name>(key));
+    }
+};
+
+CallMemberFunction call_member_fn;
+
 
 
 /*BeginDocumentation
@@ -1812,6 +1841,7 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("currentname",&currentnamefunction);
   i->createcommand("start",     &startfunction);
   i->createcommand("def",&deffunction);
+  i->createcommand("call", &call_member_fn);
   i->createcommand("Set",&setfunction);
   i->createcommand("load",&loadfunction);
   i->createcommand("lookup",&lookupfunction);
