@@ -21,7 +21,10 @@
 #include "sli_token.h"
 #include "sli_interpreter.h"
 
+#include <cerrno>
+#include <climits>
 #include <cmath>
+#include <cstdlib>
 #include <sstream>
 #include <limits>
 
@@ -81,7 +84,7 @@ namespace sli3
 {
   Scanner::Scanner(std::istream* is)
     : in(is), code(std::numeric_limits<unsigned char>::max(),invalid),
-      line(0),
+      line(1),   // 1-indexed: input always starts on line 1
       col(0),
       space(32),tab(9),endoln(10),cr(13),endof(4), ds(),
       BeginArraySymbol("BeginArraySymbol"), // these symbol-names cannot be entered
@@ -485,7 +488,7 @@ namespace sli3
 	if(in != in_s)
 	{
 	    in=in_s;
-	    line=0;
+	    line=1;
 	    col=0;
 	    old_context.clear();
 	    context.clear();
@@ -528,8 +531,11 @@ namespace sli3
       //     in->get(c);    
       c = in->get();
 
-      if(col++ == 0)
-	++line;
+      // Stage 5.6: increment col on every char; line is bumped
+      // exactly once per newline (in the c == endoln branch). The
+      // previous `if(col++ == 0) ++line;` increased line both on
+      // the newline AND on the first char of the next line.
+      ++col;
 
       if(c=='\0' || in->bad())
 	c=endof;
@@ -541,9 +547,10 @@ namespace sli3
 
       if(c != endof)
 	context+=c;
-      
+
       if(c==endoln)
       {
+	++line;
 	col=0;
 	old_context.clear();
 	old_context.swap(context);
@@ -556,19 +563,37 @@ namespace sli3
 //	  case start        :
 //            break;
       case intdgtst   :
-	l=sg*(std::labs(l)*base+digval(c));
+	// Stage 5.7: previous code did
+	//   l = sg * (std::labs(l) * base + digval(c));
+	// which is UB when l reaches LONG_MIN (std::labs(LONG_MIN)
+	// has no positive representation). Defer the actual
+	// integer conversion to aheadintst via strtoll, which
+	// reports ERANGE on overflow without invoking UB.
         ds.push_back(c);
 	break;
 
       case aheadintst :
       {
+	  // Stage 5.7: parse the accumulated digit string with
+	  // strtoll. Reject overflow with a clean state=error rather
+	  // than wrapping silently.
+	  errno = 0;
+	  long long const parsed = std::strtoll(ds.c_str(), nullptr, base);
+	  if (errno == ERANGE
+	      || parsed > LONG_MAX || parsed < LONG_MIN)
+	  {
+	      print_error("Integer literal out of range");
+	      state = error;
+	      break;
+	  }
+	  l = static_cast<long>(parsed);
 	  t=sli.new_token<sli3::integertype>(l);
 	  if(c != endoln && c != endof)
 	  {
 	      in->unget();
 	      --col;
 	  }
-	  
+
 	  ds.clear();
 	  state=end;
       }

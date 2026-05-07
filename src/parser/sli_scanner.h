@@ -182,7 +182,7 @@ namespace sli3
     
     void clear_context()
     {
-      line=0;
+      line=1;
       col=0;
       context.clear();
       old_context.clear();

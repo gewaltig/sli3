@@ -1393,19 +1393,26 @@ SeeAlso: clock, usertime, tic, toc
 */
 
 void Sleep_dFunction::execute(SLIInterpreter *i) const
-{ 
+{
     i->require_stack_load(1);
-    i->require_stack_type(0,sli3::doubletype);
-  const long sec    = 0;
-  const int usec   = 
-      static_cast<int>(i->pick(0).data_.long_val*1000000.);
-  struct timeval tv = { sec, usec };
+    i->require_stack_type(0, sli3::doubletype);
+    // Stage 5.5: read the double payload, not long_val. Previously
+    // sleep_d read the bit pattern of the double interpreted as a
+    // long and slept for an arbitrary amount of time.
+    double const seconds = i->pick(0).data_.double_val;
+    long const sec = static_cast<long>(seconds);
+    long const usec_long =
+        static_cast<long>((seconds - static_cast<double>(sec)) * 1.0e6);
 
-  if (usec>0)
-    select( 0, 0, 0, 0, &tv );
+    struct timeval tv;
+    tv.tv_sec  = sec;
+    tv.tv_usec = static_cast<suseconds_t>(usec_long);
 
-  i->pop();
-  i->EStack().pop(); 
+    if (sec > 0 || usec_long > 0)
+        select(0, 0, 0, 0, &tv);
+
+    i->pop();
+    i->EStack().pop();
 }
 
 

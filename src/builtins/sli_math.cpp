@@ -23,7 +23,9 @@
 #include "sli_type.h"
 #include "sli_interpreter.h"
 
+#include <climits>
 #include <cmath>
+#include <cstdlib>
 
 namespace sli3
 {
@@ -32,6 +34,38 @@ namespace sli3
     T1 max(T1 const &a, T1 const &b)
     {
 	return (a>b) ? a : b;
+    }
+
+    // Stage 5.1: checked-arithmetic helpers. __builtin_*_overflow
+    // returns true on overflow; result is set to the wrapped value.
+    // Use these inside math ops so signed-int overflow surfaces as
+    // RangeCheck rather than UB (LONG_MIN / -1, std::labs(LONG_MIN),
+    // -LONG_MIN, LONG_MAX + 1, ...).
+    inline bool checked_add(long a, long b, long *out)
+    {
+        return __builtin_add_overflow(a, b, out);
+    }
+    inline bool checked_sub(long a, long b, long *out)
+    {
+        return __builtin_sub_overflow(a, b, out);
+    }
+    inline bool checked_mul(long a, long b, long *out)
+    {
+        return __builtin_mul_overflow(a, b, out);
+    }
+    // long abs / negate: LONG_MIN has no positive equivalent in
+    // two's-complement; report overflow rather than wrap.
+    inline bool checked_neg(long a, long *out)
+    {
+        if (a == LONG_MIN) return true;
+        *out = -a;
+        return false;
+    }
+    inline bool checked_abs(long a, long *out)
+    {
+        if (a == LONG_MIN) return true;
+        *out = (a < 0) ? -a : a;
+        return false;
     }
     
     template< class T1>
@@ -71,9 +105,15 @@ void DoubleFunction::execute(SLIInterpreter *i) const
 void Add_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
+    long out;
+    if (checked_add(i->pick(1).data_.long_val,
+                    i->pick(0).data_.long_val, &out))
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
     i->EStack().pop();
-
-    i->pick(1).data_.long_val+= i->pick(0).data_.long_val;
+    i->pick(1).data_.long_val = out;
     i->pop();
 }
 
@@ -109,9 +149,15 @@ void Add_idFunction::execute(SLIInterpreter *i) const
 void Sub_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
+    long out;
+    if (checked_sub(i->pick(1).data_.long_val,
+                    i->pick(0).data_.long_val, &out))
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
     i->EStack().pop();
-
-    i->pick(1).data_.long_val-= i->pick(0).data_.long_val;
+    i->pick(1).data_.long_val = out;
     i->pop();
 }
 
@@ -146,9 +192,15 @@ void Sub_idFunction::execute(SLIInterpreter *i) const
 void Mul_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
+    long out;
+    if (checked_mul(i->pick(1).data_.long_val,
+                    i->pick(0).data_.long_val, &out))
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
     i->EStack().pop();
-
-    i->pick(1).data_.long_val*= i->pick(0).data_.long_val;
+    i->pick(1).data_.long_val = out;
     i->pop();
 }
 
@@ -184,14 +236,23 @@ void Div_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
 
-    if(i->pick(0).data_.long_val !=0)
+    long const num = i->pick(1).data_.long_val;
+    long const den = i->pick(0).data_.long_val;
+    if (den == 0)
     {
-	i->pick(1).data_.long_val /= i->pick(0).data_.long_val;
-	i->EStack().pop();
-	i->pop();
+        i->raiseerror(i->DivisionByZeroError);
+        return;
     }
-    else
-	i->raiseerror(i->DivisionByZeroError);
+    // Stage 5.1: LONG_MIN / -1 overflows in two's-complement; on
+    // x86 this also raises SIGFPE. Surface as RangeCheck.
+    if (num == LONG_MIN && den == -1)
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
+    i->pick(1).data_.long_val = num / den;
+    i->EStack().pop();
+    i->pop();
 }
 
 void Div_ddFunction::execute(SLIInterpreter *i) const
@@ -248,14 +309,23 @@ void Mod_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
 
-    if(i->pick(0).data_.long_val !=0)
+    long const num = i->pick(1).data_.long_val;
+    long const den = i->pick(0).data_.long_val;
+    if (den == 0)
     {
-	i->pick(1).data_.long_val %= i->pick(0).data_.long_val;
-	i->EStack().pop();
-	i->pop();
+        i->raiseerror(i->DivisionByZeroError);
+        return;
     }
-    else
-	i->raiseerror(i->DivisionByZeroError);
+    // Stage 5.1: LONG_MIN % -1 evaluates the corresponding division
+    // first which overflows -- same UB family as div_ii.
+    if (num == LONG_MIN && den == -1)
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
+    i->pick(1).data_.long_val = num % den;
+    i->EStack().pop();
+    i->pop();
 }
 
 
@@ -507,10 +577,17 @@ void Pow_diFunction::execute(SLIInterpreter *i) const
 void Modf_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    double &op1=i->top().data_.double_val;
+    // Stage 5.2: capture op1 BY VALUE before pushing. push(0.0) may
+    // reallocate the operand stack, dangling any reference into it.
+    // The previous code held `double& op1 = top().data_.double_val`
+    // across the push -- use-after-free under a stack reallocation.
+    double const op1_val = i->top().data_.double_val;
     i->push(0.0);
 
-    op1= std::modf(op1, &(i->top().data_.double_val));
+    double int_part = 0.0;
+    double frac = std::modf(op1_val, &int_part);
+    i->pick(1).data_.double_val = frac;
+    i->top().data_.double_val   = int_part;
 
     i->EStack().pop();
 }
@@ -613,9 +690,15 @@ If e.g. abs_d gets an integer as argument, NEST will exit throwing an assertion.
 void Abs_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    long out;
+    if (checked_abs(i->top().data_.long_val, &out))
+    {
+        // |LONG_MIN| has no representable value.
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
     i->EStack().pop();
-
-    i->top().data_.long_val=std::labs(i->top().data_.long_val);
+    i->top().data_.long_val = out;
 }
 
 /* BeginDocumentation
@@ -661,9 +744,15 @@ void Abs_dFunction::execute(SLIInterpreter *i) const
 void Neg_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    long out;
+    if (checked_neg(i->top().data_.long_val, &out))
+    {
+        // -LONG_MIN overflows in two's-complement.
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
     i->EStack().pop();
-
-    i->top().data_.long_val= -i->top().data_.long_val;
+    i->top().data_.long_val = out;
 }
 
 /* BeginDocumentation
@@ -1203,9 +1292,11 @@ void Lt_ssFunction::execute(SLIInterpreter *i) const
 void UnitStep_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-
-    if(i->top().data_.double_val>=0)
-	i->top().data_.double_val=1.0;
+    // Stage 5.4: write a definite value in BOTH branches. The
+    // previous code only wrote 1.0 for >=0, leaving negative inputs
+    // unchanged -- so `(-1.5) UnitStep` returned -1.5 instead of 0.0.
+    i->top().data_.double_val =
+        (i->top().data_.double_val >= 0.0) ? 1.0 : 0.0;
     i->EStack().pop();
 }
 
@@ -1213,8 +1304,12 @@ void UnitStep_dFunction::execute(SLIInterpreter *i) const
 void UnitStep_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-
-    i->top().data_.long_val= i->top().data_.double_val >=0;
+    // Stage 5.4: read the integer payload (long_val), not double_val.
+    // The previous code read the wrong union member -- the bit
+    // pattern of a long interpreted as a double -- and stored a
+    // long without updating the type discriminator.
+    i->top().data_.long_val =
+        (i->top().data_.long_val >= 0) ? 1 : 0;
     i->EStack().pop();
 }
 
@@ -1271,7 +1366,11 @@ void UnitStep_iaFunction::execute(SLIInterpreter *i) const
 void Round_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->top().data_.double_val= std::floor(i->top().data_.double_val+0.5);
+    // Stage 5.3: std::round is half-away-from-zero and well-defined
+    // for all finite doubles. The previous floor(x+0.5) failed for
+    // negative half-integers (-0.5 rounded to 0 instead of -1) and
+    // lost precision near LONG_MAX where 0.5 < ULP.
+    i->top().data_.double_val = std::round(i->top().data_.double_val);
     i->EStack().pop();
 }
 

@@ -52,9 +52,19 @@ SeeAlso: pop
 void NpopFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    size_t n=i->top().data_.long_val;
-    i->require_stack_load(n+1);
-    i->pop(n+1);
+    // Stage 5.8: range-check the count BEFORE casting to size_t.
+    // A negative input would wrap to a huge unsigned and the
+    // subsequent require_stack_load would raise the wrong error
+    // (StackUnderflow with insane numbers).
+    long const raw = i->top().data_.long_val;
+    if (raw < 0)
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
+    size_t n = static_cast<size_t>(raw);
+    i->require_stack_load(n + 1);
+    i->pop(n + 1);
     i->EStack().pop();
 }
 
@@ -116,11 +126,16 @@ void IndexFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
 
-    size_t pos=i->top().data_.long_val +1;
+    long const raw = i->top().data_.long_val;
+    if (raw < 0)
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
+    size_t const pos = static_cast<size_t>(raw) + 1;
     i->require_stack_load(pos);
     i->EStack().pop();
-    i->top()=i->pick(pos);
-
+    i->top() = i->pick(pos);
 }
 
 /* BeginDocumentation
@@ -137,12 +152,18 @@ SeeAlso: dup, over, index
 void CopyFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    size_t n=i->top().data_.long_val;
-    i->require_stack_load(n);
+    long const raw = i->top().data_.long_val;
+    if (raw < 0)
+    {
+        i->raiseerror(i->RangeCheckError);
+        return;
+    }
+    size_t const n = static_cast<size_t>(raw);
+    i->require_stack_load(n + 1);    // n elements + the count itself
     i->EStack().pop();
     i->pop();
-    for(size_t p=0; p< n; ++p)
-	i->OStack().index(n-1); //  Since the stack is growing, the argument to index is constant.
+    for (size_t p = 0; p < n; ++p)
+        i->OStack().index(n - 1); // stack growing, argument constant
 }
 
 /*BeginDocumentation
