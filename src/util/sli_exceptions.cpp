@@ -113,7 +113,7 @@ std::string StackUnderflow::message()
     {
       out << "Command needs more arguments";
       if(given)
-	out << "than "<< given;
+	out << " than "<< given;
       out <<".";
     }
 

@@ -260,6 +260,17 @@ namespace sli3
 	    {
 		return dictionary_stack_;
 	    }
+
+	/**
+	 * Access errordict directly. Useful for tests that need to
+	 * inspect /errorname / /commandname / /message after a
+	 * raiseerror, without having to resolve through the dict
+	 * stack (which requires sli-init.sli to have pushed errordict).
+	 */
+	Dictionary& error_dict() const
+	    {
+		return *error_dict_;
+	    }
 	
 	
 	bool step_mode() const {return false;}

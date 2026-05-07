@@ -314,9 +314,14 @@ void SLIInterpreter::raiseerror(std::exception &err) {
   Name command_n("command");
 
   assert(error_dict_ != NULL);
-  error_dict_->insert(
-      command_n,
-      execution_stack_.top()); // store the func/trie that caused the error.
+  // Read the failing op (top of e-stack) into /command BEFORE
+  // popping. The Name overload pops in raiseerror(Name); we mirror
+  // that here so both error-entry paths leave the e-stack at the
+  // same depth (Stage 3.3). Without the pop, the failing op stays
+  // on the estack with /cmd and stop on top -- when stop unwinds,
+  // the op would be re-executed.
+  error_dict_->insert(command_n, execution_stack_.top());
+  execution_stack_.pop();
 
   // SLIException provide addtional information
   SLIException *slierr = dynamic_cast<SLIException *>(&err);
@@ -354,46 +359,49 @@ void SLIInterpreter::raiseerror(Name cmd, Name err) {
   }
 
   if (!already_in_error) {
-    // Diagnostic: print every first-time error so bootstrap
-    // failures aren't silent. Include a quick dump of the top
-    // few estack entries to point at the failure site.
-    std::cerr << "[raiseerror] " << cmd.toString() << " : " << err.toString()
-              << "\n  ostack:";
-    {
-      size_t lim = std::min<size_t>(operand_stack_.load(), 5);
-      for (size_t k = 0; k < lim; ++k) {
-        std::cerr << "\n   [" << k << "] ";
-        Token const &t = operand_stack_.pick(k);
-        t.pprint(std::cerr);
-        if (t.type_ && (t.type_->get_typeid() == sli3::nametype ||
-                        t.type_->get_typeid() == sli3::literaltype ||
-                        t.type_->get_typeid() == sli3::symboltype)) {
-          std::cerr << " = " << Name(t.data_.name_val).toString();
+    // Diagnostic: only fires at M_DEBUG verbosity, so the default
+    // (M_INFO) stays clean. The bootstrap-debug bump is one
+    // set_verbosity(M_DEBUG) call away. Originally was unconditional
+    // and spammed stderr on every error.
+    if (verbosity_level_ <= M_DEBUG) {
+      std::cerr << "[raiseerror] " << cmd.toString() << " : " << err.toString()
+                << "\n  ostack:";
+      {
+        size_t lim = std::min<size_t>(operand_stack_.load(), 5);
+        for (size_t k = 0; k < lim; ++k) {
+          std::cerr << "\n   [" << k << "] ";
+          Token const &t = operand_stack_.pick(k);
+          t.pprint(std::cerr);
+          if (t.type_ && (t.type_->get_typeid() == sli3::nametype ||
+                          t.type_->get_typeid() == sli3::literaltype ||
+                          t.type_->get_typeid() == sli3::symboltype)) {
+            std::cerr << " = " << Name(t.data_.name_val).toString();
+          }
         }
       }
-    }
-    std::cerr << "\n  estack:";
-    {
-      size_t lim = std::min<size_t>(execution_stack_.load(), 8);
-      for (size_t k = 0; k < lim; ++k) {
-        std::cerr << "\n   [" << k << "] ";
-        Token const &t = execution_stack_.pick(k);
-        t.pprint(std::cerr);
-        // Resolve name handle to its string for readability.
-        if (t.type_ && (t.type_->get_typeid() == sli3::nametype ||
-                        t.type_->get_typeid() == sli3::literaltype ||
-                        t.type_->get_typeid() == sli3::symboltype)) {
-          std::cerr << " = " << Name(t.data_.name_val).toString();
-        } else if (t.type_ &&
-                   (t.type_->get_typeid() == sli3::proceduretype ||
-                    t.type_->get_typeid() == sli3::litproceduretype) &&
-                   t.data_.array_val) {
-          std::cerr << " body: ";
-          t.print(std::cerr);
+      std::cerr << "\n  estack:";
+      {
+        size_t lim = std::min<size_t>(execution_stack_.load(), 8);
+        for (size_t k = 0; k < lim; ++k) {
+          std::cerr << "\n   [" << k << "] ";
+          Token const &t = execution_stack_.pick(k);
+          t.pprint(std::cerr);
+          // Resolve name handle to its string for readability.
+          if (t.type_ && (t.type_->get_typeid() == sli3::nametype ||
+                          t.type_->get_typeid() == sli3::literaltype ||
+                          t.type_->get_typeid() == sli3::symboltype)) {
+            std::cerr << " = " << Name(t.data_.name_val).toString();
+          } else if (t.type_ &&
+                     (t.type_->get_typeid() == sli3::proceduretype ||
+                      t.type_->get_typeid() == sli3::litproceduretype) &&
+                     t.data_.array_val) {
+            std::cerr << " body: ";
+            t.print(std::cerr);
+          }
         }
       }
+      std::cerr << '\n';
     }
-    std::cerr << '\n';
     error_dict_->insert(newerror_name, new_token<sli3::booltype>(true));
     error_dict_->insert(errorname_name, new_token<sli3::literaltype>(err));
     error_dict_->insert(commandname_name, new_token<sli3::literaltype>(cmd));
@@ -459,10 +467,14 @@ void SLIInterpreter::print_error(Token cmd) {
   // resolve via the Name handle. Casting to std::string& would throw
   // TypeMismatch — and we are CALLED from handleerror in a stopped
   // context, so that secondary error becomes BadErrorHandler.
+  //
+  // Take Token copies up-front (Stage 3.5). The error_dict_->erase
+  // calls below would otherwise invalidate references taken from
+  // the dict; copying detaches the lifetime concern.
   if (error_dict_->known(errorname_name)) {
-    Token const& t = error_dict_->lookup(errorname_name);
+    Token t = error_dict_->lookup(errorname_name);
     if (t.is_of_type(sli3::stringtype)) {
-      errorname = static_cast<std::string&>(const_cast<Token&>(t));
+      errorname = static_cast<std::string&>(t);
     } else if (t.is_of_type(sli3::literaltype) ||
                t.is_of_type(sli3::nametype) ||
                t.is_of_type(sli3::symboltype)) {
@@ -483,32 +495,16 @@ void SLIInterpreter::print_error(Token cmd) {
   } else {
     // Read a pre-defined message from dictionary.
     if (error_dict_->known(Name("message"))) {
-      msg << error_dict_->lookup(Name("message"));
+      Token msg_tok = error_dict_->lookup(Name("message"));
+      msg << msg_tok;
       error_dict_->erase(Name("message"));
     }
 
-    // Print command information for error command.
+    // Read /command but currently nothing else uses it -- the
+    // legacy "print candidates for trietype" block was deleted in
+    // Stage 3.6 (it referenced TrieDatum, the pre-rewrite trie API).
     if (error_dict_->known(Name("command"))) {
-      Token command = error_dict_->lookup(Name("command"));
       error_dict_->erase(Name("command"));
-
-      // Command information is only printed if the
-      // command is of trietype
-      // if(command.datum() != NULL)
-      //{
-      // if(command->gettypename() ==
-      //    Name("trietype"))
-      // {
-      // 	msg << "\n\nCandidates for " << command
-      // 	    << " are:\n";
-
-      // 	TrieDatum *trie=
-      // 	    dynamic_cast<TrieDatum *>(command.datum());
-      // 	assert(trie != NULL);
-
-      // 	trie->get().info(msg);
-      // }
-      //}
     }
   }
 

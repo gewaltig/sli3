@@ -222,8 +222,13 @@ class DictError: public InterpreterError
 public:
   virtual ~DictError() throw() {}
 
- DictError(char const * const)
-   : InterpreterError("DictError")
+  // Forward the subclass-supplied errorname to the SLIException
+  // base. Previously this ctor dropped its argument and hard-coded
+  // "DictError" -- so every UndefinedName / EntryTypeMismatch /
+  // UnaccessedDictionaryEntry surfaced in errordict /errorname as
+  // the generic /DictError, indistinguishable.
+  DictError(char const * const errname)
+   : InterpreterError(errname)
     {}
 };
 
@@ -275,12 +280,12 @@ class EntryTypeMismatch: public DictError
    */
 class StackUnderflow: public InterpreterError
 {
-  int needed;
-  int given;
+  size_t needed;
+  size_t given;
  public:
- StackUnderflow(int n, int g)
-   : InterpreterError("StackUnderflow"), 
-    needed(n), 
+ StackUnderflow(size_t n, size_t g)
+   : InterpreterError("StackUnderflow"),
+    needed(n),
     given(g){}
 
   std::string message();
