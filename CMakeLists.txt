@@ -99,6 +99,31 @@ target_compile_options(sli3_core PRIVATE
   -Wno-unused-parameter
 )
 
+# Tests link sli3_core (PRIVATE flags don't propagate). This INTERFACE
+# helper carries the same flags, so tests inherit -Wall/-Wextra and
+# can't accidentally compile warning-free for the wrong reason.
+add_library(sli3_warnings INTERFACE)
+target_compile_options(sli3_warnings INTERFACE
+  -Wall
+  -Wextra
+  -Wno-unused-parameter
+)
+
+# Optional sanitizer build: -DSLI3_SANITIZE=ON enables ASAN+UBSan.
+# Surfaces self-assign UAFs (Stage 1.1), null-payload UB (Stage 1.2),
+# and the math-op UB (Stage 5: LONG_MIN, divide-by-zero, ...).
+option(SLI3_SANITIZE "Enable AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
+if(SLI3_SANITIZE)
+  target_compile_options(sli3_core PUBLIC
+    -fsanitize=address,undefined
+    -fno-omit-frame-pointer
+    -g
+  )
+  target_link_options(sli3_core PUBLIC
+    -fsanitize=address,undefined
+  )
+endif()
+
 # --- Main binary ----------------------------------------------------------
 add_executable(sli3 src/interpreter/sli_main.cpp)
 target_link_libraries(sli3 PRIVATE sli3_core)
@@ -106,24 +131,22 @@ target_link_libraries(sli3 PRIVATE sli3_core)
 # --- Tests ----------------------------------------------------------------
 enable_testing()
 
-# tests/ is a PUBLIC include path on each test target so they can pick up
-# test_harness.h without a relative ../tests/ prefix.
-add_executable(test_serialize tests/test_serialize.cpp)
-target_link_libraries(test_serialize PRIVATE sli3_core)
-target_include_directories(test_serialize PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-add_test(NAME test_serialize COMMAND test_serialize)
+# Helper: register a test target consistently (link sli3_core + warnings,
+# include tests/, register with CTest, set a hard timeout so a hung
+# dispatcher does not hang CI).
+function(sli3_add_test name source)
+  add_executable(${name} ${source})
+  target_link_libraries(${name} PRIVATE sli3_core sli3_warnings)
+  target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+  add_test(NAME ${name} COMMAND ${name})
+  set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+endfunction()
 
-add_executable(test_array tests/test_array.cpp)
-target_link_libraries(test_array PRIVATE sli3_core)
-target_include_directories(test_array PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-add_test(NAME test_array COMMAND test_array)
-
-add_executable(test_array_module tests/test_array_module.cpp)
-target_link_libraries(test_array_module PRIVATE sli3_core)
-target_include_directories(test_array_module PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-add_test(NAME test_array_module COMMAND test_array_module)
-
-add_executable(test_sli_eval tests/test_sli_eval.cpp)
-target_link_libraries(test_sli_eval PRIVATE sli3_core)
-target_include_directories(test_sli_eval PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-add_test(NAME test_sli_eval COMMAND test_sli_eval)
+sli3_add_test(test_serialize         tests/test_serialize.cpp)
+sli3_add_test(test_array             tests/test_array.cpp)
+sli3_add_test(test_array_module      tests/test_array_module.cpp)
+sli3_add_test(test_sli_eval          tests/test_sli_eval.cpp)
+sli3_add_test(test_token             tests/test_token.cpp)
+sli3_add_test(test_round_trip        tests/test_round_trip.cpp)
+sli3_add_test(test_dispatch_parity   tests/test_dispatch_parity.cpp)
+sli3_add_test(test_two_interpreters  tests/test_two_interpreters.cpp)

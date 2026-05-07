@@ -43,10 +43,22 @@
 namespace sli_test
 {
 
+// Reset the interpreter to a clean per-test state.
+//
+// Clears the operand and execution stacks (their Tokens'
+// destructors fire and release any refcounted payload — including
+// stream wrappers left on the e-stack when a previous eval threw).
+// Resets call_depth_ so step-mode counters from a prior test do not
+// bleed in. The dictionary stack is intentionally NOT touched — the
+// interpreter's bootstrap sets up systemdict / userdict, and tearing
+// those down would leave the next eval without a working lookup
+// path. Tests that mutate user bindings should clean up after
+// themselves (or use a fresh interpreter).
 inline void clear_stacks(sli3::SLIInterpreter& i)
 {
     i.OStack().clear();
     i.EStack().clear();
+    i.set_call_depth(0);
 }
 
 // Parse and execute a SLI source string against an interpreter. Does
@@ -59,10 +71,13 @@ inline void clear_stacks(sli3::SLIInterpreter& i)
 // tokens off the stream, executes them, and exits when the quit
 // surfaces (i.e. when the stream is exhausted and iparse drains).
 //
-// Throws sli3::IllegalOperation or similar if the snippet errors out
-// at the C++ level. SLI-level errors (raiseerror) leave state on the
-// estack/error_dict_ for callers to inspect — assert helpers below
-// treat that as a failure.
+// Ownership: SLIistream(istream*) takes ownership of the istringstream
+// and deletes it when its refcount reaches zero. The Token copy that
+// goes onto the e-stack bumps the wrapper's refcount; iparse pops the
+// xistream Token on EOF, which decrements back to zero — wrapper and
+// stream are freed. On exception (IllegalOperation, allocation
+// failure, …) the next clear_stacks() drains the e-stack and runs the
+// same destructor chain, so callers do not need to clean up explicitly.
 inline void eval(sli3::SLIInterpreter& i, const std::string& src)
 {
     auto* iss = new std::istringstream(src);
