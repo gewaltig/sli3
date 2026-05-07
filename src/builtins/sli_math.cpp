@@ -1015,21 +1015,9 @@ void AndFunction::execute(SLIInterpreter *i) const
     i->pop();
 }
 
-namespace
-{
-class OrFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        i->EStack().pop();
-        i->pick(1).data_.bool_val =
-            i->pick(1).data_.bool_val or i->pick(0).data_.bool_val;
-        i->pop();
-    }
-};
-OrFunction orfunction;
-}  // namespace
+// Stage 4.2: the previous anonymous OrFunction lacked
+// require_stack_load(2) and corrupted memory on under-arity
+// calls. `or` is now registered to or_bbfunction below.
 
 void And_iiFunction::execute(SLIInterpreter *i) const
 {
@@ -1538,7 +1526,7 @@ void init_slimath(SLIInterpreter *i)
     //
     i->createcommand("eq", &eqfunction);
     i->createcommand("and", &andfunction);
-    i->createcommand("or",  &orfunction);
+    i->createcommand("or",  &or_bbfunction);
     // typeinit.sli aliases the bare names `xor` and `not` to the
     // bool-typed implementations so it can build tries on top.
     i->createcommand("xor", &xor_bbfunction);

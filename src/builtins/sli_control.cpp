@@ -166,7 +166,13 @@ void IfFunction::execute(SLIInterpreter *i) const
     // OStack: bool proc
     //          1    0
     i->require_stack_load(2);
-    if (i->pick(1) == true)
+    // Stage 4.3: type-check the condition. Without this, any
+    // non-bool argument silently took the else branch -- the
+    // operator==(bool) overload returns false for non-booltype
+    // Tokens. PostScript spec: `if` requires a real bool.
+    i->require_stack_type(1, sli3::booltype);
+
+    if (i->pick(1).data_.bool_val)
         i->EStack().top() = i->top();   // dispatch the proc next
     else
         i->EStack().pop();              // skip
@@ -199,11 +205,15 @@ void IfelseFunction::execute(SLIInterpreter *i) const
     // Push the chosen branch onto the execution stack and remove all
     // three operand-stack entries.
     i->require_stack_load(3);
+    // Stage 4.4: previously this op silently took the false branch
+    // for any non-bool condition -- the agent's review flagged it
+    // as inconsistent with `if` (which today raises). Now both
+    // raise on non-bool. require_stack_type pops the e-stack frame
+    // before raising, so do not pop here too.
+    i->require_stack_type(2, sli3::booltype);
     i->EStack().pop();
 
-    bool cond = i->pick(2).is_of_type(sli3::booltype)
-                && i->pick(2).data_.bool_val;
-    if (cond)
+    if (i->pick(2).data_.bool_val)
         i->EStack().push(i->pick(1));   // tproc
     else
         i->EStack().push(i->pick(0));   // fproc
@@ -438,32 +448,21 @@ Note:
 */
 void CurrentnameFunction::execute(SLIInterpreter *i) const
 {
+    // Stage 4.9: per the docstring, this returns the calling
+    // function's Name with `true`, or just `false` if no caller
+    // can be identified.
+    //
+    // NEST 2.20.2's implementation walks the e-stack looking for a
+    // ::lookup marker, reading the name immediately below it. That
+    // technique relied on NameType::execute pushing a [literal,
+    // ::lookup] pair onto the e-stack -- but our dispatcher
+    // REPLACES the name Token in place (sli_nametype.cpp), so the
+    // breadcrumb trail isn't there. Without it, we can't recover
+    // the caller name; return false so callers can detect the
+    // "not available" case rather than reading garbage off the
+    // stack.
     i->EStack().pop();
-/*
-    size_t n=0; // skip my own name
-    size_t l=i->EStack().load();
-
-        // top level %%lookup must belong to currentname, so
-        // remove it and the name.
-    if(i->EStack().top()==i->baselookup(i->ilookup_name))
-    {
-        assert(l>2);
-        n+=2;
-    }
-
-    bool found=false;
-
-    while( ( l > n ) && !found)
-        found= i->EStack().pick(n++)==i->baselookup(i->ilookup_name);
-
-    if(found)
-    {
-        i->OStack.push(i->EStack().pick(n));
-        i->OStack.push(true);
-    }
-    else
-        i->EStack().push(false);
-*/
+    i->push<bool>(false);
 }
 
 
@@ -1420,17 +1419,21 @@ SeeAlso: token
 
 void  Token_sFunction::execute(SLIInterpreter *i) const
 {
-  i->EStack().pop();
+  // Stage 4.6: arity / type check BEFORE popping the e-stack frame.
+  // If the precondition throws, raiseerror pops on its own;
+  // popping here too would take away an unrelated frame.
   i->require_stack_load(1);
-  i->require_stack_type(0,sli3::stringtype);
-  SLIString *sd= i->top().data_.string_val;
+  i->require_stack_type(0, sli3::stringtype);
+  i->EStack().pop();
+
+  SLIString *sd = i->top().data_.string_val;
   assert(sd != NULL);
   std::istringstream in(sd->c_str());
 
   Token t;
   i->clear_parser_context(); // this clears the previously parsed strings.
-  t=i->read_token(in);
-  if(t== i->EndSymbol)
+  t = i->read_token(in);
+  if (t == i->EndSymbol)
   {
     i->pop();
     i->push(false);
@@ -1441,9 +1444,27 @@ void  Token_sFunction::execute(SLIInterpreter *i) const
       char c;
 
       i->push(t);
-      while(in.get(c))
-	  s+=c;
-      sd->str() = s;  // sd points to the SLIString on the ostack.
+      while (in.get(c))
+        s += c;
+
+      // Stage 4.6: copy-on-write when the SLIString is shared.
+      // Otherwise a `dup token_s` (or any aliased holder) sees the
+      // remainder string mutate under it. Refcount > 1 means
+      // someone else holds a reference; rebuild a fresh SLIString
+      // for the operand-stack slot.
+      if (sd->references() == 1)
+      {
+          sd->str() = s;
+      }
+      else
+      {
+          // pick(1) is the original string Token (we pushed t on top).
+          // Replace its payload with a new heap SLIString. Token
+          // assignment will release the old shared pointer correctly.
+          Token replaced(i->get_type(sli3::stringtype));
+          replaced.data_.string_val = new SLIString(s);
+          i->pick(1) = replaced;
+      }
       i->push(true);
   }
 }
@@ -1488,37 +1509,49 @@ SeeAlso: token
 
 void  Symbol_sFunction::execute(SLIInterpreter *i) const
 {
+  // Stage 4.10: implemented as a thin wrapper around read_token --
+  // sli-init.sli's /css uses symbol_s only on strings that
+  // tokenize cleanly as symbols (e.g. literal names), so the
+  // narrower "readSymbol" semantics from NEST 2.x aren't needed
+  // for the bootstrap path. If a future use case needs strict
+  // symbol-only filtering, gate the result Token's typeid here.
+  i->require_stack_load(1);
+  i->require_stack_type(0, sli3::stringtype);
   i->EStack().pop();
-//   assert(i->load()>0);
 
-//   StringDatum *sd= dynamic_cast<StringDatum *>(i->top().datum());
-//   assert(sd != NULL);
-// #ifdef HAVE_SSTREAM
-//   std::istringstream in(sd->c_str());
-// #else
-//   std::istrstream in(sd->c_str());
-// #endif
+  SLIString *sd = i->top().data_.string_val;
+  assert(sd != NULL);
+  std::istringstream in(sd->c_str());
 
-//   Token t;
-//   i->parse->clear_context(); // this clears the previously parsed strings.
-//   i->parse->readSymbol(in, t);
-//   if(t.contains(i->parse->scan()->EndSymbol))
-//   {
-//     i->pop();
-//     i->push(false);
-//   }
-//   else
-//   {
-//     std::string s;
-//     char c;
+  Token t;
+  i->clear_parser_context();
+  t = i->read_token(in);
+  if (t == i->EndSymbol)
+  {
+    i->pop();
+    i->push(false);
+  }
+  else
+  {
+    std::string remainder;
+    char c;
+    i->push(t);
+    while (in.get(c))
+      remainder += c;
 
-//     i->push_move(t);
-//     while(in.get(c))
-//       s+=c;
-//     *sd = s;  // this is correct, since sd points to the stringdatum on the
-//              // ostack.
-//     i->push(true);
-//   }
+    // Copy-on-write under shared payload (Stage 4.6 pattern).
+    if (sd->references() == 1)
+    {
+        sd->str() = remainder;
+    }
+    else
+    {
+        Token replaced(i->get_type(sli3::stringtype));
+        replaced.data_.string_val = new SLIString(remainder);
+        i->pick(1) = replaced;
+    }
+    i->push(true);
+  }
 }
 
 

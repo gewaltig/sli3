@@ -84,29 +84,41 @@ void AddtotrieFunction::execute(SLIInterpreter *i) const
 	i->raiseerror(i->ArgumentTypeError);
 	return;
     }
-    
+
+    // Stage 4.7: index-based reverse iteration (was a raw-pointer
+    // `for (Token *t = ad->end()-1; t >= ad->begin(); --t)` which
+    // decrements past begin() at loop exit -- UB on
+    // std::vector::data() pointers).
     TypeArray a;
     a.reserve(ad->size());
-    for(Token *t= ad->end()-1; t >= ad->begin(); --t)
+    for (size_t pos = ad->size(); pos > 0; --pos)
     {
-	if( not t->is_of_type(sli3::literaltype))
+        Token const& t = (*ad)[pos - 1];
+	if (not t.is_of_type(sli3::literaltype))
 	{
+	    // Stage 4.7: std::ostringstream's str() returned a
+	    // temporary whose c_str() pointer dangled across the
+	    // variadic message() call -- store the string in a
+	    // local first.
 	    std::ostringstream message;
-	    message << "In trie " << trie->get_name() << ". " 
-	    	    << "Type name expected at position " << t - ad->begin() << '.' << std::ends;
-	    i->message(sli3::M_ERROR, "addtotrie", message.str().c_str());
+	    message << "In trie " << trie->get_name() << ". "
+	    	    << "Type name expected at position " << (pos - 1) << '.';
+	    std::string const msg = message.str();
+	    i->message(sli3::M_ERROR, "addtotrie", msg.c_str());
 	    i->message(sli3::M_ERROR, "addtotrie","Array must contain typenames as literals.");
 	    i->message(sli3::M_ERROR, "addtotrie","No change was made to the trie.");
-	    
+
 	    i->raiseerror(i->ArgumentTypeError);
 	    return;
 	}
-	long type_val=i->baselookup(t->data_.name_val);
+	long type_val=i->baselookup(t.data_.name_val);
 	a.push_back(i->get_type(type_val));
     }
-    
+
     trie->insert(a, i->top());
-    trie->info(std::cerr);
+    // (Stage 4.7: dropped unconditional `trie->info(std::cerr)`;
+    // it was leftover debug output that fired on every successful
+    // addtotrie -- spamming stderr during bootstrap.)
     i->pop(2);
     i->EStack().pop();
 }
@@ -299,7 +311,12 @@ void TypeFunction::execute(SLIInterpreter *i) const
     Token tmp;
     tmp.move(top);
     top.type_= literal_t;
-    top.data_.name_val=tmp.type_->get_typename();
+    // Stage 4.8: Name -> size_t conversion needs .toIndex(); the
+    // implicit Name->int->size_t path was relying on Name's
+    // operator int() returning the handle, which is a long that
+    // truncates on platforms where size_t is wider. Use the
+    // explicit handle accessor.
+    top.data_.name_val = tmp.type_->get_typename().toIndex();
     i->EStack().pop();
 }
 
