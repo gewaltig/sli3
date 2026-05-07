@@ -12,13 +12,16 @@ namespace sli3
       TrieType(SLIInterpreter *sli, char const name[], sli_typeid type)
         :SLIType(sli, name, type,true){}
 
-    refcount_t add_reference(Token const& t) const
+    refcount_t add_reference(Token const& t) const override
     {
+      // Null-payload convention: silent no-op. See SLIType::clear.
+      if (t.data_.trie_val == 0) return 0;
       return t.data_.trie_val->add_reference();
     }
 
-    void remove_reference(Token &t) const
+    void remove_reference(Token &t) const override
     {
+      if (t.data_.trie_val == 0) return;
       if(t.data_.trie_val->remove_reference() ==0)
 	{
 	  t.type_=0;
@@ -26,7 +29,7 @@ namespace sli3
 	}
     }
 
-    void clear(Token &t) const
+    void clear(Token &t) const override
     {
       remove_reference(t);
       t.data_.trie_val=0;
@@ -34,14 +37,17 @@ namespace sli3
     }
 
 
-    refcount_t references(Token const &t) const
+    refcount_t references(Token const &t) const override
     {
+      if (t.data_.trie_val == 0) return 0;
       return t.data_.trie_val->references();
     }
 
 
-    bool compare(const Token&t1, const Token&t2) const
+    bool compare(const Token&t1, const Token&t2) const override
     {
+      if (t1.data_.trie_val == 0 || t2.data_.trie_val == 0)
+        return t1.data_.trie_val == t2.data_.trie_val;
       return *(t1.data_.trie_val) == *(t2.data_.trie_val);
     }
 
@@ -65,14 +71,16 @@ namespace sli3
       }
     }
 
-    std::ostream & print(std::ostream& out, const Token &t) const
+    std::ostream & print(std::ostream& out, const Token &t) const override
       {
+        if (t.data_.trie_val == 0) return out << "+null+";
         out << '+' << t.data_.trie_val->get_name() << '+';
         return out;
       }
 
-    std::ostream & pprint(std::ostream&out, const Token &t) const
+    std::ostream & pprint(std::ostream&out, const Token &t) const override
       {
+        if (t.data_.trie_val == 0) return out << "+null+";
         out << '+' << t.data_.trie_val->get_name() << '+';
         return out;
       }

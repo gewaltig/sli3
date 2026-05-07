@@ -9,7 +9,11 @@ namespace sli3
 
     void NameType::execute(Token &t)
     {
-	sli_->EStack().top()=sli_->lookup(Name(t.data_.long_val));
+	// The active union member for nametype/literaltype/symboltype
+	// is name_val (size_t Name handle); long_val happens to alias
+	// it on 64-bit platforms but reading the wrong member is UB
+	// by the language and inconsistent with every other site.
+	sli_->EStack().top()=sli_->lookup(Name(t.data_.name_val));
     }
 
     bool LiteralType::compare(const Token&t1, const Token&t2) const

@@ -14,12 +14,14 @@ namespace sli3
     std::ostream & DictionaryType::pprint(std::ostream& out, const Token &t) const
     {
 	assert(t.type_);
-	return out << (*t.data_.dict_val); 
+	if (t.data_.dict_val == 0) return out << "<<null>>";
+	return out << (*t.data_.dict_val);
     }
 
     std::ostream & DictionaryType::print(std::ostream& out, const Token &t) const
     {
 	assert(t.type_);
-	return out << "<<...>>"; 
+	if (t.data_.dict_val == 0) return out << "<<null>>";
+	return out << "<<...>>";
     }
 }

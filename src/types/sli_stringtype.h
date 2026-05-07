@@ -15,7 +15,7 @@ namespace sli3
     StringType(SLIInterpreter *sli, char const name[], sli_typeid type)
       :SLIType(sli, name, type){}
 
-    refcount_t add_reference(Token const& t) const
+    refcount_t add_reference(Token const& t) const override
     {
       if(t.data_.string_val !=0)
 	return t.data_.string_val->add_reference();
@@ -23,7 +23,7 @@ namespace sli3
 	return 0;
     }
 
-    void remove_reference(Token &t) const
+    void remove_reference(Token &t) const override
     {
       if(t.data_.string_val!=0)
 	{
@@ -35,21 +35,21 @@ namespace sli3
 	}
     }
 
-    void clear(Token &t) const
+    void clear(Token &t) const override
     {
       remove_reference(t);
       t.data_.string_val=0;
     }
 
-    refcount_t references(Token const &t) const
+    refcount_t references(Token const &t) const override
     {
       if(t.data_.string_val!=0)
 	return t.data_.string_val->references();
       return 0;
     }
 
-    bool compare(const Token&t1, const Token&t2) const;
-    std::ostream & print(std::ostream&, const Token &) const;
+    bool compare(const Token&t1, const Token&t2) const override;
+    std::ostream & print(std::ostream&, const Token &) const override;
     void serialize(Token const&, Writer&) const override;
     void deserialize(Reader&, Token&) const override;
   };

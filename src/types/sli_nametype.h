@@ -10,8 +10,8 @@ namespace sli3
   LiteralType(SLIInterpreter *sli, char const name[], sli_typeid type, bool exec=false)
 	:SLIType(sli, name, type,exec){}
 
-    bool compare(const Token&t1, const Token&t2) const;
-    std::ostream & print(std::ostream&, const Token &) const;
+    bool compare(const Token&t1, const Token&t2) const override;
+    std::ostream & print(std::ostream&, const Token &) const override;
     void serialize(Token const&, Writer&) const override;
     void deserialize(Reader&, Token&) const override;
   };
@@ -22,10 +22,10 @@ namespace sli3
       NameType(SLIInterpreter *sli, char const name[], sli_typeid type)
 	:LiteralType(sli, name, type,true)
       {}
-    
-    void execute(Token &);
 
-    std::ostream & print(std::ostream&, const Token &) const;
+    void execute(Token &) override;
+
+    std::ostream & print(std::ostream&, const Token &) const override;
   };
 
   class SymbolType: public LiteralType
@@ -34,7 +34,7 @@ namespace sli3
   SymbolType(SLIInterpreter *sli, char const name[], sli_typeid type)
     :LiteralType(sli, name, type){}
 
-    std::ostream & print(std::ostream&, const Token &) const;
+    std::ostream & print(std::ostream&, const Token &) const override;
   };
 
   class MarkType: public LiteralType
@@ -42,7 +42,7 @@ namespace sli3
   public:
   MarkType(SLIInterpreter *sli, char const name[], sli_typeid type)
     :LiteralType(sli, name, type){}
-    std::ostream & print(std::ostream&, const Token &) const;
+    std::ostream & print(std::ostream&, const Token &) const override;
   };
 
 
@@ -57,7 +57,7 @@ namespace sli3
   OperatorType(SLIInterpreter *sli, char const name[])
     :LiteralType(sli, name, type, true){}
 
-    std::ostream & print(std::ostream& out, const Token &) const
+    std::ostream & print(std::ostream& out, const Token &) const override
       {
 	out << "::" << get_typename();
 	return out;

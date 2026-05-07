@@ -8,6 +8,10 @@ namespace sli3
     {
 	if(t1.type_ != t2.type_)
 	  return false;
+	// Null-payload convention: two null-payload Tokens compare
+	// equal; one null vs non-null compares unequal.
+	if (t1.data_.string_val == 0 || t2.data_.string_val == 0)
+	  return t1.data_.string_val == t2.data_.string_val;
 	return *t1.data_.string_val == *t2.data_.string_val;
     }
 

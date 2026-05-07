@@ -25,6 +25,13 @@ namespace sli3
     Token::operator std::string&()
     {
 	require_type(sli3::stringtype);
+	// Per the null-payload convention (sli_type.h SLIType::clear),
+	// a Token tagged stringtype may legitimately have a null
+	// string_val. There is nothing to bind a reference to, so the
+	// conversion fails — surface as InvalidToken rather than
+	// null-deref'ing.
+	if (data_.string_val == 0)
+	    throw InvalidToken();
 	return data_.string_val->str();
     }
 
@@ -46,11 +53,46 @@ namespace sli3
 
     bool Token::operator==(const Token &t) const
     {
-	if(type_ != t.type_)
-	    return false;
-	if(!type_)
-	    return true;
-	return type_->compare(*this,t);
+	// Both invalid -> equal. One invalid -> unequal.
+	if(!type_ && !t.type_) return true;
+	if(!type_ || !t.type_) return false;
+
+	// Same SLIType pointer -> delegate to the type's compare.
+	if(type_ == t.type_) return type_->compare(*this, t);
+
+	// Different SLIType, but the type-economical aliases share a
+	// payload, so name == literal == symbol when the Name handle
+	// matches; array == procedure == litprocedure when the
+	// TokenArray pointer matches; istream == xistream when the
+	// stream pointer matches. operator==(Name) (below) already
+	// does this for the Name family — keep the two equality
+	// flavours symmetric.
+	const auto a = type_->get_typeid();
+	const auto b = t.type_->get_typeid();
+
+	auto in_name_class = [](unsigned int id) {
+	    return id == sli3::nametype
+	        || id == sli3::literaltype
+	        || id == sli3::symboltype;
+	};
+	auto in_array_class = [](unsigned int id) {
+	    return id == sli3::arraytype
+	        || id == sli3::proceduretype
+	        || id == sli3::litproceduretype;
+	};
+	auto in_istream_class = [](unsigned int id) {
+	    return id == sli3::istreamtype
+	        || id == sli3::xistreamtype;
+	};
+
+	if (in_name_class(a) && in_name_class(b))
+	    return data_.name_val == t.data_.name_val;
+	if (in_array_class(a) && in_array_class(b))
+	    return data_.array_val == t.data_.array_val;
+	if (in_istream_class(a) && in_istream_class(b))
+	    return data_.istream_val == t.data_.istream_val;
+
+	return false;
     }
 
     bool Token::operator==(int i) const

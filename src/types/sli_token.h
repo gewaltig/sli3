@@ -78,11 +78,8 @@ namespace sli3
 
 	operator int() const;
 	operator long() const;
-	operator long&();
 	operator double() const;
-	operator double&();
 	operator bool() const;
-	operator bool&();
 	operator std::string&();
 	operator TokenArray&();
 
@@ -221,6 +218,14 @@ namespace sli3
     inline
     Token& Token::operator=(const Token &t)
     {
+      // Self-assign must short-circuit: clear() decrements the
+      // payload's refcount, so for a refcount-1 Token `a = a;`
+      // would delete the heap object before init(t) reads from it
+      // (use-after-free). A simple identity check covers the common
+      // case; aliasing through a shared payload (a = b where a and
+      // b independently reference the same heap object) is safe
+      // because each holds its own refcount.
+      if (&t == this) return *this;
       clear();
       return init(t);
     }
@@ -265,20 +270,6 @@ namespace sli3
 	  return data_.long_val;
     }
 
-    inline
-    Token::operator long&()
-    {
-	  require_type(sli3::integertype);
-	  return data_.long_val;
-    }
-
-    inline
-    Token::operator double&()
-    {
-	  require_type(sli3::doubletype);
-	  return data_.double_val;
-    }
-
   inline
   Token::operator double() const
   {
@@ -292,13 +283,6 @@ namespace sli3
 	require_type(sli3::booltype);
 	return data_.bool_val;
   }
-
-  inline
-    Token::operator bool&()
-    {
-	require_type(sli3::booltype);
-	return data_.bool_val;
-    }
 
 
     inline

@@ -24,13 +24,13 @@ namespace sli3
       :SLIType(sli, name, type)
       {executable_=false;}
 
-    refcount_t add_reference(Token const& t) const
+    refcount_t add_reference(Token const& t) const override
     {
       if (t.data_.ostream_val) return t.data_.ostream_val->add_reference();
       return 0;
     }
 
-    void remove_reference(Token &t) const
+    void remove_reference(Token &t) const override
     {
       if (t.data_.ostream_val
           and t.data_.ostream_val->remove_reference() == 0)
@@ -40,19 +40,19 @@ namespace sli3
       }
     }
 
-    void clear(Token &t) const
+    void clear(Token &t) const override
     {
       remove_reference(t);
       t.data_.ostream_val = 0;
     }
 
-    refcount_t references(Token const& t) const
+    refcount_t references(Token const& t) const override
     {
       if (t.data_.ostream_val) return t.data_.ostream_val->references();
       return 0;
     }
 
-    bool compare(const Token&t1, const Token&t2) const;
+    bool compare(const Token&t1, const Token&t2) const override;
     void serialize(Token const&, Writer&) const override;
     void deserialize(Reader&, Token&) const override;
   };
@@ -64,13 +64,13 @@ namespace sli3
       :SLIType(sli, name, type)
       {executable_=false;}
 
-    refcount_t add_reference(Token const& t) const
+    refcount_t add_reference(Token const& t) const override
     {
       if (t.data_.istream_val) return t.data_.istream_val->add_reference();
       return 0;
     }
 
-    void remove_reference(Token &t) const
+    void remove_reference(Token &t) const override
     {
       if (t.data_.istream_val
           and t.data_.istream_val->remove_reference() == 0)
@@ -80,19 +80,19 @@ namespace sli3
       }
     }
 
-    void clear(Token &t) const
+    void clear(Token &t) const override
     {
       remove_reference(t);
       t.data_.istream_val = 0;
     }
 
-    refcount_t references(Token const& t) const
+    refcount_t references(Token const& t) const override
     {
       if (t.data_.istream_val) return t.data_.istream_val->references();
       return 0;
     }
 
-    bool compare(const Token&t1, const Token&t2) const;
+    bool compare(const Token&t1, const Token&t2) const override;
     void serialize(Token const&, Writer&) const override;
     void deserialize(Reader&, Token&) const override;
   };
@@ -104,8 +104,8 @@ namespace sli3
       :IstreamType(sli, name, type)
       {executable_=true;}
 
-    bool compare(const Token&t1, const Token&t2) const;
-    void execute(Token &);
+    bool compare(const Token&t1, const Token&t2) const override;
+    void execute(Token &) override;
   };
 
 

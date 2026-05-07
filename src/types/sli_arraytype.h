@@ -15,13 +15,19 @@ namespace sli3
     ArrayType(SLIInterpreter *sli, char const name[], sli_typeid type)
       :SLIType(sli, name, type){}
 
-    refcount_t add_reference(Token const& t) const
+    refcount_t add_reference(Token const& t) const override
     {
-	return t.data_.array_val->add_reference();
+      // Null-payload convention: silent no-op. A null payload is
+      // reachable via base SLIType::deserialize on a missing
+      // serialize override and via Token::value() zero-fill on a
+      // freshly cleared slot. See SLIType::clear (sli_type.h:97).
+      if (t.data_.array_val == 0) return 0;
+      return t.data_.array_val->add_reference();
     }
 
-    void remove_reference(Token &t) const
+    void remove_reference(Token &t) const override
     {
+      if (t.data_.array_val == 0) return;
       if(t.data_.array_val->remove_reference() ==0)
 	{
 	  t.type_=0;
@@ -29,21 +35,21 @@ namespace sli3
 	}
     }
 
-    void clear(Token &t) const
+    void clear(Token &t) const override
     {
       remove_reference(t);
       t.data_.array_val=0;
     }
 
-    refcount_t references(Token const &t) const
+    refcount_t references(Token const &t) const override
     {
       if(t.data_.array_val!=0)
 	return t.data_.array_val->references();
       return 0;
     }
 
-    bool compare(const Token&t1, const Token&t2) const;
-    std::ostream & print(std::ostream&, const Token &) const;
+    bool compare(const Token&t1, const Token&t2) const override;
+    std::ostream & print(std::ostream&, const Token &) const override;
     void serialize(Token const&, Writer&) const override;
     void deserialize(Reader&, Token&) const override;
   };
@@ -53,9 +59,9 @@ namespace sli3
   public:
   LitprocedureType(SLIInterpreter *sli, char const name[], sli_typeid type)
     :ArrayType(sli, name, type){}
-    std::ostream & print(std::ostream&, const Token &) const;
+    std::ostream & print(std::ostream&, const Token &) const override;
 
-    void execute(Token &);
+    void execute(Token &) override;
   };
 
   class ProcedureType: public LitprocedureType
@@ -63,8 +69,9 @@ namespace sli3
   public:
   ProcedureType(SLIInterpreter *sli, char const name[], sli_typeid type)
     :LitprocedureType(sli, name, type){}
-    
-    void execute(Token &);
+
+    std::ostream & print(std::ostream&, const Token &) const override;
+    void execute(Token &) override;
 
   };
 }

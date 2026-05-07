@@ -10,11 +10,11 @@ namespace sli3
   FunctionType(SLIInterpreter *sli, char const name[], sli_typeid type)
     :SLIType(sli, name, type){}
     
-    bool compare(const Token&t1, const Token&t2) const;
-    std::ostream & print(std::ostream&, const Token &) const;
-    std::ostream & pprint(std::ostream&, const Token &) const;
+    bool compare(const Token&t1, const Token&t2) const override;
+    std::ostream & print(std::ostream&, const Token &) const override;
+    std::ostream & pprint(std::ostream&, const Token &) const override;
 
-    void execute(Token &);
+    void execute(Token &) override;
   };
 
 

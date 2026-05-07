@@ -257,6 +257,172 @@ void test_alias_chain(SLIInterpreter& i)
     CHECK(arr->references() == 4);
 }
 
+// ---------- cross-type equality (Stage 1.9) -----------------------------
+//
+// Type-economical SLIType aliases share their payload:
+//   - name / literal / symbol      share name_val
+//   - array / procedure / litproc  share array_val
+//   - istream / xistream           share istream_val
+//
+// operator==(Name) already treats nametype/literaltype/symboltype as
+// equal when the handles match. operator==(Token) must do the same;
+// today it short-circuits on type_ pointer mismatch, leaving the two
+// equality flavours asymmetric.
+
+void test_eq_name_literal_symbol(SLIInterpreter& i)
+{
+    Token a = i.new_token<sli3::nametype, Name>(Name("foo"));
+    Token b = i.new_token<sli3::literaltype, Name>(Name("foo"));
+    Token c = i.new_token<sli3::symboltype, Name>(Name("foo"));
+    Token d = i.new_token<sli3::nametype, Name>(Name("bar"));
+
+    CHECK(a == b);   // cross-type: name == literal
+    CHECK(b == c);   // cross-type: literal == symbol
+    CHECK(a == c);
+    CHECK(!(a == d));
+}
+
+void test_eq_array_procedure_litproc(SLIInterpreter& i)
+{
+    auto* arr = new TokenArray();
+    Token a(i.get_type(sli3::arraytype));
+    a.data_.array_val = arr;
+    arr->add_reference();
+
+    Token p(i.get_type(sli3::proceduretype));
+    p.data_.array_val = arr;
+    arr->add_reference();
+
+    Token lp(i.get_type(sli3::litproceduretype));
+    lp.data_.array_val = arr;
+    arr->add_reference();
+
+    CHECK(a == p);
+    CHECK(p == lp);
+    CHECK(a == lp);
+}
+
+void test_eq_unrelated_types(SLIInterpreter& i)
+{
+    Token n = i.new_token<sli3::nametype, Name>(Name("x"));
+    Token z = i.new_token<sli3::integertype>(0L);
+    CHECK(!(n == z));
+}
+
+// ---------- print formatting --------------------------------------------
+//
+// Stage 1.4: ProcedureType must print with single braces, not the
+// double braces inherited from LitprocedureType.
+
+void test_print_array_vs_proc(SLIInterpreter& i)
+{
+    auto* arr = new TokenArray();
+    arr->push_back(i.new_token<sli3::integertype>(1L));
+    arr->push_back(i.new_token<sli3::integertype>(2L));
+
+    // Three Tokens, same payload, different typeids.
+    Token a(i.get_type(sli3::arraytype));
+    a.data_.array_val = arr;
+    arr->add_reference();  // a is one extra owner (4 refs after b/lp below)
+
+    Token p(i.get_type(sli3::proceduretype));
+    p.data_.array_val = arr;
+    arr->add_reference();
+
+    Token lp(i.get_type(sli3::litproceduretype));
+    lp.data_.array_val = arr;
+    arr->add_reference();
+
+    std::ostringstream o_a, o_p, o_lp;
+    a.print(o_a);
+    p.print(o_p);
+    lp.print(o_lp);
+
+    CHECK(o_a.str() == "[1 2]");
+    CHECK(o_p.str() == "{1 2}");        // <-- Stage 1.4 fix point
+    CHECK(o_lp.str() == "{{1 2}}");
+}
+
+// ---------- null-payload safety -----------------------------------------
+//
+// Stage 1.2: ArrayType / DictionaryType / StringType / TrieType all
+// must tolerate a Token tagged with their typeid whose payload
+// pointer is nullptr (reachable e.g. via base SLIType::deserialize
+// for any type whose subclass forgot to override deserialize, or via
+// Token::value() zero-fill on a freshly-cleared slot). Today the
+// guards are inconsistent: ArrayType/DictionaryType do NOT
+// null-check add_reference / remove_reference; StringType::compare
+// does not null-check. The convention being adopted: "null payload
+// is silently a no-op; never deref."
+//
+// Each test constructs a null-payload Token by hand. If the protocol
+// crashes / UAFs, ASAN flags it; otherwise the assertions run.
+
+void test_null_array(SLIInterpreter& i)
+{
+    Token t(i.get_type(sli3::arraytype));   // data_ zeroed
+    t.data_.array_val = nullptr;
+    CHECK(t.is_valid());
+    CHECK(t.references() == 0);
+
+    // Copy: must not crash. The copy carries a null payload too.
+    Token c(t);
+    CHECK(c.data_.array_val == nullptr);
+    CHECK(t.references() == 0);
+
+    // Compare null payloads: pointer equality, both null -> equal.
+    CHECK(t == c);
+
+    // print should not deref. Discard the output.
+    std::ostringstream oss;
+    t.print(oss);
+
+    // Destruction of t and c must not crash.
+}
+
+void test_null_string(SLIInterpreter& i)
+{
+    Token t(i.get_type(sli3::stringtype));
+    t.data_.string_val = nullptr;
+    CHECK(t.is_valid());
+    CHECK(t.references() == 0);
+
+    Token c(t);
+    CHECK(c.data_.string_val == nullptr);
+    CHECK(t.references() == 0);
+
+    // StringType::compare today derefs without null check; this is
+    // the assertion that drives the Stage 1.2 fix on the cpp side.
+    CHECK(t == c);
+
+    std::ostringstream oss;
+    t.print(oss);
+
+    // Stage 1.7: converting a null-payload Token to std::string&
+    // must throw, not null-deref.
+    bool threw = false;
+    try { (void) static_cast<std::string&>(t); }
+    catch (std::exception const&) { threw = true; }
+    CHECK(threw);
+}
+
+void test_null_dict(SLIInterpreter& i)
+{
+    Token t(i.get_type(sli3::dictionarytype));
+    t.data_.dict_val = nullptr;
+    CHECK(t.is_valid());
+    CHECK(t.references() == 0);
+
+    Token c(t);
+    CHECK(c.data_.dict_val == nullptr);
+    CHECK(t.references() == 0);
+
+    CHECK(t == c);
+
+    std::ostringstream oss;
+    t.print(oss);
+}
+
 // ---------- self-assign --------------------------------------------------
 //
 // This is the canary for the Stage 1.1 fix: today,
@@ -347,6 +513,16 @@ int main(int argc, char** argv)
 
     test_copy_at_refs_gt_1(i);
     test_alias_chain(i);
+
+    test_null_array(i);
+    test_null_string(i);
+    test_null_dict(i);
+
+    test_print_array_vs_proc(i);
+
+    test_eq_name_literal_symbol(i);
+    test_eq_array_procedure_litproc(i);
+    test_eq_unrelated_types(i);
 
     if (wants_xfail(argc, argv))
     {

@@ -98,10 +98,21 @@ namespace sli3
      * Clear contents of the token.
      * If the token is a pointer type,
      * the remove_reference() is called
-     * on the pointee. 
+     * on the pointee.
      * This is implemented by the respective type classes.
      * All other token are reset to their default values.
-     */ 
+     *
+     * Null-payload convention (StringType, ArrayType, DictionaryType,
+     * IstreamType, OstreamType, TrieType): a Token tagged with one
+     * of these typeids whose payload pointer is nullptr is a valid
+     * state. add_reference and references return 0; remove_reference
+     * is a no-op; compare equates null payloads (and treats null vs
+     * non-null as unequal); print emits a "null" placeholder. Nothing
+     * derefs the payload pointer without first checking it. This
+     * state is reachable via Token::value() zero-fill on a freshly
+     * cleared slot and via SLIType::deserialize() (the base default)
+     * for any subclass whose serialize override is missing.
+     */
     virtual void clear(Token& t) const;
     
     virtual refcount_t references(const Token&) const
