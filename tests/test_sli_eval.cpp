@@ -286,6 +286,50 @@ int main()
 
     EVAL_DEPTH(i,  "(abc) 0 (X) insert_s",                          1);
 
+    // -------- replace_a / replace_s ------------------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc:
+    //   c1 idx n c2 replace_<a|s> -> c1'
+    // Replaces the [idx, idx+n) section of c1 with c2; n+idx > size
+    // silently clamps to remaining length.
+    //   idx < 0 || idx >= size -> RangeCheckError
+    //   n < 0                  -> PositiveIntegerExpectedError
+
+    // Doc example: [1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace
+    //              -> [1 2 99 99 99 99 6 7]
+    EVAL_INT(i,    "[1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace_a length_a", 8);
+    EVAL_INT(i,    "[1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace_a 0 get_a", 1);
+    EVAL_INT(i,    "[1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace_a 1 get_a", 2);
+    EVAL_INT(i,    "[1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace_a 2 get_a", 99);
+    EVAL_INT(i,    "[1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace_a 5 get_a", 99);
+    EVAL_INT(i,    "[1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace_a 6 get_a", 6);
+    EVAL_INT(i,    "[1 2 3 4 5 6 7] 2 3 [99 99 99 99] replace_a 7 get_a", 7);
+
+    // Same-length replace.
+    EVAL_INT(i,    "[1 2 3] 0 3 [9 8 7] replace_a 0 get_a",         9);
+    EVAL_INT(i,    "[1 2 3] 0 3 [9 8 7] replace_a 2 get_a",         7);
+
+    // Replace with empty array (effectively erase a slice).
+    EVAL_INT(i,    "[1 2 3 4 5] 1 2 [] replace_a length_a",         3);
+    EVAL_INT(i,    "[1 2 3 4 5] 1 2 [] replace_a 0 get_a",          1);
+    EVAL_INT(i,    "[1 2 3 4 5] 1 2 [] replace_a 1 get_a",          4);
+
+    EVAL_DEPTH(i,  "[1 2 3] 0 1 [9] replace_a",                     1);
+
+    // Doc example: (computer) 1 5 (are) replace -> (career)
+    EVAL_INT(i,    "(computer) 1 5 (are) replace_s length_s",       6);
+    EVAL_INT(i,    "(computer) 1 5 (are) replace_s 0 get_s",        'c');
+    EVAL_INT(i,    "(computer) 1 5 (are) replace_s 1 get_s",        'a');
+    EVAL_INT(i,    "(computer) 1 5 (are) replace_s 2 get_s",        'r');
+    EVAL_INT(i,    "(computer) 1 5 (are) replace_s 3 get_s",        'e');
+    EVAL_INT(i,    "(computer) 1 5 (are) replace_s 5 get_s",        'r');
+
+    // Shorter replacement (hello → hXo).
+    EVAL_INT(i,    "(hello) 1 3 (X) replace_s length_s",            3);
+    EVAL_INT(i,    "(hello) 1 3 (X) replace_s 1 get_s",             'X');
+    EVAL_INT(i,    "(hello) 1 3 (X) replace_s 2 get_s",             'o');
+
+    EVAL_DEPTH(i,  "(abc) 0 1 (X) replace_s",                       1);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }

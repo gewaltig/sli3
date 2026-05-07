@@ -572,6 +572,87 @@ public:
     }
 };
 
+// `a1 idx n a2 replace_a -> a1'` — replace n elements of a1 starting
+// at idx with the contents of a2. Result is a fresh arraytype. NEST
+// 2.20.2 sli/slidata.cc uses a1->replace_move(idx, n, a2).
+//
+// Validation per NEST:
+//   idx < 0 || idx >= a1.size() -> RangeCheckError (idx==size rejected)
+//   n   < 0                     -> PositiveIntegerExpectedError
+// idx + n > size silently clamps (matches std::string::replace and
+// the underlying TokenArrayObj behaviour).
+class ReplaceArrayFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(4);
+        i->require_stack_type(3, sli3::arraytype);
+        i->require_stack_type(2, sli3::integertype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::arraytype);
+        TokenArray const* a1 = i->pick(3).data_.array_val;
+        long idx = i->pick(2).data_.long_val;
+        long n   = i->pick(1).data_.long_val;
+        TokenArray const* a2 = i->top().data_.array_val;
+        if (idx < 0 || static_cast<size_t>(idx) >= a1->size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        if (n < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        size_t pos = static_cast<size_t>(idx);
+        size_t cnt = static_cast<size_t>(n);
+        if (pos + cnt > a1->size()) cnt = a1->size() - pos;
+        TokenArray* out = new TokenArray();
+        out->reserve(a1->size() - cnt + a2->size());
+        for (size_t k = 0; k < pos; ++k)               out->push_back(a1->get(k));
+        for (size_t k = 0; k < a2->size(); ++k)        out->push_back(a2->get(k));
+        for (size_t k = pos + cnt; k < a1->size(); ++k) out->push_back(a1->get(k));
+        i->pop(4);
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `s1 idx n s2 replace_s -> s1'` — same shape as replace_a, stringtype.
+class ReplaceStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(4);
+        i->require_stack_type(3, sli3::stringtype);
+        i->require_stack_type(2, sli3::integertype);
+        i->require_stack_type(1, sli3::integertype);
+        i->require_stack_type(0, sli3::stringtype);
+        std::string const& s1 = i->pick(3).data_.string_val->str();
+        long idx = i->pick(2).data_.long_val;
+        long n   = i->pick(1).data_.long_val;
+        std::string const& s2 = i->top().data_.string_val->str();
+        if (idx < 0 || static_cast<size_t>(idx) >= s1.size())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        if (n < 0)
+        {
+            i->raiseerror(i->PositiveIntegerExpectedError);
+            return;
+        }
+        // std::string::replace already clamps n to remaining length.
+        std::string out = s1;
+        out.replace(static_cast<size_t>(idx), static_cast<size_t>(n), s2);
+        i->pop(4);
+        i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
+        i->EStack().pop();
+    }
+};
+
 // `p1 p2 join_p -> p1++p2` — same shape as join_a, proceduretype payload.
 class JoinProcedureFunction : public SLIFunction
 {
@@ -603,6 +684,8 @@ JoinArrayFunction          join_a_fn;
 JoinProcedureFunction      join_p_fn;
 InsertArrayFunction        insert_a_fn;
 InsertStringFunction       insert_s_fn;
+ReplaceArrayFunction       replace_a_fn;
+ReplaceStringFunction      replace_s_fn;
 
 //------------------------------------------------------------------------
 // Dictionary lookup helpers
@@ -752,6 +835,8 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("join_p",        &join_p_fn);
     i->createcommand("insert_a",      &insert_a_fn);
     i->createcommand("insert_s",      &insert_s_fn);
+    i->createcommand("replace_a",     &replace_a_fn);
+    i->createcommand("replace_s",     &replace_s_fn);
 
     i->createcommand("known",     &known_fn);
     i->createcommand("where",     &where_fn);
