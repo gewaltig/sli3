@@ -47,8 +47,7 @@ namespace sli3
     quittype,
     num_sli_types, //!< Number of builtin types. User type ids start here
     intvectortype,
-    doublevectortype,
-    iteratortype
+    doublevectortype
   };
 
   typedef unsigned int refcount_t;

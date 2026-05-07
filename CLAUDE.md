@@ -17,6 +17,15 @@ Original work: Marc-Oliver Gewaltig, 2014–2015. Paused June 2015. Revived May 
 - **License:** GPL.
 - **Tests:** bare CTest, assert-based. No external test framework.
 - **`sli_processes`:** deferred (will move to `unported/`).
+- **`iteratortype` / `forall_iter`:** out of scope. The iterator protocol
+  (a polymorphic cursor over arbitrary container types — used in NEST
+  2.x for `forall_iter`, `size_iter`, `Map_iter`, the
+  `[/iteratortype] { {} Map }` branch of `cva`) is beyond the core
+  language. The enum slot, the dead `Forall_iterFunction` stub, and
+  the matching `addtotrie` lines in `lib/sli/typeinit.sli` /
+  `lib/sli/mathematica.sli` are removed. The SLI-defined
+  `/trieheads_iter` helper (despite the name) operates on a regular
+  array, not iteratortype, and stays.
 
 ## Status
 

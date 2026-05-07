@@ -747,7 +747,6 @@ end
 /Map trie
 [/arraytype /proceduretype] /Map_ load addtotrie
 [/arraytype /proceduretype /arraytype] /MapAtLevel load addtotrie
-[/iteratortype /proceduretype] /Map_iter load addtotrie
 [/stringtype /proceduretype] /Map_s load addtotrie
 def
 

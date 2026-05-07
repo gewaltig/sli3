@@ -429,6 +429,18 @@ This is substantial work and only justified if Q1 = (a) is firm.
 When you answer a question above, copy the decision here with the date so
 it's discoverable later without scrolling:
 
+- 2026-05-07: **Scope cut: `iteratortype` / `forall_iter` out of scope.**
+  The polymorphic iterator protocol (a cursor abstract base, an
+  `IteratorType : SLIType`, an `iforalliter` loop function, and
+  iterator constructors like `trieheads_iter` / `size_iter` /
+  `Map_iter`) is beyond the core language. Deliberate divergence
+  from NEST 2.20.2: the enum slot in `sli_type.h`, the dead
+  `Forall_iterFunction` stub in `sli_control.{h,cpp}`, and the
+  matching `[/iteratortype …] addtotrie` lines in
+  `lib/sli/typeinit.sli` (forall, size, cva tries) and
+  `lib/sli/mathematica.sli` (Map trie) are removed. The
+  SLI-defined `/trieheads_iter` helper (misleadingly named — it
+  operates on a regular array) stays.
 - 2026-05-05: Stage 1 complete. Build is clean, runtime not yet functional.
 - 2026-05-05: Q1 = (b). Standalone SLI interpreter, NEST-compatible language
   semantics, no neural-simulation surface. Stage 5 is therefore out of scope.

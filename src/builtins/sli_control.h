@@ -170,15 +170,7 @@ namespace sli3
     Forall_aFunction() {}
     void execute(SLIInterpreter *) const;
   };
-  
-  class Forall_iterFunction: public SLIFunction
-  {
-  public:
-    Forall_iterFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
-  
+
   class Forallindexed_aFunction: public SLIFunction
   {
   public:
