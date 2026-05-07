@@ -533,13 +533,9 @@ void Modf_dFunction::execute(SLIInterpreter *i) const
 void Frexp_dFunction::execute(SLIInterpreter *i) const
 {
     // i->require_stack_load(1);
-    double &op1=i->top().data_.double_val;
-    i->push(0);
-
     int val;
-
-    op1= std::frexp(op1, &val);
-    i->push(val);
+    i->top().data_.double_val = std::frexp(i->top().data_.double_val, &val);
+    i->push<long>(val);  // push exponent as integer on top
 
     i->EStack().pop();
 }

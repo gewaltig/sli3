@@ -124,6 +124,81 @@ int main()
     EVAL_INT(i,   "0 (abc) { add_ii add_ii } forallindexed_s",
                    97+0 + 98+1 + 99+2);  // 297
 
+    // -------- math doubles: trig ----------------------------------
+    // Note: pi ≈ 3.141592653589793, e ≈ 2.718281828459045
+    EVAL_DOUBLE(i, "0.0 sin_d",                 0.0,  1e-12);
+    EVAL_DOUBLE(i, "1.5707963267948966 sin_d",  1.0,  1e-12);  // sin(pi/2)
+    EVAL_DOUBLE(i, "3.141592653589793 sin_d",   0.0,  1e-12);
+    EVAL_DOUBLE(i, "0.0 cos_d",                 1.0,  1e-12);
+    EVAL_DOUBLE(i, "3.141592653589793 cos_d",  -1.0,  1e-12);
+    EVAL_DOUBLE(i, "1.0 asin_d",  1.5707963267948966, 1e-12);  // pi/2
+    EVAL_DOUBLE(i, "0.0 asin_d",                0.0,  1e-12);
+    EVAL_DOUBLE(i, "1.0 acos_d",                0.0,  1e-12);
+    EVAL_DOUBLE(i, "0.0 acos_d", 1.5707963267948966,  1e-12);
+
+    // -------- math doubles: exp / log -----------------------------
+    EVAL_DOUBLE(i, "0.0 exp_d",                 1.0,  1e-12);
+    EVAL_DOUBLE(i, "1.0 exp_d", 2.718281828459045,    1e-12);
+    EVAL_DOUBLE(i, "1.0 ln_d",                  0.0,  1e-12);
+    EVAL_DOUBLE(i, "2.718281828459045 ln_d",    1.0,  1e-12);
+    EVAL_DOUBLE(i, "1.0 log_d",                 0.0,  1e-12);  // log10
+    EVAL_DOUBLE(i, "10.0 log_d",                1.0,  1e-12);
+    EVAL_DOUBLE(i, "100.0 log_d",               2.0,  1e-12);
+
+    // -------- math doubles: powers / roots ------------------------
+    EVAL_DOUBLE(i, "2.0 sqr_d",                 4.0,  1e-12);
+    EVAL_DOUBLE(i, "-3.0 sqr_d",                9.0,  1e-12);
+    EVAL_DOUBLE(i, "4.0 sqrt_d",                2.0,  1e-12);
+    EVAL_DOUBLE(i, "2.0 sqrt_d", 1.4142135623730951,  1e-12);
+    EVAL_DOUBLE(i, "2.0 3.0 pow_dd",            8.0,  1e-12);
+    EVAL_DOUBLE(i, "9.0 0.5 pow_dd",            3.0,  1e-12);
+    EVAL_DOUBLE(i, "2.0 10  pow_di",            1024.0, 1e-9);
+    EVAL_DOUBLE(i, "2.0 inv",                   0.5,  1e-12);
+    EVAL_DOUBLE(i, "4.0 inv",                   0.25, 1e-12);
+
+    // -------- math doubles: sign / abs / neg ----------------------
+    EVAL_DOUBLE(i, "-3.5 abs_d",                3.5,  1e-12);
+    EVAL_DOUBLE(i, "3.5  abs_d",                3.5,  1e-12);
+    EVAL_INT(i,    "-7 abs_i",                  7);
+    EVAL_INT(i,    "5  abs_i",                  5);
+    EVAL_DOUBLE(i, "3.5  neg_d",               -3.5,  1e-12);
+    EVAL_DOUBLE(i, "-3.5 neg_d",                3.5,  1e-12);
+    EVAL_INT(i,    "5  neg_i",                 -5);
+    EVAL_INT(i,    "-7 neg_i",                  7);
+
+    // -------- math doubles: rounding ------------------------------
+    // round_d / floor_d / ceil_d return doubles (not ints).
+    EVAL_DOUBLE(i, "0.7 round_d",               1.0,  1e-12);
+    EVAL_DOUBLE(i, "0.4 round_d",               0.0,  1e-12);
+    EVAL_DOUBLE(i, "1.5 round_d",               2.0,  1e-12);
+    EVAL_DOUBLE(i, "1.7 floor_d",               1.0,  1e-12);
+    EVAL_DOUBLE(i, "-1.3 floor_d",             -2.0,  1e-12);
+    EVAL_DOUBLE(i, "1.3 ceil_d",                2.0,  1e-12);
+    EVAL_DOUBLE(i, "-1.7 ceil_d",              -1.0,  1e-12);
+
+    // int_d truncates toward zero, returns integer.
+    EVAL_INT(i,    "3.7 int_d",                 3);
+    EVAL_INT(i,    "-3.7 int_d",               -3);
+    EVAL_INT(i,    "5.0 int_d",                 5);
+
+    // -------- math doubles: min / max -----------------------------
+    EVAL_INT(i,    "3 5 max_i_i",               5);
+    EVAL_INT(i,    "5 3 max_i_i",               5);
+    EVAL_INT(i,    "3 5 min_i_i",               3);
+    EVAL_DOUBLE(i, "3.5 5.5 max_d_d",           5.5,  1e-12);
+    EVAL_DOUBLE(i, "3.5 5.5 min_d_d",           3.5,  1e-12);
+
+    // -------- math doubles: modf / frexp (multi-output) -----------
+    // 3.7 modf_d -> 0.7 3.0  (frac, int-part-as-double)
+    EVAL_DEPTH(i,  "3.7 modf_d", 2);
+    EVAL_DOUBLE(i, "3.7 modf_d pop",           0.7,  1e-12);   // frac
+    EVAL_DOUBLE(i, "3.7 modf_d exch pop",      3.0,  1e-12);   // int part
+
+    // 12.0 frexp_d -> 0.75 4  (mantissa, exponent_int)
+    EVAL_DEPTH(i,  "12.0 frexp_d", 2);
+    EVAL_INT(i,    "12.0 frexp_d exch pop",     4);            // exponent
+    EVAL_DOUBLE(i, "12.0 frexp_d pop",         0.75,  1e-12);  // mantissa
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }
