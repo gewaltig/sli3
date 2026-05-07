@@ -482,12 +482,58 @@ public:
     }
 };
 
-JoinStringFunction       join_s_fn;
-SearchStringFunction     search_s_fn;
-CviStringFunction        cvi_s_fn;
-CvdStringFunction        cvd_s_fn;
-GetintervalArrayFunction  getinterval_a_fn;
-GetintervalStringFunction getinterval_s_fn;
+// `a1 a2 join_a -> a1++a2` — concatenate two arrays. Result is a fresh
+// arraytype. NEST 2.20.2 sli/slidata.cc mutates a1 in place via
+// append_move; we copy to keep refcount aliasing simple.
+class JoinArrayFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::arraytype);
+        i->require_stack_type(0, sli3::arraytype);
+        TokenArray const* a = i->pick(1).data_.array_val;
+        TokenArray const* b = i->top().data_.array_val;
+        TokenArray* out = new TokenArray();
+        out->reserve(a->size() + b->size());
+        for (size_t k = 0; k < a->size(); ++k) out->push_back(a->get(k));
+        for (size_t k = 0; k < b->size(); ++k) out->push_back(b->get(k));
+        i->pop(2);
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `p1 p2 join_p -> p1++p2` — same shape as join_a, proceduretype payload.
+class JoinProcedureFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::proceduretype);
+        i->require_stack_type(0, sli3::proceduretype);
+        TokenArray const* a = i->pick(1).data_.array_val;
+        TokenArray const* b = i->top().data_.array_val;
+        TokenArray* out = new TokenArray();
+        out->reserve(a->size() + b->size());
+        for (size_t k = 0; k < a->size(); ++k) out->push_back(a->get(k));
+        for (size_t k = 0; k < b->size(); ++k) out->push_back(b->get(k));
+        i->pop(2);
+        i->push(i->new_token<sli3::proceduretype>(out));
+        i->EStack().pop();
+    }
+};
+
+JoinStringFunction         join_s_fn;
+SearchStringFunction       search_s_fn;
+CviStringFunction          cvi_s_fn;
+CvdStringFunction          cvd_s_fn;
+GetintervalArrayFunction   getinterval_a_fn;
+GetintervalStringFunction  getinterval_s_fn;
+JoinArrayFunction          join_a_fn;
+JoinProcedureFunction      join_p_fn;
 
 //------------------------------------------------------------------------
 // Dictionary lookup helpers
@@ -633,6 +679,8 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("cvd_s",         &cvd_s_fn);
     i->createcommand("getinterval_a", &getinterval_a_fn);
     i->createcommand("getinterval_s", &getinterval_s_fn);
+    i->createcommand("join_a",        &join_a_fn);
+    i->createcommand("join_p",        &join_p_fn);
 
     i->createcommand("known",     &known_fn);
     i->createcommand("where",     &where_fn);

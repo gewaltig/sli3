@@ -970,6 +970,15 @@ namespace sli3
 
     template<>
     inline
+    Token SLIInterpreter::new_token<sli3::proceduretype, TokenArray *>(TokenArray * a)
+    {
+	Token t(types_[sli3::proceduretype]);
+	t.data_.array_val= a;
+	return t;
+    }
+
+    template<>
+    inline
     Token SLIInterpreter::new_token<sli3::stringtype, std::string >(std::string s)
     {
 	Token t(types_[sli3::stringtype]);

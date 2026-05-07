@@ -228,6 +228,26 @@ int main()
     EVAL_DEPTH(i,  "[10 20 30] 0 2 getinterval_a",                 1);
     EVAL_DEPTH(i,  "(hello) 1 3 getinterval_s",                    1);
 
+    // -------- join_a / join_p ------------------------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc:
+    //   a1 a2 join_a -> a1 ++ a2   (fresh array; same for join_p)
+
+    EVAL_INT(i,    "[1 2] [3 4] join_a length_a",                  4);
+    EVAL_INT(i,    "[1 2] [3 4] join_a 0 get_a",                   1);
+    EVAL_INT(i,    "[1 2] [3 4] join_a 3 get_a",                   4);
+    EVAL_INT(i,    "[10 20 30] [40] join_a length_a",              4);
+    EVAL_INT(i,    "[10 20 30] [40] join_a 3 get_a",              40);
+    EVAL_INT(i,    "[] [1 2] join_a length_a",                     2);
+    EVAL_INT(i,    "[1 2] [] join_a length_a",                     2);
+    EVAL_INT(i,    "[] [] join_a length_a",                        0);
+    EVAL_DEPTH(i,  "[1 2] [3 4] join_a",                           1);
+
+    // join_p builds a procedure-typed result; length_p exposes its size.
+    EVAL_INT(i,    "{1 2} {3 4} join_p length_p",                  4);
+    EVAL_INT(i,    "{1 2 3} {} join_p length_p",                   3);
+    EVAL_INT(i,    "{} {} join_p length_p",                        0);
+    EVAL_DEPTH(i,  "{1 2} {3 4} join_p",                           1);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }
