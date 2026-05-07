@@ -382,6 +382,29 @@ int main()
     EVAL_INT(i,    "(abc) 0 90 insertelement_s 0 get_s",            'Z');  // prepend
     EVAL_DEPTH(i,  "(ab) 0 67 insertelement_s",                     1);
 
+    // -------- prepend_a / prepend_s / prepend_p ------------------
+    // Semantics from NEST 2.20.2 sli/slidata.cc: c1 any prepend -> c1'
+    // No validation; element goes at index 0.
+
+    EVAL_INT(i,    "[10 20] 99 prepend_a length_a",                 3);
+    EVAL_INT(i,    "[10 20] 99 prepend_a 0 get_a",                 99);
+    EVAL_INT(i,    "[10 20] 99 prepend_a 1 get_a",                 10);
+    EVAL_INT(i,    "[10 20] 99 prepend_a 2 get_a",                 20);
+    EVAL_INT(i,    "[] 42 prepend_a length_a",                      1);
+    EVAL_INT(i,    "[] 42 prepend_a 0 get_a",                      42);
+    EVAL_DEPTH(i,  "[1] 9 prepend_a",                               1);
+
+    EVAL_INT(i,    "{1 2} 99 prepend_p length_p",                   3);
+    EVAL_INT(i,    "{} 42 prepend_p length_p",                      1);
+    EVAL_DEPTH(i,  "{1} 9 prepend_p",                               1);
+
+    EVAL_INT(i,    "(bc) 65 prepend_s length_s",                    3);  // 'A'+"bc"
+    EVAL_INT(i,    "(bc) 65 prepend_s 0 get_s",                     'A');
+    EVAL_INT(i,    "(bc) 65 prepend_s 1 get_s",                     'b');
+    EVAL_INT(i,    "() 88 prepend_s length_s",                      1);  // 'X'
+    EVAL_INT(i,    "() 88 prepend_s 0 get_s",                       'X');
+    EVAL_DEPTH(i,  "(a) 66 prepend_s",                              1);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }

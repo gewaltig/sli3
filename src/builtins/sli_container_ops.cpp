@@ -941,10 +941,48 @@ public:
     }
 };
 
+// `c1 any prepend_<a|p> -> c1'` — insert a single token at index 0.
+// `s1 int prepend_s   -> s1'` — insert a single character at index 0.
+// Mirrors NEST 2.20.2 sli/slidata.cc Prepend_a/p/s — no validation; the
+// underlying array/string supports the insert directly. We mutate in
+// place (same convention as append).
+template <unsigned int TID>
+class PrependArrayLikeFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, TID);
+        TokenArray* arr = i->pick(1).data_.array_val;
+        arr->insert(0, i->top());
+        i->pop();  // drop value, leave container on top
+        i->EStack().pop();
+    }
+};
+
+class PrependStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::stringtype);
+        i->require_stack_type(0, sli3::integertype);
+        std::string& s = i->pick(1).data_.string_val->str();
+        s.insert(s.begin(), static_cast<char>(i->top().data_.long_val));
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
 AppendArrayLikeFunction<sli3::arraytype>          append_a_fn;
 AppendArrayLikeFunction<sli3::proceduretype>      append_p_fn;
 AppendArrayLikeFunction<sli3::litproceduretype>   append_lp_fn;
 AppendStringFunction                              append_s_fn;
+PrependArrayLikeFunction<sli3::arraytype>         prepend_a_fn;
+PrependArrayLikeFunction<sli3::proceduretype>     prepend_p_fn;
+PrependStringFunction                             prepend_s_fn;
 
 }  // anonymous namespace
 
@@ -996,6 +1034,10 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("append_p",  &append_p_fn);
     i->createcommand("append_lp", &append_lp_fn);
     i->createcommand("append_s",  &append_s_fn);
+
+    i->createcommand("prepend_a", &prepend_a_fn);
+    i->createcommand("prepend_p", &prepend_p_fn);
+    i->createcommand("prepend_s", &prepend_s_fn);
 }
 
 }  // namespace sli3
