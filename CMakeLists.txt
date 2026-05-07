@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sli3 VERSION 0.1.0 LANGUAGES CXX)
+project(sli3 VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -66,11 +66,15 @@ add_library(sli3_core STATIC
   src/builtins/sli_container_ops.cpp
   src/builtins/sli_io_ops.cpp
   src/builtins/sli_startup.cpp
+  src/builtins/sli_readline.cpp
 
   # trie / serialize / util
   src/trie/sli_type_trie.cpp
   src/serialize/sli_serialize.cpp
   src/util/sli_exceptions.cpp
+
+  # vendored: linenoise (BSD-2, see src/util/linenoise/LICENSE)
+  src/util/linenoise/linenoise.c
 )
 target_include_directories(sli3_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/types
@@ -82,6 +86,12 @@ target_include_directories(sli3_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/serialize
   ${CMAKE_CURRENT_SOURCE_DIR}/src/util
   ${CMAKE_CURRENT_BINARY_DIR}
+)
+# linenoise has a few unused-parameter / sign-comparison warnings in
+# its vendored form. Don't let those fail our (eventual) -Werror.
+set_source_files_properties(
+  src/util/linenoise/linenoise.c
+  PROPERTIES COMPILE_FLAGS "-w"
 )
 target_compile_options(sli3_core PRIVATE
   -Wall
