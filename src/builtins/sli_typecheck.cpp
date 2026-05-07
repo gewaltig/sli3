@@ -270,6 +270,14 @@ void TypeFunction::execute(SLIInterpreter *i) const
 
     i->require_stack_load(1);
     Token &top=i->top();
+    if (top.type_ == nullptr)
+    {
+        // A null-typed Token has slipped onto the operand stack from
+        // some upstream bug. Surface it as a proper error rather than
+        // crashing on a vtable read in tmp.type_->get_typename().
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
     Token tmp;
     tmp.move(top);
     top.type_= literal_t;

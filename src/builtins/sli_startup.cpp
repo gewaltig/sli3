@@ -142,6 +142,38 @@ GetenvFunction      getenv_fn;
 EvalstringFunction  evalstring_fn;
 
 //------------------------------------------------------------------------
+// Stub for operators that are referenced in typeinit.sli /
+// mathematica.sli / etc. via `<X> load addtotrie` but are NOT yet
+// implemented in C++. The trie machinery only requires the name to
+// exist in systemdict at construction time; the trie body is consulted
+// later when an operand of the matching type signature actually invokes
+// the trie. So registering a stub satisfies trie construction; if a
+// stubbed op is later actually called, the user gets a clear
+// "Unimplemented" error with the operator's registered name.
+//
+// Each stub instance carries its own name (set by createcommand),
+// which raiseerror reports as the failing command. We allocate one
+// instance per registration so the names don't get clobbered.
+//------------------------------------------------------------------------
+
+class UnimplementedFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        // Print a clear diagnostic before raising, so the failure is
+        // obvious in interactive use.
+        std::string msg = "Operator '" + std::string(get_name().toString())
+                          + "' is registered as a stub but not yet"
+                            " implemented. Bootstrap referenced it via"
+                            " `load addtotrie` so the trie surface could be"
+                            " built; runtime calls land here.";
+        i->message(M_ERROR, "Unimplemented", msg.c_str());
+        i->raiseerror(get_name(), Name("Unimplemented"));
+    }
+};
+
+//------------------------------------------------------------------------
 // Stream-output operators. These match the names typeinit.sli expects
 // (`<-`, `<--`, `endl`) so the loaded init script can build print
 // helpers like `=` and `==` on top.
@@ -403,6 +435,33 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     i->createcommand("end",        &end_fn);
     i->createcommand("dict",       &dict_fn);
     i->createcommand("currentdict",&currentdict_fn);
+
+    // 2b. Stubs for unimplemented operators that typeinit.sli /
+    //     mathematica.sli / etc. reference via `<X> load addtotrie`.
+    //     The trie can be built; calling a stubbed op at runtime
+    //     raises Unimplemented. This list is the audited set of
+    //     names that appear in `addtotrie` calls but have neither a
+    //     C++ leaf nor an .sli definition before their use site.
+    //     When an operator graduates to a real implementation, drop
+    //     its entry here.
+    static const char* unimplemented_ops[] = {
+        ":resize_a", ":resize_s",
+        "capacity_a", "capacity_s",
+        "cva_d",
+        "cvlp_p", "cvn_s", "cvx_a",
+        "doublevector2array",
+        "empty_a", "empty_D", "empty_s",
+        "intvector2array",
+        "keys", "values",
+        "references_a",
+        "regerror_", "regexec_",
+        "reserve_a", "reserve_s",
+        "shrink_a",
+    };
+    for (const char* name : unimplemented_ops)
+    {
+        i->createcommand(name, new UnimplementedFunction());
+    }
 
     // 3. Resolve sli-init.sli. If we can't find it, leave a clear
     //    message and skip the bootstrap — the interpreter still has

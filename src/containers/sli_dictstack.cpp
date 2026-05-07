@@ -73,17 +73,24 @@ void DictionaryStack::basedef( Name const & n, const Token &t)
 
 
 void DictionaryStack::pop(void)
-{ 
+{
   //
   // remove top dictionary from stack
-  // dictionary stack must contain at least one dictionary 
+  // dictionary stack must contain at least one dictionary
   //
 
+  Dictionary *top = *(d.begin());
+
 #ifdef DICTSTACK_CACHE
-    clear_dict_from_cache(*(d.begin()));
-    (*(d.begin()))->remove_dictstack_reference();
+    clear_dict_from_cache(top);
+    top->remove_dictstack_reference();
 #endif
     d.pop_front();
+
+    // Pair with the add_reference in push(): now that the dict is no
+    // longer on the dictstack, drop the reference. May delete the dict
+    // if no Token still holds it.
+    top->remove_reference();
 }
 
 void DictionaryStack::clear(void)
@@ -131,6 +138,13 @@ void DictionaryStack::push(Token dicttoken)
   // and push it on top of the stack.
   // a non dictionary datum at this point is a program bug.
   //
+
+  // The dictstack stores raw Dictionary* but Token-side refcounting
+  // is what keeps Dictionaries alive. Bump the count so that destruction
+  // of the source Token (or any other Token holding this dict) doesn't
+  // delete the dict out from under us. The matching decrement is in
+  // DictionaryStack::pop().
+  dict->add_reference();
 
 #ifdef DICTSTACK_CACHE
     dict->add_dictstack_reference();

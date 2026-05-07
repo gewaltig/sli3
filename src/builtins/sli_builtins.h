@@ -121,6 +121,12 @@ namespace sli3
     public:
     void execute(SLIInterpreter *) const;
   };
- 
+
+  class DictconstructFunction: public SLIFunction
+  {
+    public:
+    void execute(SLIInterpreter *) const;
+  };
+
 }
 #endif

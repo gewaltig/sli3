@@ -538,6 +538,7 @@ namespace sli3
 	IforallindexedstringFunction iforallindexedstringfunction;
 	IforallstringFunction iforallstringfunction;
 	ArraycreateFunction arraycreatefunction;
+	DictconstructFunction dictconstructfunction;
 
     private:
 	bool is_initialized_;

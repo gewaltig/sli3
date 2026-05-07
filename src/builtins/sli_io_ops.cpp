@@ -18,6 +18,7 @@
 #include <fstream>
 #include <istream>
 #include <ostream>
+#include <sstream>
 #include <string>
 
 namespace sli3
@@ -210,12 +211,58 @@ public:
     }
 };
 
+// `ostrstream -> ostream true | false` — open an in-memory output
+// string-stream. NEST 2.x sli_io.cc OstrstreamFunction. Always
+// succeeds in modern C++ — std::ostringstream's no-arg ctor doesn't
+// fail. We still push the (true) success flag for compatibility with
+// callers that pop and branch on it.
+class OstrstreamFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        auto* oss = new std::ostringstream();
+        auto* wrap = new SLIostream(oss);  // takes ownership
+        Token t(i->get_type(sli3::ostreamtype));
+        t.data_.ostream_val = wrap;
+        i->push(t);
+        i->push<bool>(true);
+        i->EStack().pop();
+    }
+};
+
+// `ostream str -> string` — extract the accumulated contents of an
+// ostrstream-style output stream. Only meaningful for streams backed
+// by std::ostringstream; for other ostreamtype values it returns the
+// empty string. The stream is left consumed (closed/empty).
+class StrFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::ostreamtype);
+        SLIostream* s = i->top().data_.ostream_val;
+        std::ostream* os = s ? s->get() : nullptr;
+        std::string out;
+        if (auto* oss = dynamic_cast<std::ostringstream*>(os))
+        {
+            out = oss->str();
+        }
+        i->pop();
+        i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
+        i->EStack().pop();
+    }
+};
+
 IfstreamFunction       ifstream_fn;
 OfstreamFunction       ofstream_fn;
 CvxFFunction           cvx_f_fn;
 CloseStreamFunction    close_fn;
 EofStreamFunction      eof_fn;
 GetlineIsFunction      getline_is_fn;
+OstrstreamFunction     ostrstream_fn;
+StrFunction            str_fn;
 
 }  // anonymous namespace
 
@@ -227,6 +274,8 @@ void init_io_ops(SLIInterpreter* i)
     i->createcommand("close",      &close_fn);
     i->createcommand("eof",        &eof_fn);
     i->createcommand("getline_is", &getline_is_fn);
+    i->createcommand("ostrstream", &ostrstream_fn);
+    i->createcommand("str",        &str_fn);
 }
 
 }  // namespace sli3

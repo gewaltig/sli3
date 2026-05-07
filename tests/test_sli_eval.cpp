@@ -405,6 +405,44 @@ int main()
     EVAL_INT(i,    "() 88 prepend_s 0 get_s",                       'X');
     EVAL_DEPTH(i,  "(a) 66 prepend_s",                              1);
 
+    // -------- size_a / size_s ------------------------------------
+    // Different from length: size LEAVES the source on the stack and
+    // pushes the size on top. NEST 2.20.2 sli/slidata.cc Size_aFunction.
+    //   [1 2 3] size_a -> [1 2 3] 3
+    EVAL_DEPTH(i,  "[1 2 3] size_a",                                2);
+    EVAL_DEPTH(i,  "(hello) size_s",                                2);
+    // Peel off the source via exch pop to verify the size value.
+    EVAL_INT(i,    "[1 2 3] size_a exch pop",                       3);
+    EVAL_INT(i,    "[] size_a exch pop",                            0);
+    EVAL_INT(i,    "[10 20 30 40 50] size_a exch pop",              5);
+    EVAL_INT(i,    "(hello) size_s exch pop",                       5);
+    EVAL_INT(i,    "() size_s exch pop",                            0);
+
+    // -------- dict literal: << k v ... >> -------------------------
+    // `<<` pushes a mark; `>>` collects all key/value pairs above
+    // the mark into a fresh Dictionary. NEST 2.20.2 sli/slidict.cc
+    // DictconstructFunction.
+    EVAL_INT(i,    "<< >> length_d",                                0);
+    EVAL_INT(i,    "<< /a 1 >> length_d",                           1);
+    EVAL_INT(i,    "<< /a 1 /b 2 /c 3 >> length_d",                 3);
+    EVAL_DEPTH(i,  "<< /a 1 /b 2 >>",                               1);
+    // Round-trip: build, look up a key.
+    EVAL_INT(i,    "<< /x 42 /y 99 >> /x get_d",                    42);
+    EVAL_INT(i,    "<< /x 42 /y 99 >> /y get_d",                    99);
+
+    // -------- ostrstream / str -----------------------------------
+    // ostrstream creates a std::ostringstream-backed ostream; str
+    // extracts its accumulated contents as a string.
+    //   ostrstream -> ostream true   (success branch only in modern C++)
+    EVAL_DEPTH(i,  "ostrstream",                                    2);
+    // Pipeline matches sli-init.sli's `cvs` body: `x ostrstream ; exch <- str`
+    // where ; is pop. With value x already on stack:
+    //   ostrstream -> stream true; ; (pop true); exch -> [stream, x];
+    //   <- pops x (writes it to stream), leaves stream on top; str -> "x".
+    EVAL_STRING(i, "42 ostrstream pop exch <- str",                 "42");
+    EVAL_STRING(i, "(hello) ostrstream pop exch <- str",            "hello");
+    EVAL_STRING(i, "ostrstream pop str",                            "");
+
     // -------- search_a -------------------------------------------
     // Semantics from NEST 2.20.2 sli/slidata.cc Search_aFunction:
     //   c1 needle search_a -> post match pre true   (when found)

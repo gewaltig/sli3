@@ -947,9 +947,6 @@ def
 /cva trie
 [/dictionarytype] /cva_d load addtotrie
 [/trietype] {cva_t exch pop} addtotrie
-[/arraytypetype] {} addtotrie
-[/intvectortype] /intvector2array load addtotrie
-[/doublevectortype] /doublevector2array load addtotrie
 [/arraytype] { {dup type /cva load triematches {cva} if} Map } addtotrie
 def
 

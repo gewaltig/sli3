@@ -452,6 +452,37 @@ public:
     }
 };
 
+// `c size_<a|s> -> c n` — like length, but leaves the source on the
+// stack and pushes the size on top. Mirrors NEST 2.20.2
+// sli/slidata.cc Size_aFunction / Size_sFunction (lines 954-967, 1116).
+class SizeArrayLikeFunction : public SLIFunction
+{
+    sli3::sli_typeid tid_;
+public:
+    explicit SizeArrayLikeFunction(sli3::sli_typeid t) : tid_(t) {}
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, tid_);
+        long n = static_cast<long>(i->top().data_.array_val->size());
+        i->push<long>(n);
+        i->EStack().pop();
+    }
+};
+
+class SizeStringFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::stringtype);
+        long n = static_cast<long>(i->top().data_.string_val->size());
+        i->push<long>(n);
+        i->EStack().pop();
+    }
+};
+
 // `arr index count getinterval_a -> subarr`
 // Returns a fresh arraytype with elements [index, index+count). Validation
 // matches NEST 2.20.2 sli/slidata.cc (Getinterval_aFunction):
@@ -859,6 +890,8 @@ public:
     }
 };
 
+SizeArrayLikeFunction      size_a_fn(sli3::arraytype);
+SizeStringFunction         size_s_fn;
 JoinStringFunction         join_s_fn;
 SearchStringFunction       search_s_fn;
 SearchArrayFunction        search_a_fn;
@@ -1061,6 +1094,8 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("cvd_s",         &cvd_s_fn);
     i->createcommand("getinterval_a", &getinterval_a_fn);
     i->createcommand("getinterval_s", &getinterval_s_fn);
+    i->createcommand("size_a",        &size_a_fn);
+    i->createcommand("size_s",        &size_s_fn);
     i->createcommand("join_a",        &join_a_fn);
     i->createcommand("join_p",        &join_p_fn);
     i->createcommand("insert_a",      &insert_a_fn);

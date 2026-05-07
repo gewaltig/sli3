@@ -276,7 +276,7 @@ namespace sli3
 		      &iforallindexedarrayfunction);
 	createcommand(iforallstring_name,&iforallstringfunction);
 	createcommand("]", &arraycreatefunction);
-//	createcommand(">>", &dictcreatefunction);
+	createcommand(">>", &dictconstructfunction);
 	
 	createdouble(pi_name, numerics::pi);
 	createdouble(e_name, numerics::e);
