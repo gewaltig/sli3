@@ -443,6 +443,33 @@ int main()
     EVAL_STRING(i, "(hello) ostrstream pop exch <- str",            "hello");
     EVAL_STRING(i, "ostrstream pop str",                            "");
 
+    // -------- dictionary helpers: keys / values / cva_d ----------
+    EVAL_INT(i,    "<< >> keys length_a",                          0);
+    EVAL_INT(i,    "<< /a 1 >> keys length_a",                     1);
+    EVAL_INT(i,    "<< /a 1 /b 2 /c 3 >> keys length_a",           3);
+
+    EVAL_INT(i,    "<< /a 1 /b 2 >> values length_a",              2);
+    EVAL_INT(i,    "<< /x 42 >> values 0 get_a",                   42);
+
+    // cva_d: dict -> [/k1 v1 /k2 v2 ...]
+    EVAL_INT(i,    "<< /a 1 /b 2 >> cva_d length_a",               4);
+    EVAL_INT(i,    "<< >> cva_d length_a",                         0);
+
+    // -------- cleardict / clonedict ------------------------------
+    EVAL_INT(i,    "<< /a 1 /b 2 >> dup cleardict length_d",       0);
+    EVAL_DEPTH(i,  "<< /a 1 >> clonedict",                         2);
+    // clonedict leaves [src, copy]; peel to verify the copy size.
+    EVAL_INT(i,    "<< /a 1 /b 2 /c 3 >> clonedict exch pop length_d", 3);
+
+    // -------- info_d / topinfo_d / info_ds (stream output) -------
+    // Use ostrstream + str to capture into a string. info_d eats
+    // both stream and dict; we duplicate the stream first via `2 copy`
+    // so it survives for str. Just check the captured string is
+    // non-empty (formatting tested by NEST's own test suite).
+    EVAL_BOOL(i,
+        "<< /x 42 >> ostrstream pop exch 2 copy info_d pop str length_s 0 gt_ii",
+        true);
+
     // -------- call (oosupport) -----------------------------------
     // `dict key call`: look up `key` in `dict`, push `dict` onto the
     // dictstack, execute the resulting name, then pop the dict back

@@ -539,6 +539,171 @@ public:
     }
 };
 
+//------------------------------------------------------------------------
+// Dictionary introspection / manipulation. Mirrors NEST 2.20.2
+// sli/slidict.cc — keys/values/cva_d/cleardict/clonedict and the
+// info family (info_d/topinfo_d/info_ds).
+//------------------------------------------------------------------------
+
+// `dict keys -> array` — array of literal keys (in dict iteration order).
+class KeysFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::dictionarytype);
+        Dictionary const* d = i->top().data_.dict_val;
+        TokenArray* out = new TokenArray();
+        out->reserve(d->size());
+        for (auto it = d->begin(); it != d->end(); ++it)
+            out->push_back(i->new_token<sli3::literaltype, Name>(it->first));
+        i->pop();
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `dict values -> array` — array of values (in dict iteration order).
+class ValuesFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::dictionarytype);
+        Dictionary const* d = i->top().data_.dict_val;
+        TokenArray* out = new TokenArray();
+        out->reserve(d->size());
+        for (auto it = d->begin(); it != d->end(); ++it)
+            out->push_back(it->second);
+        i->pop();
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `dict cva_d -> array` — flattened [/k1 v1 /k2 v2 ...] form.
+class CvaDictFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::dictionarytype);
+        Dictionary const* d = i->top().data_.dict_val;
+        TokenArray* out = new TokenArray();
+        out->reserve(d->size() * 2);
+        for (auto it = d->begin(); it != d->end(); ++it)
+        {
+            out->push_back(i->new_token<sli3::literaltype, Name>(it->first));
+            out->push_back(it->second);
+        }
+        i->pop();
+        i->push(i->new_token<sli3::arraytype>(out));
+        i->EStack().pop();
+    }
+};
+
+// `dict cleardict -> -` — empty the dictionary in place.
+class CleardictFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::dictionarytype);
+        i->top().data_.dict_val->clear();
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
+// `dict clonedict -> dict copy` — leaves source AND a fresh shallow copy.
+// Per NEST: pushes a new dict alongside the source.
+class ClonedictFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::dictionarytype);
+        Dictionary const* src = i->top().data_.dict_val;
+        Dictionary* copy = new Dictionary(*src);
+        Token t(i->get_type(sli3::dictionarytype));
+        t.data_.dict_val = copy;
+        i->push(t);
+        i->EStack().pop();
+    }
+};
+
+// `ostream dict info_d -> -` — print contents of dict to ostream. Pops
+// both. Mirrors NEST 2.20.2 sli/slidict.cc DictinfoFunction.
+class InfoDFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        i->require_stack_type(1, sli3::ostreamtype);
+        i->require_stack_type(0, sli3::dictionarytype);
+        SLIostream* s = i->pick(1).data_.ostream_val;
+        std::ostream* os = s ? s->get() : nullptr;
+        if (!os)
+        {
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        Dictionary const* d = i->top().data_.dict_val;
+        d->info(*os);
+        i->pop(2);
+        i->EStack().pop();
+    }
+};
+
+// `ostream topinfo_d -> -` — print contents of TOP dict on the dictstack.
+class TopinfoDFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::ostreamtype);
+        SLIostream* s = i->top().data_.ostream_val;
+        std::ostream* os = s ? s->get() : nullptr;
+        if (!os)
+        {
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        i->DStack().top_info(*os);
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
+// `ostream info_ds -> -` — print all dictionaries on the dictstack
+// (NEST's `who`).
+class InfoDsFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::ostreamtype);
+        SLIostream* s = i->top().data_.ostream_val;
+        std::ostream* os = s ? s->get() : nullptr;
+        if (!os)
+        {
+            i->raiseerror(i->BadIOError);
+            return;
+        }
+        i->DStack().info(*os);
+        i->pop();
+        i->EStack().pop();
+    }
+};
+
 // `c size_<a|s> -> c n` — like length, but leaves the source on the
 // stack and pushes the size on top. Mirrors NEST 2.20.2
 // sli/slidata.cc Size_aFunction / Size_sFunction (lines 954-967, 1116).
@@ -977,6 +1142,14 @@ public:
     }
 };
 
+KeysFunction               keys_fn;
+ValuesFunction             values_fn;
+CvaDictFunction            cva_d_fn;
+CleardictFunction          cleardict_fn;
+ClonedictFunction          clonedict_fn;
+InfoDFunction              info_d_fn;
+TopinfoDFunction           topinfo_d_fn;
+InfoDsFunction             info_ds_fn;
 SizeArrayLikeFunction      size_a_fn(sli3::arraytype);
 SizeStringFunction         size_s_fn;
 EmptyArrayLikeFunction     empty_a_fn(sli3::arraytype);
@@ -1186,6 +1359,14 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("cvd_s",         &cvd_s_fn);
     i->createcommand("getinterval_a", &getinterval_a_fn);
     i->createcommand("getinterval_s", &getinterval_s_fn);
+    i->createcommand("keys",          &keys_fn);
+    i->createcommand("values",        &values_fn);
+    i->createcommand("cva_d",         &cva_d_fn);
+    i->createcommand("cleardict",     &cleardict_fn);
+    i->createcommand("clonedict",     &clonedict_fn);
+    i->createcommand("info_d",        &info_d_fn);
+    i->createcommand("topinfo_d",     &topinfo_d_fn);
+    i->createcommand("info_ds",       &info_ds_fn);
     i->createcommand("size_a",        &size_a_fn);
     i->createcommand("size_s",        &size_s_fn);
     i->createcommand("empty_a",       &empty_a_fn);
