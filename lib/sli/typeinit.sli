@@ -246,59 +246,9 @@ SeeAlso: max, gt, lt, geq, leq
 
 % sli3 Stage 9: /min bound in C++ to compact MinFunction.
 
-/sin trie
-  [/doubletype] /sin_d load addtotrie
-  [/integertype] {cvd sin_d} addtotrie
-def
-
-/asin trie
-  [/doubletype] /asin_d load addtotrie
-  [/integertype] {cvd asin_d} addtotrie
-def
-
-/cos trie
-  [/doubletype] /cos_d load addtotrie
-  [/integertype] {cvd cos_d} addtotrie
-def
-
-/acos trie
-  [/doubletype] /acos_d load addtotrie
-  [/integertype] {cvd acos_d} addtotrie
-def
-
-/exp trie
-  [/doubletype] /exp_d load addtotrie
-  [/integertype] {cvd exp_d} bind addtotrie
-def
-
-/ln trie
-  [/doubletype] /ln_d load addtotrie
-  [/integertype] {cvd ln_d} bind addtotrie
-def
-
-/log trie
-  [/doubletype] /log_d load addtotrie
-  [/integertype] {cvd log_d} bind addtotrie
-def
-
-/sqr trie
-  [/doubletype] /sqr_d load addtotrie
-  [/integertype] {cvd sqr_d} bind addtotrie
-def
-
-/sqrt trie
-  [/doubletype] /sqrt_d load addtotrie
-  [/integertype] {cvd sqrt_d} bind addtotrie
-def
-
-/pow trie
-  [/doubletype /doubletype] /pow_dd load addtotrie
-  [/integertype /doubletype] {exch cvd exch pow_dd} bind addtotrie
-
-  % integer exponent is special: exponend may be negative
-  [/doubletype /integertype] /pow_di load addtotrie
-  [/integertype /integertype] {exch cvd exch pow_di} bind addtotrie
-def
+% sli3 Stage 9: /sin /asin /cos /acos /exp /ln /log /sqr /sqrt
+% /pow bound in C++ to compact functions that accept int (auto-
+% promote to double) or double, no trie.
 
 /modf trie
   [/doubletype ] /modf_d load addtotrie

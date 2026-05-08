@@ -267,6 +267,19 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
 
+  // Compact single-arg math -- accept int (auto-promote) or
+  // double, no trie. Each replaces a 2-arm typed trie.
+  class SinFunction:  public SLIFunction { public: SinFunction()  {} void execute(SLIInterpreter *) const; };
+  class AsinFunction: public SLIFunction { public: AsinFunction() {} void execute(SLIInterpreter *) const; };
+  class CosFunction:  public SLIFunction { public: CosFunction()  {} void execute(SLIInterpreter *) const; };
+  class AcosFunction: public SLIFunction { public: AcosFunction() {} void execute(SLIInterpreter *) const; };
+  class ExpFunction:  public SLIFunction { public: ExpFunction()  {} void execute(SLIInterpreter *) const; };
+  class LnFunction:   public SLIFunction { public: LnFunction()   {} void execute(SLIInterpreter *) const; };
+  class LogFunction:  public SLIFunction { public: LogFunction()  {} void execute(SLIInterpreter *) const; };
+  class SqrFunction:  public SLIFunction { public: SqrFunction()  {} void execute(SLIInterpreter *) const; };
+  class SqrtFunction: public SLIFunction { public: SqrtFunction() {} void execute(SLIInterpreter *) const; };
+  class PowFunction:  public SLIFunction { public: PowFunction()  {} void execute(SLIInterpreter *) const; };
+
   //--------------------------------------
 
   class Mod_iiFunction: public SLIFunction

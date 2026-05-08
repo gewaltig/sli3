@@ -571,6 +571,98 @@ void XorPolyFunction::execute(SLIInterpreter *i) const
     i->pop();
 }
 
+// Compact single-arg math: double in -> double out; integer
+// in -> double out (promoted). Wrong type -> ArgumentType.
+namespace {
+template <typename Op>
+inline void unary_double_dispatch(SLIInterpreter *i, Op op)
+{
+    i->require_stack_load(1);
+    Token &t = i->top();
+    unsigned tt = t.tag();
+    if (tt == sli3::doubletype)
+    {
+        t.data_.double_val = op(t.data_.double_val);
+    }
+    else if (tt == sli3::integertype)
+    {
+        double x = static_cast<double>(t.data_.long_val);
+        t.data_.double_val = op(x);
+        t.type_ = i->get_type(sli3::doubletype);
+    }
+    else
+    {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    i->EStack().pop();
+}
+}  // namespace
+
+void SinFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::sin(x); }); }
+
+void AsinFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::asin(x); }); }
+
+void CosFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::cos(x); }); }
+
+void AcosFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::acos(x); }); }
+
+void ExpFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::exp(x); }); }
+
+void LnFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::log(x); }); }
+
+void LogFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::log10(x); }); }
+
+void SqrFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return x * x; }); }
+
+void SqrtFunction::execute(SLIInterpreter *i) const
+{ unary_double_dispatch(i, [](double x) { return std::sqrt(x); }); }
+
+// pow has 4 arms. The trie used pow_dd, pow_di plus int->double
+// promotion for [int double] / [int int].
+void PowFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token &a = i->pick(1);  // base
+    Token &b = i->pick(0);  // exponent
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    double base;
+    if (ta == sli3::doubletype) base = a.data_.double_val;
+    else if (ta == sli3::integertype) base = static_cast<double>(a.data_.long_val);
+    else { i->raiseerror(i->ArgumentTypeError); return; }
+
+    if (tb == sli3::integertype)
+    {
+        long iexp = b.data_.long_val;
+        if (base == 0.0 && iexp < 0)
+        { i->raiseerror(i->RangeCheckError); return; }
+        a.data_.double_val = std::pow(base, static_cast<double>(iexp));
+    }
+    else if (tb == sli3::doubletype)
+    {
+        double dexp = b.data_.double_val;
+        if (base == 0.0 && dexp < 0.0)
+        { i->raiseerror(i->RangeCheckError); return; }
+        a.data_.double_val = std::pow(base, dexp);
+    }
+    else
+    { i->raiseerror(i->ArgumentTypeError); return; }
+
+    a.type_ = i->get_type(sli3::doubletype);
+    i->EStack().pop();
+    i->pop();
+}
+
 //-----------------------------------------------------
 void Sub_iiFunction::execute(SLIInterpreter *i) const
 {
@@ -2015,6 +2107,17 @@ OrPolyFunction  orpolyfunction;
 NotPolyFunction notpolyfunction;
 XorPolyFunction xorpolyfunction;
 
+SinFunction  sinfunction;
+AsinFunction asinfunction;
+CosFunction  cosfunction;
+AcosFunction acosfunction;
+ExpFunction  expfunction;
+LnFunction   lnfunction;
+LogFunction  logfunction;
+SqrFunction  sqrfunction;
+SqrtFunction sqrtfunction;
+PowFunction  powfunction;
+
 
 void init_slimath(SLIInterpreter *i)
 {
@@ -2055,6 +2158,17 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("lt",  &ltfunction);
     i->createcommand("geq", &geqfunction);
     i->createcommand("leq", &leqfunction);
+    // Compact single-arg math + pow.
+    i->createcommand("sin",  &sinfunction);
+    i->createcommand("asin", &asinfunction);
+    i->createcommand("cos",  &cosfunction);
+    i->createcommand("acos", &acosfunction);
+    i->createcommand("exp",  &expfunction);
+    i->createcommand("ln",   &lnfunction);
+    i->createcommand("log",  &logfunction);
+    i->createcommand("sqr",  &sqrfunction);
+    i->createcommand("sqrt", &sqrtfunction);
+    i->createcommand("pow",  &powfunction);
     //
     i->createcommand("sin_d", &sin_dfunction);
     i->createcommand("asin_d", &asin_dfunction);
