@@ -659,8 +659,12 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   int exitcode = 0;
   const Name exitcode_name("exitcode");
   const Token null_val = new_token<sli3::integertype>(0);
-  SLIType *iiterate_t = types_[sli3::iiteratetype];
-  SLIType *proc_type = types_[sli3::proceduretype];
+  // Locals must hold the *tagged* SLIType*, not raw types_[i],
+  // because they are written into Token::type_ later. With pointer
+  // tagging, every type_ value has the typeid in its top byte;
+  // raw types_[i] has no tag and would dispatch as typeid 0.
+  SLIType *iiterate_t = get_type(sli3::iiteratetype);
+  SLIType *proc_type  = get_type(sli3::proceduretype);
   if (status_dict_)
     (*status_dict_)[exitcode_name] = null_val;
 
@@ -702,7 +706,11 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           condition.
           - quit is now also implemented as an operator.
         */
-        switch (execution_stack_.top().type_->get_typeid()) {
+        // Pointer-tag fast path: tag() returns the typeid via a
+        // shift on the already-loaded type_ pointer. No chained
+        // load through SLIType::id_ -- saves one cache line read
+        // per dispatcher iteration.
+        switch (execution_stack_.top().tag()) {
           /*
             We first send all plain data types to the operand stack.
           */

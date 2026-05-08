@@ -24,7 +24,7 @@ namespace sli3
 
     void IntegerType::deserialize(Reader& r, Token& t) const
     {
-        t.type_ = const_cast<IntegerType*>(this);
+        t.type_ = Token::pack_type(const_cast<IntegerType*>(this));
         t.data_.long_val = r.read_i64();
     }
 
@@ -47,7 +47,7 @@ namespace sli3
 
     void DoubleType::deserialize(Reader& r, Token& t) const
     {
-        t.type_ = const_cast<DoubleType*>(this);
+        t.type_ = Token::pack_type(const_cast<DoubleType*>(this));
         t.data_.double_val = r.read_f64();
     }
 
@@ -70,7 +70,7 @@ namespace sli3
 
     void BoolType::deserialize(Reader& r, Token& t) const
     {
-        t.type_ = const_cast<BoolType*>(this);
+        t.type_ = Token::pack_type(const_cast<BoolType*>(this));
         t.data_.bool_val = r.read_bool();
     }
 

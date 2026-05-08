@@ -61,7 +61,7 @@ namespace sli3
 	    s = new SLIString(r.read_string());
 	    r.register_object(id, s);
 	}
-	t.type_ = const_cast<StringType*>(this);
+	t.type_ = Token::pack_type(const_cast<StringType*>(this));
 	t.data_.string_val = s;
     }
 }

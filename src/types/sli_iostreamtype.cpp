@@ -57,7 +57,7 @@ namespace sli3
 
   void IstreamType::deserialize(Reader&, Token& t) const
   {
-      t.type_ = const_cast<IstreamType*>(this);
+      t.type_ = Token::pack_type(const_cast<IstreamType*>(this));
       t.data_.istream_val = new SLIistream();  // valid()==false
   }
 
@@ -68,7 +68,7 @@ namespace sli3
 
   void OstreamType::deserialize(Reader&, Token& t) const
   {
-      t.type_ = const_cast<OstreamType*>(this);
+      t.type_ = Token::pack_type(const_cast<OstreamType*>(this));
       t.data_.ostream_val = new SLIostream();  // valid()==false
   }
 

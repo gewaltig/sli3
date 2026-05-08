@@ -18,7 +18,7 @@ namespace sli3
 
     void SLIType::deserialize(Reader&, Token& t) const
     {
-        t.type_ = const_cast<SLIType*>(this);
+        t.type_ = Token::pack_type(const_cast<SLIType*>(this));
     }
  
     void SLIType::raise_type_mismatch_(unsigned int id) const

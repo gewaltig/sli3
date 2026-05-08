@@ -33,7 +33,7 @@ namespace sli3
 	    r.register_object(id, arr);
 	    arr->deserialize_body(r, *sli_);
 	}
-	t.type_ = const_cast<ArrayType*>(this);
+	t.type_ = Token::pack_type(const_cast<ArrayType*>(this));
 	t.data_.array_val = arr;
     }
 
