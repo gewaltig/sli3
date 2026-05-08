@@ -123,8 +123,12 @@ void test_copy_and_assign(SLIInterpreter& interp)
     CHECK(c.size() == 2);
     CHECK(c[1].data_.long_val == 8);
 
-    // Self-assign no-op
+    // Self-assign no-op (deliberate; -Wself-assign-overloaded would
+    // flag this otherwise -- the assertion is exactly the point).
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
     a = a;
+#pragma clang diagnostic pop
     CHECK(a.size() == 2);
 }
 

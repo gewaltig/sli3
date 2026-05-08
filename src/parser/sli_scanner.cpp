@@ -502,16 +502,18 @@ namespace sli3
 	ScanStates state=start;
 	std::string s; s.reserve(255);
 	context.reserve(255);
-	
+
 	unsigned char c='\0';
 	unsigned char sgc='\0';
-	
+
 	long l=0L;
-	double d=0.0;
-	int sg=1;
-	int e=0;
 	int parenth=0;    // to handle PS parenthesis in strings
-	double p=1.;
+	// d / p / sg / e were the original parallel-accumulator
+	// machinery for floats and signed ints; both fp parsing
+	// (aheadfracst -> std::atof(ds)) and integer parsing
+	// (aheadintst -> std::strtoll(ds), Stage 5.7) drive off
+	// the digit string ds, so the parallel state was dead.
+	// Removed in Stage 5 cleanup; keep only ds + l.
 
     
     t.clear();
@@ -605,26 +607,23 @@ namespace sli3
         break;
           
       case intexpst   :
-        d= (double)l;
 	ds.push_back('e');
 	state=expntlst;
         break;
 
       case decpointst :
-	d= (double)l;
         ds.push_back('.');
 	break;
 
-      case decpdgtst  : 
+      case decpdgtst  :
 	/* This state is entered when a number starts with a decimal point.
 	   in this case the next character must be null or digit, everything
 	   else is an invalid transition. This is why decpdgtst and fracdgtst
-	   are separate states. */ 
+	   are separate states. */
         ds.push_back('.');
 	state=fracdgtst;
+        [[fallthrough]];
       case fracdgtst  :
-	p/=base;
-	d+=sg*p*digval(c);
         ds.push_back(c);
 	break;
 
@@ -650,19 +649,17 @@ namespace sli3
       break;
 
       case minusst    :
-	sg=-1; 
         ds.push_back('-');
+        [[fallthrough]];
       case plusst     :
 	sgc=c;
 	break;
 
       case mnexpst    :
-//	es=-1;
         ds.push_back('-');
 	break;
 
       case expdigst   :
-	e=e*base+digval(c);
         ds.push_back(c);
 	break;
 

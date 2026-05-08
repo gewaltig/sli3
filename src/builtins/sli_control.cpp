@@ -771,8 +771,7 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::arraytype);
 
-    TokenArray *proc= i->top().data_.array_val;
-    assert(proc !=0);
+    assert(i->top().data_.array_val != 0);
 
     i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
@@ -800,8 +799,7 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::stringtype);
 
-    TokenArray *proc= i->top().data_.array_val;
-    assert(proc !=0);
+    assert(i->top().data_.array_val != 0);
 
     i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
@@ -829,8 +827,7 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::proceduretype);
     i->require_stack_type(1,sli3::stringtype);
 
-    TokenArray *proc= i->top().data_.array_val;
-    assert(proc !=0);
+    assert(i->top().data_.array_val != 0);
 
     i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());

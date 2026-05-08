@@ -198,7 +198,10 @@ void test_move_self_assign(SLIInterpreter& i)
     auto* arr = new TokenArray();
     {
         Token a = wrap_array(i, arr);
-        a = std::move(a);                  // self move-assign
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-move"
+        a = std::move(a);                  // self move-assign (deliberate)
+#pragma clang diagnostic pop
         CHECK(arr->references() == 1);
         CHECK(a.is_valid());
     }
@@ -440,6 +443,12 @@ void test_null_dict(SLIInterpreter& i)
 // Default: XFAIL tests are skipped (CI green). Pass --xfail to run
 // them and observe Stage 1.1 progress.
 
+// The deliberate self-assigns below are exactly what these tests
+// exercise; silence -Wself-assign-overloaded so the warning doesn't
+// pollute the build under -Wall.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
+
 void test_self_assign_array_at_refs_1(SLIInterpreter& i)
 {
     auto* arr = new TokenArray();
@@ -477,6 +486,8 @@ void test_self_assign_dict_at_refs_1(SLIInterpreter& i)
         CHECK(d->references() == 1);
     }
 }
+
+#pragma clang diagnostic pop
 
 // ---------- driver -------------------------------------------------------
 
