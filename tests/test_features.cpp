@@ -349,6 +349,32 @@ int main()
     test_file_ops(h);
     test_time(h);
     test_print_pprint_contract(h);
+
+    // Procedure refcount preservation under heavy dispatch.
+    // Mirrors the user-supplied stress test:
+    //   tic 100000 {1 1 1000 { 2 add pop} for } repeat toc ==
+    // but at smaller magnitude so test_features stays under the 60 s
+    // CTest timeout.
+    {
+        Harness rc;
+        rc.prime("/p { 1 1 100 { 2 add pop } for } def");
+        rc.run();
+        // Capture the bound procedure's refcount before the workload.
+        Token const& bound = rc.i.DStack().lookup(Name("p"));
+        CHECK(bound.is_of_type(sli3::proceduretype));
+        TokenArray* arr = bound.data_.array_val;
+        unsigned long const refs_before = arr->references();
+
+        rc.prime("100 { p } repeat");
+        rc.run();
+        // After the workload, /p must still resolve to the SAME
+        // TokenArray (no copy-on-execute) and the refcount must be
+        // back to whatever it was before the loop ran.
+        Token const& bound_after = rc.i.DStack().lookup(Name("p"));
+        CHECK(bound_after.data_.array_val == arr);
+        CHECK(arr->references() == refs_before);
+    }
+
     std::cout << "test_features: ok\n";
     return 0;
 }
