@@ -274,6 +274,70 @@ void test_time(Harness& h)
     CHECK(h.i.OStack().pick(0).data_.double_val >= 0.0);
 }
 
+// ---------- = / == output (sli-init.sli docstring contract) ------------
+//
+// `=`  is `cout exch <- endl ;`  -> Token::print  + newline
+// `==` is `cout exch <-- endl ;` -> Token::pprint + newline
+// Documented examples from sli-init.sli:
+//   12 =          -> 12
+//   {1211} =      -> <proceduretype>
+//   {1211} ==     -> {1211}
+//
+// We can't easily redirect cout in the harness, so we exercise
+// Token::print / Token::pprint directly on the same shapes.
+
+void test_print_pprint_contract(Harness& h)
+{
+    SLIInterpreter& i = h.i;
+
+    auto check_print = [](Token const& t, std::string const& want_p,
+                          std::string const& want_pp) {
+        std::ostringstream p, pp;
+        t.print(p);  t.pprint(pp);
+        CHECK(p.str()  == want_p);
+        CHECK(pp.str() == want_pp);
+    };
+
+    check_print(i.new_token<sli3::integertype>(12L),    "12",  "12");
+    check_print(i.new_token<sli3::doubletype>(3.5),     "3.5", "3.5");
+    check_print(i.new_token<sli3::booltype>(true),      "true","true");
+
+    {
+        Token s(i.get_type(sli3::stringtype));
+        s.data_.string_val = new SLIString("hello");
+        check_print(s, "hello", "(hello)");
+    }
+    {
+        // Build {1211} as a procedure.
+        auto* arr = new TokenArray();
+        arr->push_back(i.new_token<sli3::integertype>(1211L));
+        Token p(i.get_type(sli3::proceduretype));
+        p.data_.array_val = arr;
+        check_print(p, "<proceduretype>", "{1211}");
+    }
+    {
+        // Nested: [1 (s) {1 2 add}] pprint emits each element via pprint.
+        auto* inner_proc = new TokenArray();
+        inner_proc->push_back(i.new_token<sli3::integertype>(1L));
+        inner_proc->push_back(i.new_token<sli3::integertype>(2L));
+        Token pn(i.get_type(sli3::proceduretype));
+        pn.data_.array_val = inner_proc;
+
+        auto* outer = new TokenArray();
+        outer->push_back(i.new_token<sli3::integertype>(1L));
+        Token sn(i.get_type(sli3::stringtype));
+        sn.data_.string_val = new SLIString("s");
+        outer->push_back(sn);
+        outer->push_back(pn);
+
+        Token a(i.get_type(sli3::arraytype));
+        a.data_.array_val = outer;
+        check_print(a,
+                    "[1 s <proceduretype>]",      // print uses element print
+                    "[1 (s) {1 2}]");             // pprint recurses
+    }
+}
+
 }  // namespace
 
 int main()
@@ -284,6 +348,7 @@ int main()
     test_containers(h);
     test_file_ops(h);
     test_time(h);
+    test_print_pprint_contract(h);
     std::cout << "test_features: ok\n";
     return 0;
 }

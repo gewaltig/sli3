@@ -50,6 +50,7 @@ namespace sli3
 
     bool compare(const Token&t1, const Token&t2) const override;
     std::ostream & print(std::ostream&, const Token &) const override;
+    std::ostream & pprint(std::ostream&, const Token &) const override;
     void serialize(Token const&, Writer&) const override;
     void deserialize(Reader&, Token&) const override;
   };

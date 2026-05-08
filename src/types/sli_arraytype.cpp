@@ -37,6 +37,23 @@ namespace sli3
 	t.data_.array_val = arr;
     }
 
+    namespace {
+        // Helper: stream the array's contents using each element's
+        // pprint (the syntax form). The free `operator<<` on
+        // TokenArray uses print on each element -- fine for the
+        // abbreviated form but wrong for `==` recursion.
+        void pprint_contents(std::ostream& out, TokenArray const& a)
+        {
+            bool first = true;
+            for (Token const& t : a)
+            {
+                if (!first) out << ' ';
+                t.pprint(out);
+                first = false;
+            }
+        }
+    }
+
     std::ostream& ArrayType::print(std::ostream& out, const Token &t) const
     {
 	if (t.data_.array_val !=0)
@@ -45,35 +62,52 @@ namespace sli3
 	}
 	else
 	    return out << "[\0]";
-	
-    }
-
-    std::ostream& LitprocedureType::print(std::ostream& out, const Token &t) const
-    {
-	// Literal procedures print with double braces so they can be
-	// visually distinguished from executable procedures in
-	// stack/dump output. PostScript convention; matches NEST 2.x.
-	if (t.data_.array_val !=0)
-	{
-	  return out << "{{" << *t.data_.array_val << "}}";
-	}
-	else
-	    return out << "{{}}";
 
     }
 
-    std::ostream& ProcedureType::print(std::ostream& out, const Token &t) const
+    std::ostream& ArrayType::pprint(std::ostream& out, const Token &t) const
     {
-	// Executable procedures print with single braces — PostScript
-	// convention. Until Stage 1.4 this fell through to
-	// LitprocedureType::print and produced "{{...}}" which is
-	// indistinguishable from a literal procedure.
-	if (t.data_.array_val !=0)
-	{
-	  return out << "{" << *t.data_.array_val << "}";
-	}
-	else
-	    return out << "{}";
+	out << '[';
+	if (t.data_.array_val != 0)
+	    pprint_contents(out, *t.data_.array_val);
+	out << ']';
+	return out;
+    }
+
+    // Per sli-init.sli's documented `=` / `==` contract:
+    //   `=`  uses Token::print  -- "abbreviated" form
+    //   `==` uses Token::pprint -- "syntax form" that round-trips
+    //
+    // Aggregate types (procedure, litprocedure) emit `<typename>`
+    // for print and the body-with-delimiters for pprint. NEST 2.x
+    // uses the same convention.
+
+    std::ostream& LitprocedureType::print(std::ostream& out, const Token &) const
+    {
+	return out << '<' << get_typename() << '>';
+    }
+
+    std::ostream& LitprocedureType::pprint(std::ostream& out, const Token &t) const
+    {
+	out << "{{";
+	if (t.data_.array_val != 0)
+	    pprint_contents(out, *t.data_.array_val);
+	out << "}}";
+	return out;
+    }
+
+    std::ostream& ProcedureType::print(std::ostream& out, const Token &) const
+    {
+	return out << '<' << get_typename() << '>';
+    }
+
+    std::ostream& ProcedureType::pprint(std::ostream& out, const Token &t) const
+    {
+	out << '{';
+	if (t.data_.array_val != 0)
+	    pprint_contents(out, *t.data_.array_val);
+	out << '}';
+	return out;
     }
 
   void LitprocedureType::execute(Token &t)

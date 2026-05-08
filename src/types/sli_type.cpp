@@ -42,7 +42,14 @@ namespace sli3
 
     std::ostream & SLIType::pprint(std::ostream& out, const Token & t) const
     {
-	return out << '-' << name_ << " (" << t.data_.func_val << ") -";
+	// Default pprint forwards to print. Simple types (integer,
+	// double, bool, name, literal, symbol, mark) want
+	// pprint == print -- the documented `=` and `==` operators
+	// in sli-init.sli only diverge for aggregate/complex types
+	// (procedure, string, etc.), which override pprint
+	// explicitly. The previous default emitted a debug-style
+	// "-typename (ptr) -" string that bled into every `==`.
+	return print(out, t);
     }
 
  

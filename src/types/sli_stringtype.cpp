@@ -26,6 +26,19 @@ namespace sli3
 
     }
 
+    std::ostream& StringType::pprint(std::ostream& out, const Token &t) const
+    {
+	// PostScript / NEST 2.x convention: `=` (Token::print) emits
+	// the bare content; `==` (Token::pprint) emits the literal
+	// SLI syntax form `( ... )` so the output round-trips through
+	// the parser.
+	out << '(';
+	if (t.data_.string_val != 0)
+	    out << *t.data_.string_val;
+	out << ')';
+	return out;
+    }
+
     void StringType::serialize(Token const& t, Writer& w) const
     {
 	SLIString* s = t.data_.string_val;

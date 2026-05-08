@@ -312,12 +312,16 @@ void test_eq_unrelated_types(SLIInterpreter& i)
     CHECK(!(n == z));
 }
 
-// ---------- print formatting --------------------------------------------
+// ---------- print vs pprint formatting ----------------------------------
 //
-// Stage 1.4: ProcedureType must print with single braces, not the
-// double braces inherited from LitprocedureType.
+// sli-init.sli's `=` calls Token::print (abbreviated form),
+// `==` calls Token::pprint (syntax form). Aggregate types
+// (procedure, litprocedure) print as `<typename>`; pprint
+// emits the body with delimiters that round-trip through the
+// parser. Strings are similar: print = bare content, pprint
+// wraps in `( )`.
 
-void test_print_array_vs_proc(SLIInterpreter& i)
+void test_print_pprint_split(SLIInterpreter& i)
 {
     auto* arr = new TokenArray();
     arr->push_back(i.new_token<sli3::integertype>(1L));
@@ -326,7 +330,7 @@ void test_print_array_vs_proc(SLIInterpreter& i)
     // Three Tokens, same payload, different typeids.
     Token a(i.get_type(sli3::arraytype));
     a.data_.array_val = arr;
-    arr->add_reference();  // a is one extra owner (4 refs after b/lp below)
+    arr->add_reference();
 
     Token p(i.get_type(sli3::proceduretype));
     p.data_.array_val = arr;
@@ -336,14 +340,30 @@ void test_print_array_vs_proc(SLIInterpreter& i)
     lp.data_.array_val = arr;
     arr->add_reference();
 
+    // print
     std::ostringstream o_a, o_p, o_lp;
-    a.print(o_a);
-    p.print(o_p);
-    lp.print(o_lp);
+    a.print(o_a); p.print(o_p); lp.print(o_lp);
+    CHECK(o_a.str() == "[1 2]");                 // arrays print in full
+    CHECK(o_p.str() == "<proceduretype>");
+    // Litproceduretype is registered with the longer name
+    // "literalproceduretype" in init_types (sli_interpreter.cpp).
+    CHECK(o_lp.str() == "<literalproceduretype>");
 
-    CHECK(o_a.str() == "[1 2]");
-    CHECK(o_p.str() == "{1 2}");        // <-- Stage 1.4 fix point
-    CHECK(o_lp.str() == "{{1 2}}");
+    // pprint
+    std::ostringstream pp_a, pp_p, pp_lp;
+    a.pprint(pp_a); p.pprint(pp_p); lp.pprint(pp_lp);
+    CHECK(pp_a.str() == "[1 2]");
+    CHECK(pp_p.str() == "{1 2}");
+    CHECK(pp_lp.str() == "{{1 2}}");
+
+    // string: print = bare content, pprint = "(content)"
+    auto* s = new SLIString("hi");
+    Token st(i.get_type(sli3::stringtype));
+    st.data_.string_val = s;
+    std::ostringstream s_p, s_pp;
+    st.print(s_p); st.pprint(s_pp);
+    CHECK(s_p.str() == "hi");
+    CHECK(s_pp.str() == "(hi)");
 }
 
 // ---------- null-payload safety -----------------------------------------
@@ -529,7 +549,7 @@ int main(int argc, char** argv)
     test_null_string(i);
     test_null_dict(i);
 
-    test_print_array_vs_proc(i);
+    test_print_pprint_split(i);
 
     test_eq_name_literal_symbol(i);
     test_eq_array_procedure_litproc(i);
