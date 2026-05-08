@@ -296,7 +296,7 @@ CvxAFunction cvx_a_fn;
 
 void TypeFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *literal_t=i->get_type(sli3::literaltype);
+    SLIType *literal_t=i->get_type(sli3::literaltype);
 
     i->require_stack_load(1);
     Token &top=i->top();

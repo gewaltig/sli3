@@ -17,7 +17,7 @@
 #include "sli_dictstack.h"
 #include "sli_dictionary.h"
 #include <iostream>
-
+#define DICTSTACK_CACHE
 namespace sli3
 {
 
@@ -149,7 +149,7 @@ void DictionaryStack::toArray(SLIInterpreter &sli, TokenArray &ta) const
   //
 
   ta.clear();
-  
+
   std::list<Dictionary *>::const_reverse_iterator i(d.rbegin());
 
   while (i!=d.rend())
@@ -161,7 +161,7 @@ void DictionaryStack::toArray(SLIInterpreter &sli, TokenArray &ta) const
    ++i;
   }
 }
-  
+
 void DictionaryStack::push(Token dicttoken)
 {
   assert(dicttoken.is_of_type(sli3::dictionarytype));
@@ -228,7 +228,7 @@ void DictionaryStack::top_info(std::ostream& o) const
 {
     (*d.begin())->info(o);
 }
- 
+
 const DictionaryStack& DictionaryStack::operator=(const DictionaryStack& ds)
 {
   if(&ds != this)

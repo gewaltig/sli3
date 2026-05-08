@@ -80,7 +80,7 @@ namespace sli3
 
 void IntegerFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *int_tid=i->get_type(sli3::integertype);
+    SLIType *int_tid=i->get_type(sli3::integertype);
 
     i->require_stack_load(1);
     // i->require_stack_type(0, sli3::doubletype);
@@ -92,7 +92,7 @@ void IntegerFunction::execute(SLIInterpreter *i) const
 
 void DoubleFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *double_tid=i->get_type(sli3::doubletype);
+    SLIType *double_tid=i->get_type(sli3::doubletype);
 
     i->require_stack_load(1);
     // i->require_stack_type(0, sli3::integertype);
@@ -659,7 +659,7 @@ void Ldexp_diFunction::execute(SLIInterpreter *i) const
 void Dexp_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    static SLIType *double_tid=i->get_type(sli3::doubletype);
+    SLIType *double_tid=i->get_type(sli3::doubletype);
 
     i->top().data_.double_val= std::ldexp(1.0, i->top().data_.long_val );
     i->top().type_=double_tid;
@@ -813,7 +813,7 @@ SeeAlso: neq, gt, lt, leq, geq
 
 void EqFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -839,7 +839,7 @@ SeeAlso: eq, gt, lt, leq, geq
 */
 void NeqFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -863,7 +863,7 @@ SeeAlso: eq, neq, gt, lt, leq
 
 void Geq_iiFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -876,7 +876,7 @@ void Geq_iiFunction::execute(SLIInterpreter *i) const
 
 void Geq_idFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -890,7 +890,7 @@ void Geq_idFunction::execute(SLIInterpreter *i) const
 
 void Geq_diFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -903,7 +903,7 @@ void Geq_diFunction::execute(SLIInterpreter *i) const
 
 void Geq_ddFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -927,7 +927,7 @@ SeeAlso: eq, neq, gt, lt, geq
 
 void Leq_iiFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -940,7 +940,7 @@ void Leq_iiFunction::execute(SLIInterpreter *i) const
 
 void Leq_idFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -953,7 +953,7 @@ void Leq_idFunction::execute(SLIInterpreter *i) const
 
 void Leq_diFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -966,7 +966,7 @@ void Leq_diFunction::execute(SLIInterpreter *i) const
 
 void Leq_ddFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1132,7 +1132,7 @@ SeeAlso: eq, neq, gt, lt, leq
 */
 void Gt_idFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1146,7 +1146,7 @@ void Gt_idFunction::execute(SLIInterpreter *i) const
 void Gt_diFunction::execute(SLIInterpreter *i) const
 {
 // call: double integer gt bool
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1161,7 +1161,7 @@ void Gt_diFunction::execute(SLIInterpreter *i) const
 void Gt_iiFunction::execute(SLIInterpreter *i) const
 {
 // call: integer integer gt bool
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1175,7 +1175,7 @@ void Gt_iiFunction::execute(SLIInterpreter *i) const
 void Gt_ddFunction::execute(SLIInterpreter *i) const
 {
 // call: double double gt bool
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1199,7 +1199,7 @@ SeeAlso: eq, neq, gt, lt, leq
 
 void Lt_idFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1213,7 +1213,7 @@ void Lt_idFunction::execute(SLIInterpreter *i) const
 void Lt_diFunction::execute(SLIInterpreter *i) const
 {
 // call: double integer lt bool
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1228,7 +1228,7 @@ void Lt_diFunction::execute(SLIInterpreter *i) const
 void Lt_iiFunction::execute(SLIInterpreter *i) const
 {
 // call: integer integer lt bool
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1242,7 +1242,7 @@ void Lt_iiFunction::execute(SLIInterpreter *i) const
 void Lt_ddFunction::execute(SLIInterpreter *i) const
 {
 // call: double double gt bool
-    static SLIType *bool_tid=i->get_type(sli3::booltype);
+    SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->EStack().pop();
@@ -1256,7 +1256,7 @@ void Lt_ddFunction::execute(SLIInterpreter *i) const
 // `s1 s2 gt_ss -> bool` — lexicographic compare. Mirrors gt_ii/gt_dd.
 void Gt_ssFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid = i->get_type(sli3::booltype);
+    SLIType *bool_tid = i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->require_stack_type(1, sli3::stringtype);
@@ -1273,7 +1273,7 @@ void Gt_ssFunction::execute(SLIInterpreter *i) const
 // `s1 s2 lt_ss -> bool` — lexicographic compare.
 void Lt_ssFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType *bool_tid = i->get_type(sli3::booltype);
+    SLIType *bool_tid = i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
     i->require_stack_type(1, sli3::stringtype);

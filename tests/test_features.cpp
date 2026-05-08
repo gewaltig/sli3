@@ -22,6 +22,7 @@
 #include "sli_name.h"
 #include "sli_token.h"
 #include "sli_tokenstack.h"
+#include "sli_type_trie.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -349,6 +350,36 @@ int main()
     test_file_ops(h);
     test_time(h);
     test_print_pprint_contract(h);
+
+    // Trie refcount preservation under heavy dispatch.
+    //
+    // Each call to `add` looks up the /add binding (a TrieType
+    // Token) and runs it through the dispatcher's trietype case
+    // (sli_interpreter.cpp:719-728). That case does
+    //   execution_stack_.top() = t;
+    // where t references a Token INSIDE the trie's leaf node. If
+    // the assignment's clear() drops the trie's refcount to zero,
+    // the trie tree is deleted and t becomes a dangling reference
+    // (UAF on the subsequent init(t) read). The dict binding
+    // (/add in systemdict) is what keeps the refcount > 1, but
+    // verify the binding's refcount survives the workload.
+    {
+        Harness rc;
+        rc.prime("/p { 1 1 100 { 2 add pop } for } def");
+        rc.run();
+        // /add is bound in systemdict to a trie; capture its
+        // identity + refcount before the workload.
+        Token const& add_tok = rc.i.DStack().lookup(Name("add"));
+        CHECK(add_tok.is_of_type(sli3::trietype));
+        TypeNode* trie = add_tok.data_.trie_val;
+        unsigned long const trie_refs_before = trie->references();
+
+        rc.prime("100 { p } repeat");
+        rc.run();
+        Token const& add_after = rc.i.DStack().lookup(Name("add"));
+        CHECK(add_after.data_.trie_val == trie);
+        CHECK(trie->references() == trie_refs_before);
+    }
 
     // Procedure refcount preservation under heavy dispatch.
     // Mirrors the user-supplied stress test:

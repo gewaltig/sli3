@@ -117,18 +117,8 @@ int main(int argc, char** argv)
     }
 
     test_baseline_two_interpreters();
-
-    if (run_xfail)
-    {
-        std::cerr << "test_two_interpreters: running XFAIL canary "
-                     "(expected to crash until Stage 7)\n";
-        test_xfail_static_cache_after_destroy();
-    }
-    else
-    {
-        std::cerr << "test_two_interpreters: skipping XFAIL canary "
-                     "(pass --xfail to trigger)\n";
-    }
+    test_xfail_static_cache_after_destroy();
+    (void) run_xfail;
 
     std::cout << "test_two_interpreters: ok\n";
     return 0;

@@ -241,8 +241,8 @@ SeeAlso: for, loop, exit
 */
 void RepeatFunction::execute(SLIInterpreter *i) const
 {
-    static SLIType* mark_t= i->get_type(sli3::marktype);
-    static SLIType* repeat_t= i->get_type(sli3::irepeattype);
+    SLIType * mark_t= i->get_type(sli3::marktype);
+    SLIType * repeat_t= i->get_type(sli3::irepeattype);
 
     i->require_stack_load(2);
     i->require_stack_type(0,sli3::proceduretype);
@@ -620,8 +620,8 @@ SeeAlso: repeat, exit, loop
 void ForFunction::execute(SLIInterpreter *i) const
 {
 
-    static SLIType* for_t=i->get_type(sli3::ifortype);
-    static SLIType* mark_t=i->get_type(sli3::marktype);
+    SLIType * for_t=i->get_type(sli3::ifortype);
+    SLIType * mark_t=i->get_type(sli3::marktype);
 
     i->require_stack_load(4);
     i->require_stack_type(0,sli3::proceduretype);
@@ -1047,7 +1047,7 @@ void TypeinfoFunction::execute(SLIInterpreter *i) const
     // Critical: the result MUST be literaltype (not nametype),
     // because callers (e.g. typeinit.sli's :def_) compare it with
     // /trietype using eq, which checks both type and value.
-    static SLIType *literal_t = i->get_type(sli3::literaltype);
+    SLIType *literal_t = i->get_type(sli3::literaltype);
     i->require_stack_load(1);
     if (i->top().type_ == nullptr)
     {
