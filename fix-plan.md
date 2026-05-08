@@ -343,6 +343,8 @@ B4: tic 100000000 { 1 1 add_ii pop } repeat toc ==   ; bypasses the trie
 100000 {1 1 1000 {2 add pop} for} repeat
 ```
 
+**Before Stage 9 (pointer-tagging only):**
+
 | Workload                          | sli3   | nest 2.20 | gs 10.07 |
 |-----------------------------------|--------|-----------|----------|
 | B1 — `1 pop`                      | 1.69 s | 2.00 s    | **1.31 s** |
@@ -350,12 +352,27 @@ B4: tic 100000000 { 1 1 add_ii pop } repeat toc ==   ; bypasses the trie
 | B3 — `1k for` × 100k              | 3.70 s | 4.28 s    | **2.56 s** |
 | B4 — `1 1 add_ii pop` (no trie)   | 3.35 s | 3.71 s    | n/a       |
 
-Per-iteration cost (B2 − B1 isolates one full `add` plus its push):
+**After Stage 9 (compact add/sub/mul/div, then max/min/gt/lt/leq/geq, eq/neq, and/or/xor/not, sin/cos/asin/acos/exp/ln/log/sqr/sqrt/pow, join/getinterval):**
 
-| Workload         | sli3    | nest    | gs       |
-|------------------|---------|---------|----------|
-| B1 dispatch loop | 16.9 ns | 20.0 ns | 13.1 ns  |
-| `add` increment  | 23.8 ns | 23.2 ns | 13.6 ns  |
+| Workload                          | sli3   | nest 2.20 | gs 10.07 | sli3 Δ |
+|-----------------------------------|--------|-----------|----------|--------|
+| B1 — `1 pop`                      | 1.66 s | 2.00 s    | 1.31 s   | (noise) |
+| B2 — `1 1 add pop`                | 3.43 s | 4.52 s    | 2.74 s   | **−15.7 %** |
+| B3 — `1k for` × 100k              | 3.11 s | 4.28 s    | 2.55 s   | **−15.9 %** |
+| B4 — `1 1 add_ii pop`             | 3.37 s | 3.75 s    | n/a      | (noise) |
+
+Per-iteration cost (B2 − B1):
+
+| Workload         | sli3 before | sli3 now | nest    | gs       |
+|------------------|-------------|----------|---------|----------|
+| B1 dispatch loop | 16.9 ns     | 16.6 ns  | 20.0 ns | 13.1 ns  |
+| `add` cost       | 23.8 ns     | **17.7 ns** | 25.2 ns | 13.6 ns  |
+
+The `add` per-iter cost dropped ~6 ns (matches the predicted
+trie-removal saving). The remaining ~4 ns gap to gs's `add` is
+in dispatcher plumbing, not in the operator body — B2 (compact
+trie-less `add`) now equals B4 (`add_ii` direct call) within
+noise. The trie indirection is fully eliminated on the hot path.
 
 Notes:
 
@@ -435,45 +452,57 @@ After running B2 / B3 / B4 again, decide:
 - If the saving is < 3 ns: investigate threaded-code dispatch
   (computed gotos in place of the switch) before continuing.
 
-**Second batch (if first pays off):**
+**Status (2026-05-08):**
 
-- Comparisons: `eq`, `neq`, `lt`, `gt`, `leq`, `geq`. All used
-  in tight conditionals.
-- Stack ops not yet single-function: `dup`, `exch`, `roll`,
-  `index`, `clear`.
-- Container reads: `length`, `get`, `put`, `first`, `last`.
-- Control: `if`, `ifelse`, `repeat`, `for`. Most are already
-  inlined as dispatcher cases; verify and consolidate.
+Batches 1–4 landed. B2 per-iter cost dropped from 23.8 ns to
+17.7 ns, hitting the acceptance gate (≤ 18 ns). Compacted:
 
-**Tests to add:**
+- arithmetic: `add`, `sub`, `mul`, `div`
+- min/max/compare: `max`, `min`, `gt`, `lt`, `leq`, `geq`
+- bool/equality: `eq`, `neq`, `and`, `or`, `xor`, `not`
+- single-arg math: `sin`, `asin`, `cos`, `acos`, `exp`, `ln`,
+  `log`, `sqr`, `sqrt`
+- two-arg math: `pow`
+- container: `join`, `getinterval`
 
-- For each compacted operator: positive test per typed arm, plus
-  one wrong-type test (must raise `ArgumentTypeError`, not crash
-  or silently mis-dispatch).
-- Bench harness as a CTest: build a `bench_runner` that runs B1 /
-  B2 / B3 against the built `sli3`, parses wall time, and asserts
-  per-iter cost stays below a recorded threshold (so future
-  changes don't silently regress dispatch perf).
-- Trie compatibility: `/myadd [/integertype /integertype] {add_ii}
-  addtotrie /myadd cvx exec` still works (trie + typed leaves
-  remain reachable).
+Each is now one C++ function with all typed arms inline; trie
+machinery stays for everything else; typed leaves
+(`add_ii`, `gt_ss`, …) remain registered so `addtotrie` users
+keep working.
 
-**Acceptance:**
+**Operator stats mode (next-step infrastructure):** added
+SLI3_STATS=1 toggle that prints a per-binding call count on
+exit. Tells us where to compact next without guessing —
+revealed `length`, `get`, `put` (still trie) as next-most-called
+trie-bound names during bootstrap.
 
-- B2 per-iter cost ≤ 18 ns (gs is 13.6 ns; we don't have to match,
-  but the gap should close from 10 ns to ≤ 4 ns).
-- All `test_sli_eval.cpp` snippets pass through both modes.
-- `addtotrie` smoke test still passes.
-- No regression on existing tests; ASAN clean.
+**Remaining trie-bound names worth considering:**
 
-**Out of scope for this stage:**
+- Container reads: `length`, `get`, `put`, `first`, `last` —
+  highly used in user code per the stats output.
+- Iteration: `forall`, `forallindexed` — dispatch to control-
+  flow ops (forall_a, etc.) that interact with the dispatcher's
+  iiteratetype machinery. More involved than the math-style
+  compaction.
+- Definition: `def` — has 4-arm trie (literal/anytype, literal/
+  proceduretype, literal/array/proceduretype, literal/array/
+  anytype). Touches dictionary semantics; risk-prone.
+- Single-arm helpers: `modf`, `frexp`, `ldexp`, `dexp` — 1-arm
+  tries that just wrap the typed leaf. Removing the trie
+  requires adding `require_stack_type` to each leaf so the bare
+  binding still rejects wrong types.
 
-- Threaded-code dispatch (deferred until we know whether
-  per-operator compaction alone closes most of the gap).
-- Inlining `add` into the dispatcher's hot switch
-  (super-instructions). Same reason — measure first.
-- Touching the parser / scanner. Bench scripts pre-parse to
-  procedure bodies, so the parser is not on the hot path here.
+**Next-level optimizations (deferred, measure first):**
+
+- Threaded-code dispatch (computed gotos in place of the
+  switch). Likely worth ~5–10 % on the dispatch loop; needs
+  separate investigation.
+- Token-by-value DictionaryStack cache (replace
+  `std::vector<Token*>` with `std::vector<Token>`). Eliminates
+  one indirection on cached name lookups but doesn't help
+  workloads where procedure bodies are pre-resolved (B1/B2/B3).
+- Super-instructions (inline `add` into the dispatcher's hot
+  switch). Hardest to maintain; measure threading first.
 
 ---
 
