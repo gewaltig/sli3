@@ -150,7 +150,14 @@ namespace sli3
 	:type_(s.type_),
 	 data_(s.data_)
     {
-	if(type_ != 0)
+	// Hot-path optimization: skip the virtual add_reference for
+	// types that have no payload to refcount (integer, double,
+	// bool, name, literal, symbol, mark, marker types). The
+	// SLIType::needs_refcount() flag is a single byte load on
+	// the type object that's already in cache, vs an indirect
+	// vtable call that the dispatcher's hottest loop does
+	// hundreds of millions of times per workload.
+	if(type_ != 0 && type_->needs_refcount())
 	    type_->add_reference(*this);
     }
 
@@ -245,13 +252,15 @@ namespace sli3
     inline
     refcount_t Token::add_reference() const
     {
-	  return (is_valid()) ? type_->add_reference(*this) : 1;
+	  if (type_ != 0 && type_->needs_refcount())
+	      return type_->add_reference(*this);
+	  return 1;
     }
 
     inline
     void Token::remove_reference()
     {
-	  if(is_valid())
+	  if (type_ != 0 && type_->needs_refcount())
 	    type_->remove_reference(*this);
     }
 

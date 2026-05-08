@@ -22,7 +22,7 @@ namespace sli3
   public:
     OstreamType(SLIInterpreter *sli, char const name[], sli_typeid type)
       :SLIType(sli, name, type)
-      {executable_=false;}
+      {executable_=false; needs_refcount_=true;}
 
     refcount_t add_reference(Token const& t) const override
     {
@@ -62,7 +62,7 @@ namespace sli3
   public:
     IstreamType(SLIInterpreter *sli, char const name[], sli_typeid type)
       :SLIType(sli, name, type)
-      {executable_=false;}
+      {executable_=false; needs_refcount_=true;}
 
     refcount_t add_reference(Token const& t) const override
     {

@@ -159,6 +159,18 @@ namespace sli3
       return sli_;
     }
 
+    /**
+     * Hot-path optimization: every Token copy and destruction checks
+     * whether to call the virtual add_reference / remove_reference.
+     * For scalar types (integer, double, bool, name, literal,
+     * symbol, mark, marker types) the answer is always "no" and the
+     * virtual is a wasted indirect branch in the dispatcher's hottest
+     * loop. Pointer-payload subclasses (StringType, ArrayType,
+     * DictionaryType, IstreamType, OstreamType, TrieType) override
+     * the constructor to set this true.
+     */
+    bool needs_refcount() const { return needs_refcount_; }
+
     virtual bool compare(Token const &t1, Token const& t2) const=0;
 
     virtual std::ostream& print(std::ostream &, const Token &) const;
@@ -171,6 +183,7 @@ namespace sli3
     Name name_;
     unsigned int id_;
     bool executable_;
+    bool needs_refcount_ = false;
   };
   
   
