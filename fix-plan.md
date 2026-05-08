@@ -322,42 +322,158 @@ Now make the codebase consistent and warning-clean.
 
 Apple M-series, Release build, comparing against a Release build of
 NEST 2.20.2's `sli` (sibling checkout at
-`/Users/gewaltig/Code/nest-2.20.2/`). Each workload run 5 times,
-best-of-five wall time reported (`/usr/bin/time -p`, real).
+`/Users/gewaltig/Code/nest-2.20.2/`) and Homebrew Ghostscript 10.07.
+Each workload run 5 times, best-of-five wall time reported
+(`/usr/bin/time -p`, real).
 
 Workloads:
 
 ```sli
+; SLI form
 B1: tic 100000000 { 1 pop } repeat toc ==
 B2: tic 100000000 { 1 1 add pop } repeat toc ==
 B3: tic 100000 { 1 1 1000 { 2 add pop } for } repeat toc ==
 B4: tic 100000000 { 1 1 add_ii pop } repeat toc ==   ; bypasses the trie
 ```
 
-| Workload                          | sli3   | nest 2.20 | sli3 vs nest |
-|-----------------------------------|--------|-----------|--------------|
-| B1 — `1 pop`                      | 1.65 s | 2.00 s    | **−17.5 %**  |
-| B2 — `1 1 add pop` (trie)         | 4.05 s | 4.29 s    | **−5.6 %**   |
-| B3 — `1k for` × 100k              | 3.71 s | 4.28 s    | **−13.3 %**  |
-| B4 — `1 1 add_ii pop` (no trie)   | 3.35 s | 3.71 s    | **−9.7 %**   |
+```postscript
+% Ghostscript form (B1/B2/B3 equivalent)
+100000000 {1 pop} repeat
+100000000 {1 1 add pop} repeat
+100000 {1 1 1000 {2 add pop} for} repeat
+```
+
+| Workload                          | sli3   | nest 2.20 | gs 10.07 |
+|-----------------------------------|--------|-----------|----------|
+| B1 — `1 pop`                      | 1.69 s | 2.00 s    | **1.31 s** |
+| B2 — `1 1 add pop` (trie)         | 4.07 s | 4.32 s    | **2.67 s** |
+| B3 — `1k for` × 100k              | 3.70 s | 4.28 s    | **2.56 s** |
+| B4 — `1 1 add_ii pop` (no trie)   | 3.35 s | 3.71 s    | n/a       |
+
+Per-iteration cost (B2 − B1 isolates one full `add` plus its push):
+
+| Workload         | sli3    | nest    | gs       |
+|------------------|---------|---------|----------|
+| B1 dispatch loop | 16.9 ns | 20.0 ns | 13.1 ns  |
+| `add` increment  | 23.8 ns | 23.2 ns | 13.6 ns  |
 
 Notes:
 
-- Bypassing the trie (B2 → B4) saves ~0.70 s in sli3 and ~0.58 s in
-  nest. Trie cost is roughly equivalent in both implementations, so
-  it is **not** where sli3's lead comes from.
-- sli3's lead is largest on the cheapest per-iteration workload (B1)
-  and shrinks as per-iteration work grows (B2). This is consistent
-  with the gain coming from dispatcher plumbing (16-byte Token,
-  pointer-tagged typeid, inlined hot-op switch, `needs_refcount()`
-  fast path on scalar refcount), not from individual operator
-  implementations.
+- sli3 beats nest by 6–17 % across the board.
+- **Ghostscript still beats sli3 by 29–52 %.** The B2 − B1 delta
+  (cost of one `add`) is the cleanest read on per-operator
+  dispatch: gs does it in ~14 ns, sli3 in ~24 ns. The bare loop
+  is closer (gs 13 ns vs sli3 17 ns), so the bigger gap is in
+  operator dispatch, not the dispatcher loop itself.
+- Bypassing the trie (B2 → B4) saves ~0.70 s in sli3 and ~0.58 s
+  in nest. Trie cost is ~7 ns/iter in both, but that is only
+  half the gap to gs's `add`.
 - Per-iteration cost on B4: ~33.5 ns sli3 vs ~37 ns nest — covers
   name lookup, dispatch, two pushes, two pops, and the integer add.
 
-Reproducing: `for tag in bench1 bench2 bench3 bench_add_ii; do
-/usr/bin/time -p ./build/sli3 < /tmp/$tag.sli > /dev/null; done`,
-with the four scripts above written to `/tmp/$tag.sli`.
+Reproducing:
+```
+for tag in bench1 bench2 bench3 bench_add_ii; do
+  /usr/bin/time -p ./build/sli3 < /tmp/$tag.sli > /dev/null; done
+gs -dNODISPLAY -dQUIET -dBATCH -q /tmp/gs_bench{1,2,3}.ps
+```
+with the scripts above written to those paths.
+
+---
+
+## Stage 9 — compact hot operators (priority before 6 / 7 / 8)
+
+**Goal:** close the dispatch gap to GhostScript by replacing the
+trie indirection on hot arithmetic / comparison / stack ops with
+a single C++ function per name that branches on operand types
+inline. Trie-based dispatch stays for everything else.
+
+**Rationale.** B2 − B1 puts our `add` cost at ~24 ns vs gs's ~14 ns.
+The trie accounts for ~7 ns of that (B2 vs B4); the rest is push /
+pop / refcount / two-token argument handling. Removing the trie
+on hot ops is the single biggest win available, and the diff is
+self-contained per operator. If the saving on `add` lands, repeat
+the recipe on the next batch.
+
+**The recipe:**
+
+1. Pick an operator currently bound to a `TrieType` token in
+   the system_dict.
+2. Write one `XFunction::execute(SLIInterpreter*)` that:
+   - Reads the top *N* operand-stack slots by reference (no copy).
+   - Switches on `top.tag()` (and `top1.tag()` for binary ops) —
+     all the typed arms in one function.
+   - On a type mismatch, raises `ArgumentTypeError` with the
+     operator name (matches what the trie did).
+   - Mutates the top slot in place where possible (binary ops:
+     overwrite slot 1, pop slot 0). No new Token construction
+     for value-typed results.
+3. Bind the plain name (`add`) to this function in the
+   system_dict, *replacing* the trie token currently there.
+   The typed leaves (`add_ii`, `add_dd`, …) stay registered
+   under their compound names so user code that calls them
+   directly (or builds custom tries via `addtotrie`) still works.
+4. Add `tests/test_sli_eval.cpp` snippets that exercise every
+   typed arm (`1 1 add → 2`, `1 1.0 add → 2.0`, `(s) 1 add →
+   ArgumentTypeError`, …). Run through both `execute_dispatch_`
+   and `execute_` so dispatcher parity holds.
+
+**First batch (covers B2 / B3 directly):**
+
+- `add` — 4 arms (ii / id / di / dd); `add_ii` is the hot path.
+- `sub` — same shape as `add`.
+- `mul` — same shape as `add`.
+- `div` — extra zero check; same arms.
+- `mod` — int-only (1 arm), still benefits from skipping the trie.
+- `pop` — no trie today, but verify it's already a single-function
+  binding in the dispatcher case; if not, make it one.
+
+After running B2 / B3 / B4 again, decide:
+
+- If the per-iter cost of `add` drops from 24 ns to 17 ns or
+  below: ship the batch and continue with the next group.
+- If the saving is < 3 ns: investigate threaded-code dispatch
+  (computed gotos in place of the switch) before continuing.
+
+**Second batch (if first pays off):**
+
+- Comparisons: `eq`, `neq`, `lt`, `gt`, `leq`, `geq`. All used
+  in tight conditionals.
+- Stack ops not yet single-function: `dup`, `exch`, `roll`,
+  `index`, `clear`.
+- Container reads: `length`, `get`, `put`, `first`, `last`.
+- Control: `if`, `ifelse`, `repeat`, `for`. Most are already
+  inlined as dispatcher cases; verify and consolidate.
+
+**Tests to add:**
+
+- For each compacted operator: positive test per typed arm, plus
+  one wrong-type test (must raise `ArgumentTypeError`, not crash
+  or silently mis-dispatch).
+- Bench harness as a CTest: build a `bench_runner` that runs B1 /
+  B2 / B3 against the built `sli3`, parses wall time, and asserts
+  per-iter cost stays below a recorded threshold (so future
+  changes don't silently regress dispatch perf).
+- Trie compatibility: `/myadd [/integertype /integertype] {add_ii}
+  addtotrie /myadd cvx exec` still works (trie + typed leaves
+  remain reachable).
+
+**Acceptance:**
+
+- B2 per-iter cost ≤ 18 ns (gs is 13.6 ns; we don't have to match,
+  but the gap should close from 10 ns to ≤ 4 ns).
+- All `test_sli_eval.cpp` snippets pass through both modes.
+- `addtotrie` smoke test still passes.
+- No regression on existing tests; ASAN clean.
+
+**Out of scope for this stage:**
+
+- Threaded-code dispatch (deferred until we know whether
+  per-operator compaction alone closes most of the gap).
+- Inlining `add` into the dispatcher's hot switch
+  (super-instructions). Same reason — measure first.
+- Touching the parser / scanner. Bench scripts pre-parse to
+  procedure bodies, so the parser is not on the hot path here.
 
 ---
 
@@ -370,12 +486,17 @@ with the four scripts above written to `/tmp/$tag.sli`.
 3 — error handling ───────► Stage 4 depends on this
 4 — bootstrap operators ──► reaches Slice 5c smoke test
 5 — math / scanner / stack
+9 — compact hot operators ► priority; precedes 6 / 7 / 8
 6 — serialization ────────► requires Stages 1-2
 7 — dispatcher parity ────► requires Stages 1-4
 8 — cleanup / hardening ──► last; requires everything
 ```
 
-Stages 1-4 can be worked in strict sequence; 5 and 6 are independent of each other and of 7; 8 is final.
+Stage 9 jumps the queue: closing the gap to GhostScript before
+investing in serialization / cleanup pays off twice — the
+compaction work is also the easiest place to spot remaining
+correctness bugs in operator code, and the tests written for it
+slot directly into Stage 7's dispatcher-parity corpus.
 
 Each stage's "Acceptance" is a hard gate: don't move on until the listed tests are green and the listed audits are clean. The whole point of TDD-staging is that a regression at stage N is almost always coming from stage N's own scope, not from earlier work.
 
@@ -384,4 +505,3 @@ Each stage's "Acceptance" is a hard gate: don't move on until the listed tests a
 - Reintroducing `sli_processes` (deferred per CLAUDE.md Q4).
 - The `iteratortype` / `forall_iter` protocol (out of scope per CLAUDE.md).
 - Multi-threading. Single-threaded is the design choice; if that ever changes, every static counter (`TokenArray::allocations`, `Name::insert`, the dispatcher's cycle counter, …) becomes a race and needs revisiting.
-- Performance work. Nothing here is a perf optimization; correctness first. Profiling-driven optimization is a separate effort once Stage 8 lands.
