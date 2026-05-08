@@ -318,6 +318,49 @@ Now make the codebase consistent and warning-clean.
 
 ---
 
+## Performance results
+
+Apple M-series, Release build, comparing against a Release build of
+NEST 2.20.2's `sli` (sibling checkout at
+`/Users/gewaltig/Code/nest-2.20.2/`). Each workload run 5 times,
+best-of-five wall time reported (`/usr/bin/time -p`, real).
+
+Workloads:
+
+```sli
+B1: tic 100000000 { 1 pop } repeat toc ==
+B2: tic 100000000 { 1 1 add pop } repeat toc ==
+B3: tic 100000 { 1 1 1000 { 2 add pop } for } repeat toc ==
+B4: tic 100000000 { 1 1 add_ii pop } repeat toc ==   ; bypasses the trie
+```
+
+| Workload                          | sli3   | nest 2.20 | sli3 vs nest |
+|-----------------------------------|--------|-----------|--------------|
+| B1 — `1 pop`                      | 1.65 s | 2.00 s    | **−17.5 %**  |
+| B2 — `1 1 add pop` (trie)         | 4.05 s | 4.29 s    | **−5.6 %**   |
+| B3 — `1k for` × 100k              | 3.71 s | 4.28 s    | **−13.3 %**  |
+| B4 — `1 1 add_ii pop` (no trie)   | 3.35 s | 3.71 s    | **−9.7 %**   |
+
+Notes:
+
+- Bypassing the trie (B2 → B4) saves ~0.70 s in sli3 and ~0.58 s in
+  nest. Trie cost is roughly equivalent in both implementations, so
+  it is **not** where sli3's lead comes from.
+- sli3's lead is largest on the cheapest per-iteration workload (B1)
+  and shrinks as per-iteration work grows (B2). This is consistent
+  with the gain coming from dispatcher plumbing (16-byte Token,
+  pointer-tagged typeid, inlined hot-op switch, `needs_refcount()`
+  fast path on scalar refcount), not from individual operator
+  implementations.
+- Per-iteration cost on B4: ~33.5 ns sli3 vs ~37 ns nest — covers
+  name lookup, dispatch, two pushes, two pops, and the integer add.
+
+Reproducing: `for tag in bench1 bench2 bench3 bench_add_ii; do
+/usr/bin/time -p ./build/sli3 < /tmp/$tag.sli > /dev/null; done`,
+with the four scripts above written to `/tmp/$tag.sli`.
+
+---
+
 ## Sequencing summary
 
 ```
