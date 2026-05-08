@@ -200,6 +200,73 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
 
+  // Compact compare / min / max ops -- type-checking inline,
+  // no trie. Bound directly to /max /min /gt /lt /leq /geq.
+  class MaxFunction: public SLIFunction
+  {
+  public:
+    MaxFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class MinFunction: public SLIFunction
+  {
+  public:
+    MinFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class GtFunction: public SLIFunction
+  {
+  public:
+    GtFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class LtFunction: public SLIFunction
+  {
+  public:
+    LtFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class GeqFunction: public SLIFunction
+  {
+  public:
+    GeqFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class LeqFunction: public SLIFunction
+  {
+  public:
+    LeqFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  // Compact bool ops -- bool/int variants inline, no trie.
+  // /and and /or accept (bool,bool) or (int,int); /not accepts
+  // bool or int; /xor only (bool,bool).
+  class AndPolyFunction: public SLIFunction
+  {
+  public:
+    AndPolyFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class OrPolyFunction: public SLIFunction
+  {
+  public:
+    OrPolyFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class NotPolyFunction: public SLIFunction
+  {
+  public:
+    NotPolyFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+  class XorPolyFunction: public SLIFunction
+  {
+  public:
+    XorPolyFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
   //--------------------------------------
 
   class Mod_iiFunction: public SLIFunction

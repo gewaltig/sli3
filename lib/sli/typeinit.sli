@@ -210,12 +210,7 @@ FirstVersion: 17.3.2003
 
 SeeAlso: min, gt, lt, geq, leq
 */
-/max trie
-  [/integertype /integertype] /max_i_i load addtotrie
-  [/doubletype  /integertype] /max_d_i load addtotrie
-  [/integertype /doubletype]  /max_i_d load addtotrie
-  [/doubletype  /doubletype]  /max_d_d load addtotrie
-def
+% sli3 Stage 9: /max bound in C++ to compact MaxFunction.
 
 /** @BeginDocumentation
 Name: min - return the smaller of two values
@@ -249,12 +244,7 @@ FirstVersion: 17.3.2003
 SeeAlso: max, gt, lt, geq, leq
 */
 
-/min trie
-  [/integertype /integertype] /min_i_i load addtotrie
-  [/doubletype  /integertype] /min_d_i load addtotrie
-  [/integertype /doubletype]  /min_i_d load addtotrie
-  [/doubletype  /doubletype]  /min_d_d load addtotrie
-def
+% sli3 Stage 9: /min bound in C++ to compact MinFunction.
 
 /sin trie
   [/doubletype] /sin_d load addtotrie
@@ -327,69 +317,13 @@ def
 def
 
 
-/eq_ /eq load def
-/eq trie
-  [/anytype /anytype] /eq_ load addtotrie
-def
+% sli3 Stage 9: /eq /neq /and /or /xor /not bound directly in
+% C++ to compact functions that handle bool / int / anytype
+% inline. The typed leaves (and_ii, or_ii, etc.) remain
+% registered for direct calls and for addtotrie users.
 
-/neq_ /neq load def
-/neq trie
-  [/anytype /anytype] /neq_ load addtotrie
-def
-
-/not trie
-  [/booltype   ] /not_b load addtotrie
-  [/integertype] /not_i load addtotrie
-def
-
-/xor_ /xor load def
-/xor trie
-  [/booltype /booltype] /xor_ load addtotrie
-def
-
-/and_bb /and load def
-/and trie
-  [/booltype  /booltype ]     /and_bb load addtotrie
-  [/integertype /integertype] /and_ii load addtotrie
-def_
-
-/or_bb /or load def
-/or trie
-  [/booltype  /booltype ]     /or_bb load addtotrie
-  [/integertype /integertype] /or_ii load addtotrie
-def_
-
-/gt trie
-  [/integertype /integertype] /gt_ii load addtotrie
-  [/doubletype  /integertype] /gt_di load addtotrie
-  [/integertype /doubletype]  /gt_id load addtotrie
-  [/doubletype  /doubletype]  /gt_dd load addtotrie
-  [/stringtype  /stringtype]  /gt_ss load addtotrie
-def
-
-/lt trie
-  [/integertype /integertype] /lt_ii load addtotrie
-  [/doubletype  /integertype] /lt_di load addtotrie
-  [/integertype /doubletype]  /lt_id load addtotrie
-  [/doubletype  /doubletype]  /lt_dd load addtotrie
-  [/stringtype  /stringtype]  /lt_ss load addtotrie
-def
-
-/leq trie
-  [/integertype /integertype] /leq_ii load addtotrie
-  [/doubletype  /integertype] /leq_di load addtotrie
-  [/integertype /doubletype]  /leq_id load addtotrie  
-  [/doubletype  /doubletype]  /leq_dd load addtotrie  
-  [/stringtype  /stringtype]  {2 copy eq 3 1 roll lt or} addtotrie
-def
-
-/geq trie
-  [/integertype /integertype] /geq_ii load addtotrie
-  [/doubletype  /integertype] /geq_di load addtotrie
-  [/integertype /doubletype]  /geq_id load addtotrie  
-  [/doubletype  /doubletype]  /geq_dd load addtotrie  
-  [/stringtype  /stringtype]  {2 copy eq 3 1 roll gt or} addtotrie
-def
+% sli3 Stage 9: /gt /lt /leq /geq bound in C++ to compact
+% functions that handle int / double / string operands inline.
 
 /forall_di
 { 

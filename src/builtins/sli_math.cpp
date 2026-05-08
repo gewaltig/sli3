@@ -359,6 +359,219 @@ void DivFunction::execute(SLIInterpreter *i) const
 }
 
 //-----------------------------------------------------
+// Compact compare / min / max -- type-checking inline.
+
+namespace {
+
+// Promote-on-mixed pattern shared by max/min.
+template <typename Op>
+inline void minmax_dispatch(SLIInterpreter *i, Op op)
+{
+    i->require_stack_load(2);
+    Token &a = i->pick(1);
+    Token &b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::integertype && tb == sli3::integertype)
+    {
+        a.data_.long_val = op(a.data_.long_val, b.data_.long_val);
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::doubletype)
+    {
+        a.data_.double_val = op(a.data_.double_val, b.data_.double_val);
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::integertype)
+    {
+        a.data_.double_val = op(a.data_.double_val,
+                                static_cast<double>(b.data_.long_val));
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::integertype && tb == sli3::doubletype)
+    {
+        a.data_.double_val = op(static_cast<double>(a.data_.long_val),
+                                b.data_.double_val);
+        a.type_ = b.type_;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// Compare-dispatch: 4 numeric arms + ssarm. Pushes a bool result
+// in slot 1 (consuming both operands).
+template <typename CmpNum, typename CmpStr>
+inline void compare_dispatch(SLIInterpreter *i, CmpNum cn, CmpStr cs)
+{
+    i->require_stack_load(2);
+    Token &a = i->pick(1);
+    Token &b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+    SLIType *bool_tid = i->get_type(sli3::booltype);
+
+    bool result;
+    if (ta == sli3::integertype && tb == sli3::integertype)
+        result = cn(a.data_.long_val, b.data_.long_val);
+    else if (ta == sli3::doubletype && tb == sli3::doubletype)
+        result = cn(a.data_.double_val, b.data_.double_val);
+    else if (ta == sli3::doubletype && tb == sli3::integertype)
+        result = cn(a.data_.double_val, static_cast<double>(b.data_.long_val));
+    else if (ta == sli3::integertype && tb == sli3::doubletype)
+        result = cn(static_cast<double>(a.data_.long_val), b.data_.double_val);
+    else if (ta == sli3::stringtype && tb == sli3::stringtype)
+    {
+        if (a.data_.string_val == nullptr || b.data_.string_val == nullptr)
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        result = cs(a.data_.string_val->str(), b.data_.string_val->str());
+    }
+    else
+    {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    // Overwrite slot 1 with the bool result; pop slot 0.
+    a.type_ = bool_tid;
+    a.data_.bool_val = result;
+    i->EStack().pop();
+    i->pop();
+}
+
+}  // namespace
+
+void MaxFunction::execute(SLIInterpreter *i) const
+{
+    minmax_dispatch(i, [](auto x, auto y) { return x > y ? x : y; });
+}
+
+void MinFunction::execute(SLIInterpreter *i) const
+{
+    minmax_dispatch(i, [](auto x, auto y) { return x < y ? x : y; });
+}
+
+void GtFunction::execute(SLIInterpreter *i) const
+{
+    compare_dispatch(i,
+        [](auto x, auto y) { return x > y; },
+        [](auto const& x, auto const& y) { return x > y; });
+}
+
+void LtFunction::execute(SLIInterpreter *i) const
+{
+    compare_dispatch(i,
+        [](auto x, auto y) { return x < y; },
+        [](auto const& x, auto const& y) { return x < y; });
+}
+
+void GeqFunction::execute(SLIInterpreter *i) const
+{
+    compare_dispatch(i,
+        [](auto x, auto y) { return x >= y; },
+        [](auto const& x, auto const& y) { return x >= y; });
+}
+
+void LeqFunction::execute(SLIInterpreter *i) const
+{
+    compare_dispatch(i,
+        [](auto x, auto y) { return x <= y; },
+        [](auto const& x, auto const& y) { return x <= y; });
+}
+
+// Compact bool ops -- bool/int operands handled inline.
+
+void AndPolyFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token &a = i->pick(1);
+    Token &b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::booltype && tb == sli3::booltype)
+        a.data_.bool_val = a.data_.bool_val && b.data_.bool_val;
+    else if (ta == sli3::integertype && tb == sli3::integertype)
+        a.data_.long_val &= b.data_.long_val;
+    else
+    {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    i->EStack().pop();
+    i->pop();
+}
+
+void OrPolyFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token &a = i->pick(1);
+    Token &b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::booltype && tb == sli3::booltype)
+        a.data_.bool_val = a.data_.bool_val || b.data_.bool_val;
+    else if (ta == sli3::integertype && tb == sli3::integertype)
+        a.data_.long_val |= b.data_.long_val;
+    else
+    {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    i->EStack().pop();
+    i->pop();
+}
+
+void NotPolyFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(1);
+    Token &t = i->top();
+    unsigned tt = t.tag();
+    if (tt == sli3::booltype)
+        t.data_.bool_val = !t.data_.bool_val;
+    else if (tt == sli3::integertype)
+        t.data_.long_val = ~t.data_.long_val;
+    else
+    {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    i->EStack().pop();
+}
+
+void XorPolyFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token &a = i->pick(1);
+    Token &b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::booltype && tb == sli3::booltype)
+        a.data_.bool_val = a.data_.bool_val != b.data_.bool_val;
+    else if (ta == sli3::integertype && tb == sli3::integertype)
+        a.data_.long_val ^= b.data_.long_val;
+    else
+    {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    i->EStack().pop();
+    i->pop();
+}
+
+//-----------------------------------------------------
 void Sub_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
@@ -1790,6 +2003,18 @@ SubFunction subfunction;
 MulFunction mulfunction;
 DivFunction divfunction;
 
+MaxFunction maxfunction;
+MinFunction minfunction;
+GtFunction  gtfunction;
+LtFunction  ltfunction;
+GeqFunction geqfunction;
+LeqFunction leqfunction;
+
+AndPolyFunction andpolyfunction;
+OrPolyFunction  orpolyfunction;
+NotPolyFunction notpolyfunction;
+XorPolyFunction xorpolyfunction;
+
 
 void init_slimath(SLIInterpreter *i)
 {
@@ -1824,6 +2049,12 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("sub", &subfunction);
     i->createcommand("mul", &mulfunction);
     i->createcommand("div", &divfunction);
+    i->createcommand("max", &maxfunction);
+    i->createcommand("min", &minfunction);
+    i->createcommand("gt",  &gtfunction);
+    i->createcommand("lt",  &ltfunction);
+    i->createcommand("geq", &geqfunction);
+    i->createcommand("leq", &leqfunction);
     //
     i->createcommand("sin_d", &sin_dfunction);
     i->createcommand("asin_d", &asin_dfunction);
@@ -1851,13 +2082,14 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("neg_d", &neg_dfunction);
     i->createcommand("inv", &inv_dfunction);
     //
-    i->createcommand("eq", &eqfunction);
-    i->createcommand("and", &andfunction);
-    i->createcommand("or",  &or_bbfunction);
-    // typeinit.sli aliases the bare names `xor` and `not` to the
-    // bool-typed implementations so it can build tries on top.
-    i->createcommand("xor", &xor_bbfunction);
-    i->createcommand("not", &not_bfunction);
+    // Stage 9: bind /eq /neq directly to anytype impls (no
+    // single-arm trie wrapper). /and /or /not are compact ops
+    // accepting bool or int operands. /xor stays bool/bool.
+    i->createcommand("eq",  &eqfunction);
+    i->createcommand("and", &andpolyfunction);
+    i->createcommand("or",  &orpolyfunction);
+    i->createcommand("not", &notpolyfunction);
+    i->createcommand("xor", &xorpolyfunction);
     i->createcommand("and_ii", &and_iifunction);
     i->createcommand("or_ii", &or_iifunction);
     i->createcommand("or_bb", &or_bbfunction);

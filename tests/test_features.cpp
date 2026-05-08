@@ -365,21 +365,27 @@ int main()
     // what keeps the refcount > 1, but verify the binding's
     // refcount survives the workload.
     //
-    // Since Stage 9, /add is no longer a trie -- it is a compact
-    // single-function binding. /max is still a trie and serves
-    // as the regression site for this issue.
+    // Stage 9 progressively compacts trie-bound names into
+    // single-function bindings, so this test builds its own
+    // trie under /trie_under_test and exercises that. The trie
+    // dispatches integer-pair arguments to add_ii (a typed
+    // leaf still registered) and resolves to a regular int sum.
     {
         Harness rc;
-        rc.prime("/p { 1 1 100 { 2 max pop } for } def");
+        rc.prime(
+            "/trie_under_test trie "
+            "  [/integertype /integertype] /add_ii load addtotrie "
+            "def "
+            "/p { 1 1 100 { 2 trie_under_test pop } for } def");
         rc.run();
-        Token const& trie_tok = rc.i.DStack().lookup(Name("max"));
+        Token const& trie_tok = rc.i.DStack().lookup(Name("trie_under_test"));
         CHECK(trie_tok.is_of_type(sli3::trietype));
         TypeNode* trie = trie_tok.data_.trie_val;
         unsigned long const trie_refs_before = trie->references();
 
         rc.prime("100 { p } repeat");
         rc.run();
-        Token const& trie_after = rc.i.DStack().lookup(Name("max"));
+        Token const& trie_after = rc.i.DStack().lookup(Name("trie_under_test"));
         CHECK(trie_after.data_.trie_val == trie);
         CHECK(trie->references() == trie_refs_before);
     }
