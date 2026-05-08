@@ -304,16 +304,8 @@ def
   [/stringtype /proceduretype] /forallindexed_s load addtotrie
 def
 
-/getinterval trie
-  [/arraytype      /integertype /integertype] /getinterval_a load addtotrie
-  [/stringtype     /integertype /integertype] /getinterval_s load addtotrie
-def
-
-/join trie
-  [/arraytype      /arraytype]     /join_a load addtotrie
-  [/stringtype     /stringtype]    /join_s load addtotrie
-  [/proceduretype  /proceduretype] /join_p load addtotrie
-def
+% sli3 Stage 9: /join /getinterval bound in C++ to compact
+% dispatchers that branch on the source operand's tag.
 
 /insert trie
   [/arraytype      /integertype /arraytype]     /insert_a load addtotrie

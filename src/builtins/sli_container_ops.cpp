@@ -1191,6 +1191,19 @@ EmptyStringFunction        empty_s_fn;
 EmptyDictFunction          empty_d_fn;
 ReserveArrayLikeFunction   reserve_a_fn(sli3::arraytype);
 ReserveStringFunction      reserve_s_fn;
+// Stage 9 compact dispatchers for /join and /getinterval --
+// remove the trie wrapper, dispatch on top operand's tag and
+// invoke the same per-type leaves.
+class JoinFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override;
+};
+class GetintervalFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override;
+};
 JoinStringFunction         join_s_fn;
 SearchStringFunction       search_s_fn;
 SearchArrayFunction        search_a_fn;
@@ -1209,6 +1222,27 @@ EraseArrayLikeFunction     erase_p_fn(sli3::proceduretype);
 EraseStringFunction        erase_s_fn;
 InsertElementArrayFunction  insertelement_a_fn;
 InsertElementStringFunction insertelement_s_fn;
+JoinFunction        join_fn;
+GetintervalFunction getinterval_fn;
+
+void JoinFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(2);
+    unsigned tag = i->pick(1).tag();
+    if (tag == sli3::arraytype)        join_a_fn.execute(i);
+    else if (tag == sli3::stringtype)  join_s_fn.execute(i);
+    else if (tag == sli3::proceduretype) join_p_fn.execute(i);
+    else                                 i->raiseerror(i->ArgumentTypeError);
+}
+
+void GetintervalFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(3);
+    unsigned tag = i->pick(2).tag();
+    if (tag == sli3::arraytype)       getinterval_a_fn.execute(i);
+    else if (tag == sli3::stringtype) getinterval_s_fn.execute(i);
+    else                              i->raiseerror(i->ArgumentTypeError);
+}
 
 //------------------------------------------------------------------------
 // Dictionary lookup helpers
@@ -1393,6 +1427,10 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("cvd_s",         &cvd_s_fn);
     i->createcommand("getinterval_a", &getinterval_a_fn);
     i->createcommand("getinterval_s", &getinterval_s_fn);
+    // Stage 9: compact dispatchers replace the 2- / 3-arm tries
+    // formerly built in typeinit.sli for /join /getinterval.
+    i->createcommand("join",          &join_fn);
+    i->createcommand("getinterval",   &getinterval_fn);
     i->createcommand("keys",          &keys_fn);
     i->createcommand("values",        &values_fn);
     i->createcommand("cva_d",         &cva_d_fn);
