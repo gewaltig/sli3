@@ -668,10 +668,24 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
     return sli3::unknown_error;
   }
 
+  // Pull cycle_count_ into a register-resident local. The
+  // per-iteration ++cycle_count_ on the member would be a write
+  // through to L1 every cycle; a local is a register increment.
+  // We sync back on loop exit / exception so the SLI `cycles`
+  // operator (which reads the member) still observes correct
+  // values between dispatcher invocations.
+  size_t local_cycles = cycle_count_;
   try {
-    while (execution_stack_.load() > exitlevel) {
+    do {  // loop1 -- recover from raiseerror without re-entering the
+          // per-iteration try block. NEST 2.20 uses the same pattern
+          // (interpret.cc execute_); zero-cost exceptions are zero-cost
+          // for happy-path code, but moving the try out of the inner
+          // while keeps the unwind tables out of the dispatcher's
+          // hottest loop and lets the compiler hoist register state
+          // more aggressively.
       try {
-        ++cycle_count_;
+        while (execution_stack_.load() > exitlevel) {
+          ++local_cycles;
 
         /*
           - The following switch handles most of the interpreter's internal
@@ -892,21 +906,26 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         default:
           execution_stack_.top().execute();
         }
+        } // inner while -- ran to completion or break
       } catch (std::exception &exc) {
         // Funnel C++ exceptions through the SLI error machinery so
         // a surrounding stopped/handleerror context can react.
         // raiseerror pushes /cmd onto the operand stack and `stop`
         // onto the execution stack.
+        cycle_count_ = local_cycles;
         raiseerror(exc);
+        local_cycles = cycle_count_;
       }
-    } // while(true);
+    } while (execution_stack_.load() > exitlevel);
   } catch (std::exception &e) {
+    cycle_count_ = local_cycles;
     message(M_FATAL, "SLIInterpreter", "A C++ library exception occured.");
     operand_stack_.dump(std::cerr);
     execution_stack_.dump(std::cerr);
     message(M_FATAL, "SLIInterpreter", e.what());
     terminate(sli3::exception);
   } catch (...) {
+    cycle_count_ = local_cycles;
     message(M_FATAL, "SLIInterpreter", "An unknown c++ exception occured.");
     operand_stack_.dump(std::cerr);
     execution_stack_.dump(std::cerr);
@@ -914,6 +933,10 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   }
 
 exit_interpreter:
+  // Sync the local cycle counter back to the member. The
+  // case sli3::quittype branches here via goto from inside the
+  // try; both paths land at this label.
+  cycle_count_ = local_cycles;
 
   // Read exit code from statusdict if it's been set up by the
   // bootstrap; otherwise default to 0. (During the very first call
