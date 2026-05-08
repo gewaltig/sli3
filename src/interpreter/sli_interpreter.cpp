@@ -18,6 +18,9 @@
 #include "sli_string.h"
 #include "sli_stringtype.h"
 #include "sli_trietype.h"
+#include <algorithm>
+#include <ostream>
+#include <sstream>
 #include "sli_typecheck.h"
 #include <time.h>
 
@@ -112,6 +115,11 @@ SLIInterpreter::SLIInterpreter()
       operand_stack_(1000), execution_stack_(1000), types_() {
   init();
   parser_ = new Parser();
+  // Operator-usage statistics: SLI3_STATS=1 (or any non-empty,
+  // non-"0" value) toggles per-call counting at construction.
+  // The dump is invoked from sli_main when the program exits.
+  if (char const *env = std::getenv("SLI3_STATS"))
+    count_calls_ = env[0] && env[0] != '0';
 }
 
 SLIInterpreter::~SLIInterpreter() {
@@ -283,6 +291,66 @@ int SLIInterpreter::startup() {
 void SLIInterpreter::clear_parser_context() {
   if (parser_)
     parser_->clear_context();
+}
+
+void SLIInterpreter::dump_stats(std::ostream &out) const {
+  if (!count_calls_ || call_counts_.empty()) {
+    out << "operator stats: none recorded "
+        << "(set SLI3_STATS=1 to enable)\n";
+    return;
+  }
+  // Walk system_dict and user_dict; pull names for any
+  // functiontype / trietype value whose payload pointer was
+  // counted. The same SLIFunction* may be bound under several
+  // names (e.g. /pop and /;); list each binding separately.
+  struct Row { std::string name; uint64_t count; unsigned tag; };
+  std::vector<Row> rows;
+  rows.reserve(call_counts_.size());
+  std::unordered_map<void const*, uint64_t> remaining = call_counts_;
+
+  auto scan = [&](Dictionary const *d) {
+    if (!d) return;
+    for (auto it = d->begin(); it != d->end(); ++it) {
+      Token const &t = it->second;
+      void const *key = nullptr;
+      unsigned tag = t.tag();
+      if (tag == sli3::functiontype) key = t.data_.func_val;
+      else if (tag == sli3::trietype) key = t.data_.trie_val;
+      else continue;
+      auto found = remaining.find(key);
+      if (found == remaining.end()) continue;
+      rows.push_back({it->first.toString(), found->second, tag});
+      remaining.erase(found);
+    }
+  };
+  scan(system_dict_);
+  scan(user_dict_);
+
+  // Anything still in `remaining` was counted but no longer
+  // resolves to a name (e.g. a function bound only via internal
+  // tries, or a name overridden after counting). Emit as
+  // <unbound:0xXXXX>.
+  for (auto const &kv : remaining) {
+    std::ostringstream os;
+    os << "<unbound:" << kv.first << ">";
+    rows.push_back({os.str(), kv.second, 0});
+  }
+
+  std::sort(rows.begin(), rows.end(),
+            [](Row const &a, Row const &b) { return a.count > b.count; });
+
+  out << "# operator usage (" << rows.size() << " bindings)\n";
+  out << "#   count    name                              kind\n";
+  for (auto const &r : rows) {
+    char const *kind = (r.tag == sli3::functiontype) ? "fn"
+                     : (r.tag == sli3::trietype)     ? "trie"
+                                                     : "raw";
+    out.width(10); out << r.count << "  ";
+    out.width(34); out.setf(std::ios::left);
+    out << r.name;
+    out.unsetf(std::ios::left);
+    out << "  " << kind << '\n';
+  }
 }
 
 Token SLIInterpreter::read_token(std::istream &in) {
@@ -739,6 +807,8 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           break;
         }
         case sli3::trietype: {
+          if (count_calls_)
+            ++call_counts_[execution_stack_.top().data_.trie_val];
           const Token &t =
               execution_stack_.top().data_.trie_val->lookup(operand_stack_);
           if (t.is_executable())
@@ -775,6 +845,8 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             }
             std::cerr << '\n';
           }
+          if (count_calls_)
+            ++call_counts_[execution_stack_.top().data_.func_val];
           execution_stack_.top().data_.func_val->execute(this);
           break;
         }

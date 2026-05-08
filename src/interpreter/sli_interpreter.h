@@ -16,6 +16,8 @@
 
 #include<vector>
 #include <deque>
+#include <unordered_map>
+#include <iosfwd>
 
 namespace sli3
 {
@@ -580,9 +582,21 @@ namespace sli3
 	Parser *parser_;
 
     public:
+	// Operator usage statistics. Set via SLI3_STATS=1 env var
+	// (read in the constructor) or programmatically. When on, the
+	// dispatcher's functiontype / trietype cases bump a counter
+	// keyed by the dispatched object's address. dump_stats walks
+	// system_dict + user_dict to resolve addresses to names.
+	void enable_stats(bool on) { count_calls_ = on; }
+	bool stats_enabled() const { return count_calls_; }
+	void dump_stats(std::ostream &out) const;
+
 	TokenStack operand_stack_;
 	TokenStack execution_stack_;
     private:
+	bool count_calls_ = false;
+	std::unordered_map<void const*, uint64_t> call_counts_;
+
 	std::vector<SLIModule *> modules_;
 	DictionaryStack dictionary_stack_;
 	std::vector<std::string> message_tag_;
