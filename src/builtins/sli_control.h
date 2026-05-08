@@ -390,6 +390,35 @@ namespace sli3
     TimeFunction() {}
     void execute(SLIInterpreter *) const;
   };
+
+  /**
+   * realtime - high-resolution wall-clock time as a double, in
+   * seconds since the epoch. tic/toc/clock in sli-init.sli are
+   * defined on top of this; without it, every elapsed-time helper
+   * raises UndefinedName at runtime.
+   */
+  class RealtimeFunction: public SLIFunction
+  {
+  public:
+    RealtimeFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  /**
+   * ptimes -> [rtime utime stime cutime cstime]   (all doubletype, seconds)
+   *
+   * sli-init.sli's /ptimes is `pclocks pclockspersec cvd div` --
+   * but the div trie does not have an [arraytype, doubletype]
+   * overload, so the SLI version raises UndefinedName at runtime.
+   * Registering a C++ leaf bypasses the broken chain and lets
+   * /realtime / /usertime / /systemtime / /tic / /toc all work.
+   */
+  class PtimesFunction: public SLIFunction
+  {
+  public:
+    PtimesFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
   
   class Sleep_iFunction: public SLIFunction
   {

@@ -332,10 +332,56 @@ public:
     }
 };
 
-BeginFunction        begin_fn;
-EndFunction          end_fn;
-DictFunction         dict_fn;
-CurrentdictFunction  currentdict_fn;
+// PostScript: push the number of dictionaries currently on the
+// dictionary stack.
+class CountdictstackFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->push(static_cast<long>(i->DStack().size()));
+        i->EStack().pop();
+    }
+};
+
+// PostScript: push an array containing every dictionary currently
+// on the dictionary stack, top first. Each entry shares the same
+// payload pointer as the dictstack -- mutations via one are
+// visible through the other.
+class DictstackFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        TokenArray *arr = new TokenArray();
+        i->DStack().toArray(*i, *arr);
+        Token t(i->get_type(sli3::arraytype));
+        t.data_.array_val = arr;
+        i->push(t);
+        i->EStack().pop();
+    }
+};
+
+// Pop every dict above systemdict + userdict (the two permanent
+// bottom entries).
+class CleardictstackFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        while (i->DStack().size() > 2)
+            i->DStack().pop();
+        i->EStack().pop();
+    }
+};
+
+BeginFunction           begin_fn;
+EndFunction             end_fn;
+DictFunction            dict_fn;
+CurrentdictFunction     currentdict_fn;
+CountdictstackFunction  countdictstack_fn;
+DictstackFunction       dictstack_fn;
+CleardictstackFunction  cleardictstack_fn;
 
 //------------------------------------------------------------------------
 // Locate sli-init.sli. Search order:
@@ -449,6 +495,9 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     i->createcommand("end",        &end_fn);
     i->createcommand("dict",       &dict_fn);
     i->createcommand("currentdict",&currentdict_fn);
+    i->createcommand("countdictstack", &countdictstack_fn);
+    i->createcommand("dictstack",      &dictstack_fn);
+    i->createcommand("cleardictstack", &cleardictstack_fn);
 
     // 2b. Stubs for unimplemented operators that typeinit.sli /
     //     mathematica.sli / etc. reference via `<X> load addtotrie`.

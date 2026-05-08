@@ -20,6 +20,9 @@
 #include "sli_type.h"
 
 #include <algorithm>
+#include <cctype>
+#include <stdexcept>
+#include <string>
 
 namespace sli3
 {
@@ -423,18 +426,37 @@ public:
     }
 };
 
-// `int cvi_s -> string` and `double cvd_s -> string`
+// `string cvi_s -> integer` and `string cvd_s -> double`.
+// Naming convention: the trailing `_s` denotes the *input* type
+// (string), per typeinit.sli's trie wiring of /cvi and /cvd. The
+// previous implementations had the directions reversed -- producing
+// strings instead of consuming them -- which made `(3.14) cvd`
+// raise TypeMismatch on the now-string-input.
 class CviStringFunction : public SLIFunction
 {
 public:
     void execute(SLIInterpreter* i) const override
     {
         i->require_stack_load(1);
-        i->require_stack_type(0, sli3::integertype);
-        long v = i->top().data_.long_val;
-        i->pop();
-        i->push(i->new_token<sli3::stringtype, std::string>(std::to_string(v)));
-        i->EStack().pop();
+        i->require_stack_type(0, sli3::stringtype);
+        std::string const& s = i->top().data_.string_val->str();
+        try
+        {
+            size_t consumed = 0;
+            long v = std::stol(s, &consumed, 10);
+            // Reject trailing non-whitespace garbage: "3.14" -> error,
+            // not 3 silently. strtol-style "3 trailing" passes.
+            for (size_t k = consumed; k < s.size(); ++k)
+                if (!std::isspace(static_cast<unsigned char>(s[k])))
+                    throw std::invalid_argument("trailing");
+            i->pop();
+            i->push(i->new_token<sli3::integertype>(v));
+            i->EStack().pop();
+        }
+        catch (std::exception const&)
+        {
+            i->raiseerror(i->ArgumentTypeError);
+        }
     }
 };
 
@@ -444,11 +466,23 @@ public:
     void execute(SLIInterpreter* i) const override
     {
         i->require_stack_load(1);
-        i->require_stack_type(0, sli3::doubletype);
-        double v = i->top().data_.double_val;
-        i->pop();
-        i->push(i->new_token<sli3::stringtype, std::string>(std::to_string(v)));
-        i->EStack().pop();
+        i->require_stack_type(0, sli3::stringtype);
+        std::string const& s = i->top().data_.string_val->str();
+        try
+        {
+            size_t consumed = 0;
+            double v = std::stod(s, &consumed);
+            for (size_t k = consumed; k < s.size(); ++k)
+                if (!std::isspace(static_cast<unsigned char>(s[k])))
+                    throw std::invalid_argument("trailing");
+            i->pop();
+            i->push(i->new_token<sli3::doubletype>(v));
+            i->EStack().pop();
+        }
+        catch (std::exception const&)
+        {
+            i->raiseerror(i->ArgumentTypeError);
+        }
     }
 };
 

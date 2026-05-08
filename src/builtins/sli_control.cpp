@@ -1359,6 +1359,78 @@ void TimeFunction::execute(SLIInterpreter *i) const
 }
 
 /*BeginDocumentation
+Name: realtime - Wall-clock time, in seconds, as a double.
+Synopsis: realtime -> double
+Description:
+ Returns the current wall-clock time as a double in seconds since
+ the epoch. Resolution is typically microsecond on POSIX (uses
+ gettimeofday). Used by tic/toc/clock in sli-init.sli when the
+ SLI definition (/realtime { ptimes 0 get } def) is shadowed.
+*/
+void RealtimeFunction::execute(SLIInterpreter *i) const
+{
+  struct timeval tv;
+  if (gettimeofday(&tv, nullptr) != 0)
+  {
+    i->message(sli3::M_ERROR, "RealtimeFunction",
+               "System function gettimeofday() returned error!");
+    i->raiseerror("SystemError");
+    return;
+  }
+  double const t =
+      static_cast<double>(tv.tv_sec) +
+      1.0e-6 * static_cast<double>(tv.tv_usec);
+  i->EStack().pop();
+  i->push(t);
+}
+
+/*BeginDocumentation
+Name: ptimes - process-time array as doubles in seconds
+Synopsis: ptimes -> [rtime utime stime cutime cstime]
+Description:
+ rtime is wall-clock time (gettimeofday), utime/stime are
+ self user/system times (getrusage RUSAGE_SELF), cutime/cstime
+ are children user/system times (getrusage RUSAGE_CHILDREN).
+ Used by /realtime, /usertime, /systemtime, /tic, /toc.
+*/
+void PtimesFunction::execute(SLIInterpreter *i) const
+{
+  struct timeval tv;
+  if (gettimeofday(&tv, nullptr) != 0)
+  {
+    i->message(sli3::M_ERROR, "PtimesFunction",
+               "gettimeofday() failed");
+    i->raiseerror("SystemError");
+    return;
+  }
+  double const rtime =
+      static_cast<double>(tv.tv_sec) +
+      1.0e-6 * static_cast<double>(tv.tv_usec);
+
+  auto tv_to_d = [](struct timeval const& v) {
+      return static_cast<double>(v.tv_sec) +
+             1.0e-6 * static_cast<double>(v.tv_usec);
+  };
+
+  struct rusage self{}, kids{};
+  getrusage(RUSAGE_SELF, &self);
+  getrusage(RUSAGE_CHILDREN, &kids);
+
+  TokenArray *arr = new TokenArray();
+  arr->reserve(5);
+  arr->push_back(i->new_token<sli3::doubletype>(rtime));
+  arr->push_back(i->new_token<sli3::doubletype>(tv_to_d(self.ru_utime)));
+  arr->push_back(i->new_token<sli3::doubletype>(tv_to_d(self.ru_stime)));
+  arr->push_back(i->new_token<sli3::doubletype>(tv_to_d(kids.ru_utime)));
+  arr->push_back(i->new_token<sli3::doubletype>(tv_to_d(kids.ru_stime)));
+
+  Token result(i->get_type(sli3::arraytype));
+  result.data_.array_val = arr;
+  i->push(result);
+  i->EStack().pop();
+}
+
+/*BeginDocumentation
 Name: sleep_i - suspends proces for n seconds
 Synopsis:  n sleep_i -> -
 Description:
@@ -1829,6 +1901,8 @@ void NoopFunction::execute(SLIInterpreter *i) const
  PclockspersecFunction    pclockspersecfunction;
  PgetrusageFunction       pgetrusagefunction;
  TimeFunction             timefunction;
+ RealtimeFunction         realtimefunction;
+ PtimesFunction           ptimesfunction;
  Sleep_dFunction          sleep_dfunction;
  Sleep_iFunction          sleep_ifunction;
 
@@ -1913,6 +1987,8 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("pclockspersec",         &pclockspersecfunction);
   i->createcommand("pgetrusage",         &pgetrusagefunction);
   i->createcommand("time",         &timefunction);
+  i->createcommand("realtime",        &realtimefunction);
+  i->createcommand("ptimes",          &ptimesfunction);
   i->createcommand("sleep_d",         &sleep_dfunction);
   i->createcommand("sleep_i",         &sleep_ifunction);
 

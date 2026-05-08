@@ -523,10 +523,17 @@ SeeAlso: over, index
  References: man 2 times
  SeeAlso: realtime, usertime, systemtime, tic, toc, pclockspersec, pclocks
 */
+% sli3 patch: the original SLI body was
+%     /ptimes { pclocks pclockspersec cvd div } def
+% which assumes the /div trie has an [arraytype, doubletype] leaf
+% (NEST 2.x had element-wise array arithmetic registered through
+% sli_arrayfunctions). sli3 has not (yet) ported those, so the SLI
+% definition raised ArgumentType. /ptimes is registered as a C++
+% leaf in sli_control.cpp and will be used directly until the
+% array arithmetic surface is brought back.
 /ptimes
-{
-  pclocks pclockspersec cvd div
-} def
+/ptimes load
+def
 
 /** @BeginDocumentation
  Name: realtime - returns realtime
