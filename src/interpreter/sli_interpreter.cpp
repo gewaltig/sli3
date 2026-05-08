@@ -807,7 +807,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           break;
         }
         case sli3::trietype: {
-          if (count_calls_)
+          if (__builtin_expect(count_calls_, 0))
             ++call_counts_[execution_stack_.top().data_.trie_val];
           const Token &t =
               execution_stack_.top().data_.trie_val->lookup(operand_stack_);
@@ -845,7 +845,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             }
             std::cerr << '\n';
           }
-          if (count_calls_)
+          if (__builtin_expect(count_calls_, 0))
             ++call_counts_[execution_stack_.top().data_.func_val];
           execution_stack_.top().data_.func_val->execute(this);
           break;
