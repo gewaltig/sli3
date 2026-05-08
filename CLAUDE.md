@@ -172,10 +172,39 @@ existed because pre-C++98 stdlib was unreliable. We don't need it now.
 - Streams are not serializable. `IstreamType` / `OstreamType::serialize` emit a stderr warning and write no payload; deserialize produces a Token whose underlying `SLIistream`/`SLIostream` has `valid() == false`. Per design — OS resources don't survive a snapshot.
 - The `sli_typeid` enum is a **permanent wire contract** (append-only). Renumbering an existing entry breaks every saved snapshot ever made. Adding a new type: append at the end and bump `kSerializeVersion`.
 
+## Reference NEST 2.20.2 checkout
+
+A shallow checkout of upstream NEST 2.20.2 lives at
+`/Users/gewaltig/Code/nest-2.20.2/` (sibling to this repo, NOT
+inside the project tree). Use it to cross-check operator
+semantics, dispatch ordering, print/pprint conventions, and
+typeinit wiring against the canonical reference.
+
+Most relevant files:
+
+- `nest-2.20.2/sli/` — interpreter sources (interpret.cc,
+  slicontrol.cc, slimath.cc, slibuiltins.cc, sliarray.cc,
+  dictstack.cc, arraydatum.cc, stringdatum.cc, …).
+- `nest-2.20.2/lib/sli/` — the original `*.sli` startup scripts
+  (sli-init.sli, typeinit.sli, mathematica.sli, …) that the
+  vendored copies under `lib/sli/` here track.
+
+When the agent reviews caught "the C++ does X but typeinit wires
+the trie expecting Y", checking the upstream version is usually
+how to disambiguate. CLAUDE.md / fix-plan.md commits already
+record several of these (e.g. NEST 2.20.2's `::pop` also points
+to `ilookupfunction`; `case` also leaves the obj on the operand
+stack rather than executing it; `cvi_s` / `cvd_s` are
+string-input ops, not string-output).
+
+The checkout has no git history (depth 1). If a deeper inspection
+is needed, replace it with a full clone:
+`git clone --branch v2.20.2 https://github.com/nest/nest-simulator.git nest-2.20.2`.
+
 ## When working in this repo
 
 - Don't touch the `goto`-driven loops in `execute_dispatch_` without a parity test in place. They are deliberate.
-- Don't enable `-Werror` yet — there are 4 pre-existing unused-variable warnings (`proc` in `sli_control.cpp`, `d` in `sli_scanner.cpp`) that haven't been audited.
+- Both Release and ASAN builds compile clean on `-Wall -Wextra` (the four pre-existing unused-variable warnings — `proc` in `sli_control.cpp`, `d` in `sli_scanner.cpp` — were retired during the Stage 5 cleanup). `-Werror` is feasible whenever you want to flip it on.
 - Don't add features to the C++ side that should live in `sli-init.sli`. The split-of-responsibility matters for performance.
 - The `.o` files, `sli3` binary, `build/`, `CMakeFiles/`, and `*~` backup files are gitignored. Don't commit them.
 - New `SLIType` subclasses **must** override `serialize` / `deserialize`. The base class default is no-op — fine for marker types, silently wrong for any type with payload.
