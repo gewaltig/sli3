@@ -174,33 +174,11 @@ Synopsis: ostream trieinfo -> -
  [/stringtype ] {()} addtotrie
 def
 
-/add trie
-  [/integertype /integertype] /add_ii load addtotrie
-  [/doubletype  /integertype] /add_di load addtotrie
-  [/integertype /doubletype]  /add_id load addtotrie
-  [/doubletype  /doubletype]  /add_dd load addtotrie
-def
-
-/sub trie
-  [/integertype /integertype] /sub_ii load addtotrie
-  [/doubletype  /integertype] /sub_di load addtotrie
-  [/integertype /doubletype]  /sub_id load addtotrie
-  [/doubletype  /doubletype]  /sub_dd load addtotrie
-def
-
-/mul trie
-  [/integertype /integertype] /mul_ii load addtotrie
-  [/doubletype  /integertype] /mul_di load addtotrie
-  [/integertype /doubletype]  /mul_id load addtotrie
-  [/doubletype  /doubletype]  /mul_dd load addtotrie
-def
-
-/div trie
-  [/integertype /integertype] /div_ii load addtotrie
-  [/doubletype  /integertype] /div_di load addtotrie
-  [/integertype /doubletype]  /div_id load addtotrie
-  [/doubletype  /doubletype]  /div_dd load addtotrie
-def
+% sli3 Stage 9: /add /sub /mul /div are bound directly in C++
+% to compact single-function implementations (sli_math.cpp:
+% AddFunction etc.). The typed leaves (add_ii etc.) remain
+% registered for code that calls them by name or builds a
+% custom trie via addtotrie.
 
 /** @BeginDocumentation
 Name: max - return the greater of two values

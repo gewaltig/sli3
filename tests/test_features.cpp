@@ -353,31 +353,34 @@ int main()
 
     // Trie refcount preservation under heavy dispatch.
     //
-    // Each call to `add` looks up the /add binding (a TrieType
-    // Token) and runs it through the dispatcher's trietype case
-    // (sli_interpreter.cpp:719-728). That case does
+    // Each call to a trie-bound op looks up the binding (a
+    // TrieType Token) and runs it through the dispatcher's
+    // trietype case (sli_interpreter.cpp:719-728). That case
+    // does
     //   execution_stack_.top() = t;
     // where t references a Token INSIDE the trie's leaf node. If
     // the assignment's clear() drops the trie's refcount to zero,
     // the trie tree is deleted and t becomes a dangling reference
-    // (UAF on the subsequent init(t) read). The dict binding
-    // (/add in systemdict) is what keeps the refcount > 1, but
-    // verify the binding's refcount survives the workload.
+    // (UAF on the subsequent init(t) read). The dict binding is
+    // what keeps the refcount > 1, but verify the binding's
+    // refcount survives the workload.
+    //
+    // Since Stage 9, /add is no longer a trie -- it is a compact
+    // single-function binding. /max is still a trie and serves
+    // as the regression site for this issue.
     {
         Harness rc;
-        rc.prime("/p { 1 1 100 { 2 add pop } for } def");
+        rc.prime("/p { 1 1 100 { 2 max pop } for } def");
         rc.run();
-        // /add is bound in systemdict to a trie; capture its
-        // identity + refcount before the workload.
-        Token const& add_tok = rc.i.DStack().lookup(Name("add"));
-        CHECK(add_tok.is_of_type(sli3::trietype));
-        TypeNode* trie = add_tok.data_.trie_val;
+        Token const& trie_tok = rc.i.DStack().lookup(Name("max"));
+        CHECK(trie_tok.is_of_type(sli3::trietype));
+        TypeNode* trie = trie_tok.data_.trie_val;
         unsigned long const trie_refs_before = trie->references();
 
         rc.prime("100 { p } repeat");
         rc.run();
-        Token const& add_after = rc.i.DStack().lookup(Name("add"));
-        CHECK(add_after.data_.trie_val == trie);
+        Token const& trie_after = rc.i.DStack().lookup(Name("max"));
+        CHECK(trie_after.data_.trie_val == trie);
         CHECK(trie->references() == trie_refs_before);
     }
 

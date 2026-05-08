@@ -167,7 +167,41 @@ namespace sli3
   };
   
   //--------------------------------------
-  
+  // Stage 9: compact ops -- single function per name, all typed
+  // arms inline, no trie indirection. Bound directly to /add,
+  // /sub, /mul, /div in system_dict; the typed leaves (add_ii,
+  // add_dd, ...) remain registered for addtotrie users.
+
+  class AddFunction: public SLIFunction
+  {
+  public:
+    AddFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  class SubFunction: public SLIFunction
+  {
+  public:
+    SubFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  class MulFunction: public SLIFunction
+  {
+  public:
+    MulFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  class DivFunction: public SLIFunction
+  {
+  public:
+    DivFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  //--------------------------------------
+
   class Mod_iiFunction: public SLIFunction
   {
   public:

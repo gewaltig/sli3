@@ -146,6 +146,219 @@ void Add_idFunction::execute(SLIInterpreter *i) const
 }
 
 //-----------------------------------------------------
+// Stage 9 -- compact ops. Single function, four typed arms
+// inline, no trie. Bound directly to /add, /sub, /mul, /div.
+
+void AddFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token& a = i->pick(1);
+    Token& b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::integertype && tb == sli3::integertype)
+    {
+        long out;
+        if (checked_add(a.data_.long_val, b.data_.long_val, &out))
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        a.data_.long_val = out;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::doubletype)
+    {
+        a.data_.double_val += b.data_.double_val;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::integertype)
+    {
+        a.data_.double_val += static_cast<double>(b.data_.long_val);
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::integertype && tb == sli3::doubletype)
+    {
+        a.data_.double_val =
+            static_cast<double>(a.data_.long_val) + b.data_.double_val;
+        a.type_ = b.type_;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+void SubFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token& a = i->pick(1);
+    Token& b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::integertype && tb == sli3::integertype)
+    {
+        long out;
+        if (checked_sub(a.data_.long_val, b.data_.long_val, &out))
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        a.data_.long_val = out;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::doubletype)
+    {
+        a.data_.double_val -= b.data_.double_val;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::integertype)
+    {
+        a.data_.double_val -= static_cast<double>(b.data_.long_val);
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::integertype && tb == sli3::doubletype)
+    {
+        a.data_.double_val =
+            static_cast<double>(a.data_.long_val) - b.data_.double_val;
+        a.type_ = b.type_;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+void MulFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token& a = i->pick(1);
+    Token& b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::integertype && tb == sli3::integertype)
+    {
+        long out;
+        if (checked_mul(a.data_.long_val, b.data_.long_val, &out))
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        a.data_.long_val = out;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::doubletype)
+    {
+        a.data_.double_val *= b.data_.double_val;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::integertype)
+    {
+        a.data_.double_val *= static_cast<double>(b.data_.long_val);
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::integertype && tb == sli3::doubletype)
+    {
+        a.data_.double_val =
+            static_cast<double>(a.data_.long_val) * b.data_.double_val;
+        a.type_ = b.type_;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+void DivFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    Token& a = i->pick(1);
+    Token& b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+
+    if (ta == sli3::integertype && tb == sli3::integertype)
+    {
+        long const num = a.data_.long_val;
+        long const den = b.data_.long_val;
+        if (den == 0)
+        {
+            i->raiseerror(i->DivisionByZeroError);
+            return;
+        }
+        if (num == LONG_MIN && den == -1)
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        a.data_.long_val = num / den;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::doubletype)
+    {
+        if (b.data_.double_val == 0.0)
+        {
+            i->raiseerror(i->DivisionByZeroError);
+            return;
+        }
+        a.data_.double_val /= b.data_.double_val;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::integertype)
+    {
+        if (b.data_.long_val == 0)
+        {
+            i->raiseerror(i->DivisionByZeroError);
+            return;
+        }
+        a.data_.double_val /= static_cast<double>(b.data_.long_val);
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    if (ta == sli3::integertype && tb == sli3::doubletype)
+    {
+        if (b.data_.double_val == 0.0)
+        {
+            i->raiseerror(i->DivisionByZeroError);
+            return;
+        }
+        a.data_.double_val =
+            static_cast<double>(a.data_.long_val) / b.data_.double_val;
+        a.type_ = b.type_;
+        i->EStack().pop();
+        i->pop();
+        return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+//-----------------------------------------------------
 void Sub_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
@@ -1571,6 +1784,12 @@ Min_d_iFunction min_d_ifunction;
 Min_i_dFunction min_i_dfunction;
 Min_i_iFunction min_i_ifunction;
 
+// Stage 9: compact ops bound directly to /add /sub /mul /div.
+AddFunction addfunction;
+SubFunction subfunction;
+MulFunction mulfunction;
+DivFunction divfunction;
+
 
 void init_slimath(SLIInterpreter *i)
 {
@@ -1596,6 +1815,15 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("div_id", &div_idfunction);
     i->createcommand("div_ii", &div_iifunction);
     i->createcommand("mod",    &mod_iifunction);
+    //
+    // Stage 9: bind /add /sub /mul /div directly to compact
+    // single-function implementations. typeinit.sli no longer
+    // builds tries for these names. Typed leaves (add_ii etc.)
+    // remain registered above so addtotrie users keep working.
+    i->createcommand("add", &addfunction);
+    i->createcommand("sub", &subfunction);
+    i->createcommand("mul", &mulfunction);
+    i->createcommand("div", &divfunction);
     //
     i->createcommand("sin_d", &sin_dfunction);
     i->createcommand("asin_d", &asin_dfunction);
