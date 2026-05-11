@@ -1204,6 +1204,29 @@ class GetintervalFunction : public SLIFunction
 public:
     void execute(SLIInterpreter* i) const override;
 };
+
+// Stage 9 (continued) compact dispatchers for /length /get /put.
+// Each switches on the collection's tag (slot N depending on
+// arity) and invokes the matching typed leaf via virtual call.
+// The typed leaves do their own require_stack_type checks, so
+// the dispatcher only needs to guarantee the collection tag is
+// recognised before delegating; wrong types fall through to
+// ArgumentTypeError.
+class LengthFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override;
+};
+class GetFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override;
+};
+class PutFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override;
+};
 JoinStringFunction         join_s_fn;
 SearchStringFunction       search_s_fn;
 SearchArrayFunction        search_a_fn;
@@ -1224,6 +1247,9 @@ InsertElementArrayFunction  insertelement_a_fn;
 InsertElementStringFunction insertelement_s_fn;
 JoinFunction        join_fn;
 GetintervalFunction getinterval_fn;
+LengthFunction      length_fn;
+GetFunction         get_fn;
+PutFunction         put_fn;
 
 void JoinFunction::execute(SLIInterpreter* i) const
 {
@@ -1242,6 +1268,87 @@ void GetintervalFunction::execute(SLIInterpreter* i) const
     if (tag == sli3::arraytype)       getinterval_a_fn.execute(i);
     else if (tag == sli3::stringtype) getinterval_s_fn.execute(i);
     else                              i->raiseerror(i->ArgumentTypeError);
+}
+
+// /length: single operand. Dispatch by its tag.
+void LengthFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(1);
+    switch (i->top().tag()) {
+      case sli3::arraytype:        length_a_fn.execute(i); break;
+      case sli3::proceduretype:    length_p_fn.execute(i); break;
+      case sli3::litproceduretype: length_lp_fn.execute(i); break;
+      case sli3::stringtype:       length_s_fn.execute(i); break;
+      case sli3::dictionarytype:   length_d_fn.execute(i); break;
+      default:                     i->raiseerror(i->ArgumentTypeError);
+    }
+}
+
+// /get: container + index. Container in slot 1, key in slot 0.
+//   array  int    -> elt        (get_a)
+//   array  array  -> sub-array  (get_a_a, nested index)
+//   proc   int    -> elt        (get_p)
+//   litproc int   -> elt        (get_lp)
+//   string int    -> char-int   (get_s)
+//   dict   literal -> elt        (get_d)
+//   dict   array  -> sub-dict   (get_d_a)
+void GetFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(2);
+    unsigned coll = i->pick(1).tag();
+    unsigned key  = i->pick(0).tag();
+    switch (coll) {
+      case sli3::arraytype:
+        if (key == sli3::integertype) { get_a_fn.execute(i); return; }
+        if (key == sli3::arraytype)   { get_a_a_fn.execute(i); return; }
+        break;
+      case sli3::proceduretype:
+        if (key == sli3::integertype) { get_p_fn.execute(i); return; }
+        break;
+      case sli3::litproceduretype:
+        if (key == sli3::integertype) { get_lp_fn.execute(i); return; }
+        break;
+      case sli3::stringtype:
+        if (key == sli3::integertype) { get_s_fn.execute(i); return; }
+        break;
+      case sli3::dictionarytype:
+        if (key == sli3::literaltype) { get_d_fn.execute(i); return; }
+        // get_d_a (dict + array of keys) -- not wired in current
+        // typeinit either; the trie used to dispatch to get_d_a
+        // for [dict, array] but that leaf isn't registered. Fall
+        // through to ArgumentType to match the trie's behaviour.
+        break;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// /put: container + index + element. Slot 2 collection, slot 1
+// index, slot 0 element. Same multi-arm shape as /get plus the
+// element type.
+void PutFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(3);
+    unsigned coll = i->pick(2).tag();
+    unsigned idx  = i->pick(1).tag();
+    switch (coll) {
+      case sli3::arraytype:
+        if (idx == sli3::integertype) { put_a_fn.execute(i); return; }
+        if (idx == sli3::arraytype)   { put_a_a_t_fn.execute(i); return; }
+        break;
+      case sli3::proceduretype:
+        if (idx == sli3::integertype) { put_p_fn.execute(i); return; }
+        break;
+      case sli3::litproceduretype:
+        if (idx == sli3::integertype) { put_lp_fn.execute(i); return; }
+        break;
+      case sli3::stringtype:
+        if (idx == sli3::integertype) { put_s_fn.execute(i); return; }
+        break;
+      case sli3::dictionarytype:
+        if (idx == sli3::literaltype) { put_d_fn.execute(i); return; }
+        break;
+    }
+    i->raiseerror(i->ArgumentTypeError);
 }
 
 //------------------------------------------------------------------------
@@ -1431,6 +1538,12 @@ void init_container_ops(SLIInterpreter* i)
     // formerly built in typeinit.sli for /join /getinterval.
     i->createcommand("join",          &join_fn);
     i->createcommand("getinterval",   &getinterval_fn);
+    // Compact dispatchers replacing the /length /get /put
+    // tries formerly built in lib/sli/sli-init.sli. Typed
+    // leaves stay registered under their compound names.
+    i->createcommand("length",        &length_fn);
+    i->createcommand("get",           &get_fn);
+    i->createcommand("put",           &put_fn);
     i->createcommand("keys",          &keys_fn);
     i->createcommand("values",        &values_fn);
     i->createcommand("cva_d",         &cva_d_fn);

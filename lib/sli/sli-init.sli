@@ -76,13 +76,10 @@ systemdict begin
  SeeAlso: length_p, length_lp, length_a, length_s, length_d, capacity, size
 */
 
-/length trie
-  [/proceduretype ]        /length_p  load addtotrie
-  [/literalproceduretype ] /length_lp load addtotrie
-  [/arraytype ]            /length_a  load addtotrie
-  [/stringtype ]           /length_s  load addtotrie
-  [/dictionarytype ]       /length_d  load addtotrie
-def
+% sli3 Stage 9: /length bound in C++ to LengthFunction
+% (sli_container_ops.cpp), which switches on the operand's
+% tag and dispatches to length_a / length_p / length_lp /
+% length_s / length_d. Typed leaves remain registered.
 
 /** @BeginDocumentation
  Name: get - retrieve element indexed Object of a container
@@ -158,15 +155,9 @@ def
  forall
 } def
 
-/get trie
-  [/arraytype      /integertype] /get_a load addtotrie
-  [/arraytype      /arraytype]   /get_a_a load addtotrie
-  [/proceduretype  /integertype] /get_p load addtotrie
-  [/literalproceduretype /integertype] /get_lp load addtotrie
-  [/stringtype     /integertype] /get_s load addtotrie
-  [/dictionarytype /literaltype] /get_d load addtotrie
-  [/dictionarytype /arraytype] /get_d_a load addtotrie
-def
+% sli3 Stage 9: /get bound in C++ to GetFunction. Switches on
+% (collection.tag, key.tag) and dispatches to get_a / get_a_a /
+% get_p / get_lp / get_s / get_d. Typed leaves stay registered.
 
 
 
@@ -209,26 +200,12 @@ def
 */
 
 
-/put trie
-  [/arraytype            /integertype  /integertype]  /put_a     load addtotrie
-  [/arraytype            /arraytype    /anytype ]     /put_a_a_t load addtotrie
-  [/arraytype            /integertype  /anytype ]     /put_a     load addtotrie
-  [/literalproceduretype /integertype  /anytype]      /put_lp    load addtotrie
-  [/dictionarytype       /literaltype  /anytype]      /put_d     load addtotrie
-  [/proceduretype        /integertype  /anytype ]     /put_p     load addtotrie
-  [/stringtype           /integertype  /integertype]  /put_s     load addtotrie
-
-% The following seemingly redundant definitions fix a deficiency of /anytype
-% We must manually add the functions to the branches which have specific types
-  [/arraytype            /arraytype    /integertype ] /put_a_a_t load addtotrie
-  [/arraytype            /arraytype    /doubletype ]  /put_a_a_t load addtotrie
-  [/proceduretype        /integertype  /integertype ] /put_p     load addtotrie
-  [/proceduretype        /integertype  /doubletype ]  /put_p     load addtotrie
-  [/literalproceduretype /integertype  /integertype]  /put_lp    load addtotrie
-  [/literalproceduretype /integertype  /doubletype]   /put_lp    load addtotrie
-  [/dictionarytype       /literaltype  /integertype]  /put_d     load addtotrie
-  [/dictionarytype       /literaltype  /doubletype]   /put_d     load addtotrie
-def
+% sli3 Stage 9: /put bound in C++ to PutFunction. Switches on
+% (collection.tag, index.tag) and dispatches to put_a / put_a_a_t
+% / put_p / put_lp / put_s / put_d. The element-type arm of the
+% original trie is handled implicitly by the typed leaf (it
+% accepts anytype for the element slot). Typed leaves stay
+% registered.
 
 
 
