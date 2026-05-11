@@ -362,18 +362,28 @@ B4: tic 100000000 { 1 1 add_ii pop } repeat toc ==   ; bypasses the trie
 | B3 — `1k for` × 100k              | 3.11 s | 4.28 s    | 2.55 s   | **−15.9 %** |
 | B4 — `1 1 add_ii pop`             | 3.37 s | 3.75 s    | n/a      | (noise) |
 
-Bind saves a lot:
+**After dispatcher-inline (functiontype + nametype handled inside the iter cases):**
 
-- sli3: B2 → B2b drops 1.04 s (−30 %); per-name lookup ≈ 5.2 ns
-- nest: drops 0.97 s (−22 %)
-- gs:   drops 1.51 s (−54 %)
+| Workload                          | sli3   | nest 2.20 | gs 10.07 | sli3 vs gs |
+|-----------------------------------|--------|-----------|----------|------------|
+| B1 — `1 pop`                      | **1.33 s** | 2.01 s | 1.32 s | tied |
+| B2 — `1 1 add pop`                | **2.40 s** | 4.37 s | 2.70 s | **−11 %** |
+| B2b — `{1 1 add pop} bind repeat` | **1.91 s** | 3.45 s | 1.23 s | +55 %      |
+| B3 — `1k for` × 100k              | **2.10 s** | 4.34 s | 2.58 s | **−19 %** |
+| B4 — `1 1 add_ii pop`             | 2.41 s | 3.94 s | n/a    | n/a        |
 
-**The bound case widens the gap to gs from 28 % to 94 %.** When
-names are pre-resolved, the dispatcher loop alone dominates:
-gs runs the same 4-token body in 12.3 ns/iter, sli3 in 23.9 ns.
-That 11.6 ns gap is the bound dispatcher overhead — pre-resolved
-procedures pay nothing for name lookup, so the cost is all in
-the iiterate/proceduretype machinery.
+sli3 now beats GhostScript on B1, B2, B3. The bound case (B2b)
+still trails because pre-resolved bodies have no name lookup to
+amortize — the cost is pure per-token iteration overhead, and
+gs's threaded-code dispatch is intrinsically tighter there.
+
+What the inline does: inside the `iiterate / irepeat / ifor /
+iforall` case bodies, when the next procedure-body token is
+functiontype, push it and call `execute()` directly. When it's
+nametype, resolve via dictstack and (if the result is
+functiontype) call directly. Two outer-switch round-trips
+collapse to one case body. Saves ~3 ns per outer-switch
+elision; the unbound case saves twice (name → function).
 
 Per-iteration cost (B2 − B1):
 
