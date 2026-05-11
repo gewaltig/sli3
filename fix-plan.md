@@ -8,6 +8,55 @@ Throughout: **tests before fixes**. CLAUDE.md's `TDD-first when bootstrap blocks
 
 ---
 
+## Status snapshot (2026-05-11, tag `stage9-complete`)
+
+| Stage | Title | Status |
+|-------|-------|--------|
+| 0 | Test infrastructure | ✅ done |
+| 1 | Memory & type-system foundation | ✅ done |
+| 2 | Container correctness | ✅ done |
+| 3 | Error handling | ✅ done |
+| 4 | Bootstrap-blocking operators | ✅ done |
+| 5 | Math / scanner / stack edge cases | ✅ done |
+| 6 | Serialization | ▶ partial (FunctionType done; DictionaryType / TrieType / ProcedureType / OperatorType still missing — see `code-review.md#open--stage-6-serialization-gaps`) |
+| 7 | Dispatcher parity & static-cache lifetime | ✅ done (static `SLIType*` caches removed; `test_two_interpreters.cpp` green) |
+| 8 | Cleanup / hardening | ▶ partial — see `code-review.md#open--stage-8-cleanup-items` |
+| 9 | Compact hot operators (10 batches) | ✅ done (tag `stage9-complete`) |
+| 10 | savestate / restorestate | ✅ done (commit `3a7edec`) — dict-stack snapshot still pending Stage 6 closure on `DictionaryType` |
+
+**Next phase: performance optimization driven by gs 10.07.** The
+correctness story is in a steady state. The remaining wins come from
+restructuring the dispatcher to match gs's `interp()` topology and
+related changes. Authoritative plans:
+
+- `doc/gs_reference.md` — gs interpreter architecture (read first).
+- `doc/tail_recursion.md` — side-by-side TCO comparison.
+- `doc/compact_procedure_spec.md` — Axis I/II/III spec
+  (dispatcher restructure → hot-op inlining → compact storage).
+- `doc/dispatch_restructure_plan.md` — Axis I sliced into 11 steps
+  (0-10) with bench gates and risk per slice.
+- `doc/next_steps.md` — consolidated roadmap, including gs-derived
+  proposals beyond Axis I-III (pvalue cache, operator return-code
+  protocol, continuation-op iter style, multi-level TCO).
+
+Bench standing at `stage9-complete`:
+
+| Bench | sli3 | nest 2.20 | gs 10.07 | vs gs |
+|-------|------|-----------|----------|-------|
+| B1 — `1 pop` × 100M | 1.33 s | 2.01 s | 1.32 s | tied |
+| B2 — `1 1 add pop` × 100M | 2.40 s | 4.37 s | 2.70 s | −11 % |
+| B2b — bound body × 100M | 1.91 s | 3.45 s | 1.23 s | +55 % |
+| B3 — `1k for` × 100k | 2.10 s | 4.34 s | 2.58 s | −19 % |
+| B4 — `1 1 add_ii pop` × 100M | 2.41 s | 3.94 s | n/a | n/a |
+| B5 — dict alloc + lookup × 100M | 16.34 s | 43.13 s | 24.67 s | −34 % |
+
+Predictions in `doc/compact_procedure_spec.md` § Bench expectations:
+Axis I drops B2b to ~1.55 s; +II ~1.35 s; +III ~1.30 s. The remaining
+gap to gs on B2b is ~7 ns/iter of pure dispatcher overhead, structural
+in nature.
+
+---
+
 ## Stage 0 — test infrastructure
 
 **Goal:** make subsequent stages testable. Today's harness can only reach the dispatcher in `execute_dispatch_`, has no parity coverage, and leaks per snippet.

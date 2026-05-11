@@ -4,6 +4,216 @@ Reviewed: every C++ source file in `src/`, all four test binaries, `CMakeLists.t
 
 Grouped by severity. **Critical** = will crash, corrupt, or silently produce wrong output today. **High** = latent bug, broken under common scenarios. **Medium** = correctness in edge cases / dead code / style traps that mask real bugs.
 
+> **Status: most CRITICAL/HIGH items resolved through tag `stage9-complete`
+> (2026-05-11).** See the [Resolution status](#resolution-status) summary
+> below for current state. The body of this document is preserved
+> verbatim as the historical inventory — it shows what we found and
+> the rationale, even when the issue is fixed. The summary tells you
+> what is still open without rereading 250 lines of detail.
+
+## Resolution status
+
+Status is grouped by `fix-plan.md` stage. "Resolved (Stage N)" means
+the corresponding stage closed the item; the body entry below carries
+the original detail. Verified against the source tree at
+`stage9-complete` (2026-05-11) — when the entry says "(verified)" I
+re-read the current code; when it says "(per commit log / inline note)"
+I trusted the commit annotation.
+
+### Resolved (CRITICAL tier)
+
+- Token self-assign UB (`sli_token.h:222-226`) — Stage 1
+  (`sli_token.h:298`: `if (&t == this) return *this;` verified).
+- `NameType::execute` reading wrong union member (`sli_nametype.cpp:12`)
+  — Stage 1 (reads `name_val`, verified, with explanatory comment).
+- `Token::operator==(bool)` / `operator==(double)` checking the wrong
+  typeid (load-bearing bootstrap blocker) — Stage 1 / Slice 5b
+  (verified at `sli_token.cpp:118`, `:123`; CLAUDE.md Decisions log
+  2026-05-06).
+- `IfFunction` accepted non-bool conditions — Stage 4.3 (verified
+  at `sli_control.cpp:164` with `require_stack_type`).
+- `IfelseFunction` read the wrong stack slot — Stage 4.4 (verified
+  at `sli_control.cpp:201`, checks `pick(2)`).
+- `DictError` ctor dropped its argument (UndefinedName collapsed to
+  /DictError) — Stage 3 (verified at `sli_exceptions.h:230`).
+- `Sleep_dFunction` read wrong union member — Stage 5.5 (verified at
+  `sli_control.cpp:1585`).
+- `UnitStep_dFunction` only wrote one branch — Stage 5.4 (verified at
+  `sli_math.cpp:1810`).
+- `UnitStep_iFunction` read `double_val`, wrote `long_val` — Stage 5.4
+  (verified at `sli_math.cpp:1822`).
+- `Modf_dFunction` reference into ostack invalidated by push — Stage 5.2
+  (verified at `sli_math.cpp:1095`: captures by value).
+- `AddtotrieFunction` reverse-pointer past `begin()` UB — Stage 4.7
+  (verified at `sli_typecheck.cpp:95`: index-based loop).
+- `AddtotrieFunction` `ostringstream` lifetime UB — Stage 4.7
+  (verified at `sli_typecheck.cpp:100`: stores `msg` in a local).
+- `TypeFunction:302` missing `.toIndex()` — Stage 4.8
+  (verified at `sli_typecheck.cpp:307`: `.toIndex()` present).
+- `DictionaryStack::toArray` missing `add_reference` (the recordstacks
+  UAF) — commit `22aab36` (verified at `sli_dictstack.cpp:160`).
+- `RaiseerrorFunction::execute` leaked ostack+estack frames — commit
+  `2531c8f` (verified; matches NEST 2.x `slicontrol.cc:1187`).
+- `Symbol_sFunction` empty body — Stage 4.10 (verified at
+  `sli_control.cpp:1707`: implemented via `read_token`).
+- Scanner integer-literal `std::labs(LONG_MIN)` UB — Stage 5.8
+  (verified at `sli_scanner.cpp:570`: checked arithmetic).
+- Integer-arithmetic UB on hot ops (`Add_ii`, `Sub_ii`, `Mul_ii`,
+  `Div_ii`, `Mod_ii`, `Abs_i`, `Neg_i`) — Stage 5.1 (verified:
+  `checked_arith` helper at `sli_math.cpp:42`, `__builtin_add_overflow`
+  used at `sli_math.cpp:109` and elsewhere).
+- TokenStack bounds checks — Stage 2.2 (verified: `assert(load() > 0)`
+  at `sli_tokenstack.h:56` and surrounding lines).
+- DictionaryStack `base_` member init + dual-ref copy semantics +
+  paired remove_reference on destruction — Stage 2 (verified at
+  `sli_dictstack.cpp:36-44`, `:115-124`).
+- DICTSTACK_CACHE unconditionally active + unconditional invalidation —
+  Stage 2.7 (verified at `sli_dictstack.cpp:20`, `:68-72`).
+- Two-interpreter test passing — Stage 7 (static `SLIType*` caches
+  inside `execute()` bodies removed, verified by
+  `tests/test_two_interpreters.cpp` passing).
+
+### Resolved (HIGH tier)
+
+- `ArrayType::references()` decrement bug — Slice 2 (CLAUDE.md note).
+- StringType / IstreamType / OstreamType refcount overrides (silent
+  leaks) — Slice 3 (CLAUDE.md note).
+- `ProcedureType::execute` `EStack().dump` debug print — Stage 7
+  (removed; verified absent from `sli_arraytype.cpp:69-75`).
+- `Token::operator long&()` / `double&()` / `bool&()` raw-reference
+  hazard — Stage 1 (removed from `sli_token.h`).
+- `FunctionType` serialize/deserialize — commit `3a7edec` (verified
+  at `sli_functiontype.cpp:33`).
+- `WhereFunction` returns the dict that actually held the key — Stage 4
+  (audit + behavior change applied during Stage 9 batch 10).
+- `Token_sFunction` ordering bug (pop estack before checks) — Stage 4.8
+  (verified by inspection — checks now precede the pop).
+- Round_d / Pow_dd numeric edge cases — Stage 5 (checked-arith path
+  in `sli_math.cpp`).
+- `--Wall -Wextra` PUBLIC on test targets — Stage 0/8 (verified in
+  `CMakeLists.txt`).
+- Test infrastructure (`test_round_trip.cpp`, `test_dispatch_parity.cpp`,
+  `test_two_interpreters.cpp`, `test_dictstack.cpp`, `test_tokenstack.cpp`,
+  `test_name.cpp`, `test_math_overflow.cpp`, `test_scanner_edge_cases.cpp`,
+  `test_stack_ops_negatives.cpp`, `test_errors.cpp`,
+  `test_errors_dispatch.cpp`, `test_state_ops.cpp`) — Stage 0 + Slice 10
+  (verified by `ls tests/`).
+
+### Open — structural / planned
+
+These items have a planned resolution path; not yet started or
+partial.
+
+- **Axis I — dispatcher restructure** (`doc/dispatch_restructure_plan.md`).
+  Subsumes:
+  - "316 `i->EStack().pop()` sites" (per-op self-pop ABI).
+  - Function-Token push on every operator dispatch.
+  - `raiseerror` / `get_current_name` reading the e-stack top
+    (Slice 1 introduces `current_op_`).
+  - Tail-recursion limited to `iiteratetype` (Slice 8 adopts gs's
+    `bot:`/`out:`/`up:` multi-level cascade; see also
+    `doc/tail_recursion.md`).
+  - Iter-case re-pick of `proc` / `pos` per token (Slice 3
+    register-lift).
+  Estimated bench delta from
+  `doc/compact_procedure_spec.md`: B2b 1.91 s → ~1.55 s.
+- **Axis II — hot-op inlining**
+  (`doc/compact_procedure_spec.md`). Depends on Axis I.
+- **Axis III — compact procedure storage** (`CompactProc`).
+  Lowest-priority of the three axes; depends on I + II.
+
+### Open — Stage 6 (serialization) gaps
+
+CLAUDE.md states the `sli_typeid` enum is a permanent wire contract
+and every SLIType with payload must override `serialize` / `deserialize`.
+Slice 10 (savestate/restorestate, landed in `3a7edec`) closed
+`FunctionType`. Still open:
+
+- `DictionaryType::serialize` — `sli_dicttype.cpp` has no override.
+  Round-trip drops the dict body. Required for full state ops
+  (currently the dict stack is not snapshotted, per a known
+  limitation in `sli_state_ops.cpp`).
+- `TrieType::serialize` — `sli_trietype.h` has no override; the trie
+  body is dropped. Should re-resolve via dictstack lookup, same
+  pattern as `FunctionType::serialize`.
+- `ProcedureType` / `LitprocedureType` need their own serialize
+  overrides (or a documented inherit-from-ArrayType policy with a
+  typeid-aware wire byte) — currently only `ArrayType::serialize`
+  exists.
+- `OperatorType<typeid>` markers (iiterate, irepeat, ifor, iforall,
+  …) round-trip as plain `LiteralType` — typeid is lost.
+- Stream-Token deserialize doesn't register in the Reader's object
+  table; two aliased streams load as two independent closed-stream
+  Tokens.
+- `write_token`'s null sentinel is the same byte as a real
+  `nulltype` Token — can't tell them apart on the wire.
+- `TextWriter` / `TextReader` exist only as a comment in
+  `sli_serialize.h:25`. Useful for debugging serialization, low
+  priority for shipping.
+- Round-trip-every-typeid test exists (`test_round_trip.cpp`); the
+  gaps above show up there as `SKIP`s — flip to fail when each gap
+  closes.
+
+### Open — Stage 8 cleanup items
+
+Not blocking work, but still pending:
+
+- `::pop` still binds to `IlookupFunction` (`sli_interpreter.cpp:245`).
+  There is no `IpopFunction` class. Any code path that pushes `::pop`
+  onto the e-stack (`StopFunction` handling at `sli_control.cpp:1079`,
+  `:1119`) re-runs lookup. Functional impact unclear in current
+  bootstrap; harmless or load-bearing depending on the path. Decide
+  whether to write an `IpopFunction` (pops one e-stack frame) or
+  document the alias.
+- `CurrentnameFunction` is stubbed to push `false` with a
+  documenting comment (Stage 4.9). NEST 2.x walked an
+  `::lookup` breadcrumb that sli3 doesn't push. To unstub, either
+  reintroduce the breadcrumb (cost: one push per name dispatch) or
+  re-derive from the iter-frame `pos` after Axis I lands.
+- `Cvt_aFunction` constructs an empty `TypeNode` from the array's
+  name only — does not walk the array to populate trie leaves
+  (`sli_typecheck.cpp:262`). User-facing operator; not exercised by
+  the bootstrap or the bench surface.
+- `IloopFunction` empty body silently spins (dispatcher has no
+  `iloop` case).
+- `IforallindexedarrayFunction` is the only forall variant without
+  a dispatcher case; the fallback in `sli_builtins.cpp:337` lacks
+  TCO. Resolved indirectly when Axis I unifies the body-walk.
+- Dead code: 8 `backtrace` overrides whose bodies are commented out
+  (`sli_builtins.cpp:79, 153, 205, 265, 322, 378, 424, 432`); the
+  `// if(command->gettypename()...)` block at
+  `sli_interpreter.cpp:497-512`; the `#if 0` Taylor series in
+  `sli_numerics.h:35-58`; `extern int signalflag;` with no signal
+  handler.
+- `Parser` has no destructor → leaks one Scanner per Parser
+  instance (`sli_parser.cpp:38-60`).
+- `DFA` transition table is per-instance (`sli_scanner.h:120`) —
+  should be `static const`.
+- `class CharCode : public std::vector<size_t>` — composition over
+  inheritance.
+- Argv handling in `sli_main.cpp` (still ignored).
+- `is_initialized_` not set when e-stack is empty at startup
+  (`sli_interpreter.cpp:269-281`) — every subsequent `execute(string)`
+  re-runs startup.
+- `intvectortype` / `doublevectortype` are placeholder enum slots
+  with no implementation; out of scope today, but the placeholder
+  is still load-bearing for the typeid wire-contract.
+
+### Notes / decisions baked in
+
+- "Currentname returns `false` rather than the caller name" is a
+  documented divergence from NEST 2.x — Stage 4.9 comment in
+  `sli_control.cpp:449` explains. Acceptable for standalone sli3.
+- `recordstacks` defaults to `true` after `sli-init.sli` runs
+  `init_errordict` (`lib/sli/sli-init.sli:217`). Documented in
+  CLAUDE.md; cost is ~0.04-0.33 µs per error (see B6 bench
+  family in `bench/sli/`).
+- The single-source-of-truth for what is currently planned is
+  `fix-plan.md` (correctness fixes) and `doc/compact_procedure_spec.md`
+  + `doc/dispatch_restructure_plan.md` (next-phase performance).
+  See `doc/next_steps.md` for the consolidated roadmap including
+  gs-derived proposals beyond Axis I-III.
+
 ---
 
 ## CRITICAL — fix before anything else runs
