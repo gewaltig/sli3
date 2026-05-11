@@ -209,6 +209,30 @@ namespace sli3
     ForallFunction() {}
     void execute(SLIInterpreter *) const;
   };
+
+  /**
+   * Compact /def dispatcher. Replaces the 4-arm trie
+   * typeinit.sli used to build:
+   *
+   *   /lit obj           def  -> -    (DefFunction; 2 args)
+   *   /lit proc          def  -> -    (DefFunction; 2 args, same C++ leaf)
+   *   /lit [types] obj   def  -> -    (SLI :def_; 3 args, typecheck wrapper)
+   *   /lit [types] proc  def  -> -    (SLI :def_; 3 args)
+   *
+   * Two outcomes:
+   *   - 2-arg form -> dispatch to DefFunction (the C++ leaf).
+   *     The trie used /def_ for [lit any] and /def for
+   *     [lit proc] but both names are aliased to the same
+   *     DefFunction body in typeinit.sli line 32.
+   *   - 3-arg form (typecheck array in slot 1) -> look up
+   *     :def_ (an SLI proc) and push it to the e-stack.
+   */
+  class DefDispatchFunction: public SLIFunction
+  {
+  public:
+    DefDispatchFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
   
   class RaiseerrorFunction: public SLIFunction
   {

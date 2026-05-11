@@ -29,7 +29,10 @@
 %% Initialization of TypeTrie wrappers to
 %% builtin functions
 
-/def_ /def load def
+% sli3 Stage 9: /def_ and /def are both bound in C++ now.
+% /def_ -> raw DefFunction leaf (2 args; /lit obj def_ -> -)
+% /def  -> DefDispatchFunction (compact 2-arg vs 3-arg picker)
+% Stop the SLI-level aliasing.
 
 /** @BeginDocumentation
 Name: def - define a variable or function
@@ -142,12 +145,11 @@ SeeAlso: bind, type, Set, undef
     } ifelse
   } bind def_  
     
-/def trie
-  [/literaltype /anytype] /def_ load addtotrie
-  [/literaltype /proceduretype] /def load addtotrie
-  [/literaltype /arraytype /proceduretype] /:def_ load addtotrie
-  [/literaltype /arraytype /anytype] /:def_ load addtotrie
-def
+% sli3 Stage 9: /def is bound in C++ to DefDispatchFunction
+% (sli_control.cpp). It distinguishes the 2-arg form (lit obj)
+% from the 3-arg typecheck form (lit array obj) by reading
+% the ostack tags inline; the 3-arg form pushes the SLI proc
+% :def_ onto the e-stack for the type-array validation step.
 
 /** @BeginDocumentation
 Name: trieinfo - print the function variants of a type-trie.

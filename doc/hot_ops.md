@@ -115,7 +115,7 @@ in any introspection or definition pattern. `def`, `lookup`,
 
 | Op | Signature | Binding | Status | Notes |
 |---|---|---|---|---|
-| `def` | `lit any def -> -` | trie | ⚠ trie | 4-arm trie: literal/anytype, literal/proceduretype, literal/array/proceduretype, literal/array/anytype. Bind binds names + bodies. Performance-sensitive at startup. |
+| `def` | `lit any def -> -` | fn | ✅ compact | DefDispatchFunction picks 2-arg vs 3-arg form by reading the ostack tags; 2-arg -> DefFunction (C++ leaf); 3-arg (lit array obj) -> /:def_ SLI proc via baselookup + estack push. |
 | `def_` | `lit any def_ -> -` | fn | ✅ compact | Raw bind (no array-defs-with-typecheck). Single function. |
 | `:def_` | `lit array proc :def_ -> -` | fn | ✅ compact | Typechecked def. |
 | `load` | `lit -> any` | fn | ✅ compact | Dictstack lookup, raises UndefinedName if missing. |
@@ -168,17 +168,15 @@ the bottom of the iteration story.
 
 Looking only at things still marked ⚠/🔲:
 
-1. **`def`** (Tier 4): 4-arm trie. Highly used during script
-   loading. Less hot in steady-state user code.
-2. **`cvi` / `cvd` / `cvs` / `cvlit` / `cvx`** (Tier 5):
+1. **`cvi` / `cvd` / `cvs` / `cvlit` / `cvx`** (Tier 5):
    trie-bound conversions. Common in I/O code and metaprogramming.
    Compact same as the other trie cases.
-3. **`forallindexed`** (Tier 1): companion to `forall`, same
+2. **`forallindexed`** (Tier 1): companion to `forall`, same
    2-arm shape (array/proc, string/proc). Same recipe.
-4. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
+3. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
    / `reverse`** (Tier 3): all still trie. Lower hit rates than
    the already-compacted ops so deferable.
-5. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
+4. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
    virtual call to a single dominant target is essentially free
    on M2 (experiments with super-instructions did not pay off),
    so leave as-is unless a future architecture change reopens

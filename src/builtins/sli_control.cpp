@@ -860,6 +860,7 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
  */
 extern Forall_aFunction forall_afunction;
 extern Forall_sFunction forall_sfunction;
+extern DefFunction      deffunction;
 
 void ForallFunction::execute(SLIInterpreter *i) const
 {
@@ -888,6 +889,48 @@ void ForallFunction::execute(SLIInterpreter *i) const
         i->EStack().push(forall_di);   // schedule the SLI proc
         return;
       }
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+/* DefDispatchFunction: compact /def dispatcher. Replaces the
+ * 4-arm trie typeinit.sli formerly built.
+ *
+ * Call shapes:
+ *   /lit obj             def -> -      (2 args)
+ *   /lit [types] obj     def -> -      (3 args)
+ *
+ * The 2-arg form delegates to DefFunction (the C++ leaf).
+ * The 3-arg form delegates to the SLI-defined /:def_ proc,
+ * which validates the type array and then calls def_.
+ *
+ * Disambiguation: read the o-stack top backwards. If we have
+ * three operands AND slot 2 is /lit AND slot 1 is an array,
+ * that's the 3-arg form. Otherwise it's 2-arg (and the front
+ * of the o-stack just happens to hold an array or whatever
+ * unrelated).
+ */
+void DefDispatchFunction::execute(SLIInterpreter *i) const
+{
+    size_t load = i->OStack().load();
+    if (load < 2) {
+        i->require_stack_load(2);   // raises StackUnderflow
+        return;
+    }
+    if (load >= 3
+        && i->pick(2).tag() == sli3::literaltype
+        && i->pick(1).tag() == sli3::arraytype)
+    {
+        // 3-arg typecheck form: /lit [/types] obj :def_
+        Token def_colon = i->baselookup(Name(":def_"));
+        i->EStack().pop();              // pop /def frame
+        i->EStack().push(def_colon);    // schedule SLI proc
+        return;
+    }
+    if (i->pick(1).tag() == sli3::literaltype) {
+        // 2-arg /lit obj def -> raw C++ def.
+        deffunction.execute(i);
+        return;
     }
     i->raiseerror(i->ArgumentTypeError);
 }
@@ -1932,6 +1975,7 @@ void NoopFunction::execute(SLIInterpreter *i) const
  ForFunction              forfunction;
  Forall_aFunction         forall_afunction;
  ForallFunction           forallfunction;
+ DefDispatchFunction      defdispatchfunction;
  Forallindexed_aFunction  forallindexed_afunction;
  Forallindexed_sFunction  forallindexed_sfunction;
  Forall_sFunction         forall_sfunction;
@@ -2012,7 +2056,13 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("stopped",&stoppedfunction);
   i->createcommand("currentname",&currentnamefunction);
   i->createcommand("start",     &startfunction);
-  i->createcommand("def",&deffunction);
+  // The raw "def_" leaf is also exposed under its compound
+  // name so user code that bypasses /def keeps working.
+  i->createcommand("def_",&deffunction);
+  // /def itself binds to the compact dispatcher that picks
+  // 2-arg vs 3-arg form. Stage 9 batch 7 replaces the trie
+  // typeinit.sli formerly built at /def.
+  i->createcommand("def", &defdispatchfunction);
   i->createcommand("call", &call_member_fn);
   i->createcommand("Set",&setfunction);
   i->createcommand("load",&loadfunction);
