@@ -211,6 +211,21 @@ namespace sli3
   };
 
   /**
+   * Compact /forallindexed dispatcher. 2-arm trie collapsed:
+   *   array  / proc -> Forallindexed_aFunction::execute
+   *   string / proc -> Forallindexed_sFunction::execute
+   *
+   * Mirrors /forall's shape but without a dict arm, since
+   * the original trie only had array and string variants.
+   */
+  class ForallindexedFunction: public SLIFunction
+  {
+  public:
+    ForallindexedFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+  /**
    * Compact /def dispatcher. Replaces the 4-arm trie
    * typeinit.sli used to build:
    *

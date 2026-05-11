@@ -300,10 +300,9 @@ def
 % directly; for dict+proc it pushes the SLI-defined /forall_di
 % procedure onto the e-stack so the procedure machinery runs it.
 
-/forallindexed trie
-  [/arraytype  /proceduretype] /forallindexed_a load addtotrie
-  [/stringtype /proceduretype] /forallindexed_s load addtotrie
-def
+% sli3 Stage 9: /forallindexed bound in C++ to
+% ForallindexedFunction. Dispatches array/proc and string/proc
+% to the C++ leaves directly.
 
 % sli3 Stage 9: /join /getinterval bound in C++ to compact
 % dispatchers that branch on the source operand's tag.

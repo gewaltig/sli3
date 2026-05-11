@@ -858,9 +858,11 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
  * defined further down in this file; forward-extern them so
  * we can call them here.
  */
-extern Forall_aFunction forall_afunction;
-extern Forall_sFunction forall_sfunction;
-extern DefFunction      deffunction;
+extern Forall_aFunction         forall_afunction;
+extern Forall_sFunction         forall_sfunction;
+extern Forallindexed_aFunction  forallindexed_afunction;
+extern Forallindexed_sFunction  forallindexed_sfunction;
+extern DefFunction              deffunction;
 
 void ForallFunction::execute(SLIInterpreter *i) const
 {
@@ -889,6 +891,32 @@ void ForallFunction::execute(SLIInterpreter *i) const
         i->EStack().push(forall_di);   // schedule the SLI proc
         return;
       }
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+/* ForallindexedFunction: compact /forallindexed dispatcher.
+ * Same 2-arm shape as /forall minus the dict arm. The trie
+ * typeinit.sli formerly built selected forallindexed_a or
+ * forallindexed_s based on the collection's type.
+ *
+ * Call: coll proc forallindexed -> -
+ * pick  1    0
+ */
+void ForallindexedFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    if (i->pick(0).tag() != sli3::proceduretype) {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    switch (i->pick(1).tag()) {
+      case sli3::arraytype:
+        forallindexed_afunction.execute(i);
+        return;
+      case sli3::stringtype:
+        forallindexed_sfunction.execute(i);
+        return;
     }
     i->raiseerror(i->ArgumentTypeError);
 }
@@ -1975,6 +2003,7 @@ void NoopFunction::execute(SLIInterpreter *i) const
  ForFunction              forfunction;
  Forall_aFunction         forall_afunction;
  ForallFunction           forallfunction;
+ ForallindexedFunction    forallindexedfunction;
  DefDispatchFunction      defdispatchfunction;
  Forallindexed_aFunction  forallindexed_afunction;
  Forallindexed_sFunction  forallindexed_sfunction;
@@ -2074,6 +2103,9 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("forall",  &forallfunction);
   i->createcommand("forallindexed_a",&forallindexed_afunction);
   i->createcommand("forallindexed_s",&forallindexed_sfunction);
+  // Stage 9: compact /forallindexed dispatcher replaces the
+  // 2-arm trie typeinit.sli formerly built.
+  i->createcommand("forallindexed", &forallindexedfunction);
   i->createcommand("forall_s",&forall_sfunction);
   i->createcommand("raiseerror",&raiseerrorfunction);
   i->createcommand("print_error",&printerrorfunction);

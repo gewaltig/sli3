@@ -50,6 +50,7 @@ cost shows up at percent level in B1/B2/B3.
 | `for` | `init step lim proc for -> ...` | fn | ✅ inlined (ifortype) | Iter case body. |
 | `loop` | `proc loop -> -` | fn | 🔲 fn | LoopFunction is generic; no super-instruction. |
 | `forall` | `coll proc forall -> -` | fn | ✅ compact | ForallFunction dispatches array/string to C++ leaves; for dict+proc it pushes the SLI-defined /forall_di to the e-stack. |
+| `forallindexed` | `coll proc forallindexed -> -` | fn | ✅ compact | ForallindexedFunction: 2-arm dispatcher (array/proc, string/proc) calling the typed leaves directly. |
 | `pop` | `any -> -` | fn | ✅ compact | PopFunction is a single function. |
 | `dup` | `any -> any any` | fn | ✅ compact | DupFunction is a single function. |
 | `exch` | `a b -> b a` | fn | ✅ compact | ExchFunction. |
@@ -169,12 +170,10 @@ the bottom of the iteration story.
 
 Looking only at things still marked ⚠/🔲:
 
-1. **`forallindexed`** (Tier 1): companion to `forall`, same
-   2-arm shape (array/proc, string/proc). Same recipe.
-2. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
+1. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
    / `reverse`** (Tier 3): all still trie. Lower hit rates than
    the already-compacted ops so deferable.
-3. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
+2. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
    virtual call to a single dominant target is essentially free
    on M2 (experiments with super-instructions did not pay off),
    so leave as-is unless a future architecture change reopens
