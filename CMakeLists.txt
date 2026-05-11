@@ -67,6 +67,7 @@ add_library(sli3_core STATIC
   src/builtins/sli_io_ops.cpp
   src/builtins/sli_startup.cpp
   src/builtins/sli_readline.cpp
+  src/builtins/sli_state_ops.cpp
 
   # trie / serialize / util
   src/trie/sli_type_trie.cpp
@@ -160,3 +161,4 @@ sli3_add_test(test_math_overflow     tests/test_math_overflow.cpp)
 sli3_add_test(test_stack_ops_negatives tests/test_stack_ops_negatives.cpp)
 sli3_add_test(test_scanner_edge_cases  tests/test_scanner_edge_cases.cpp)
 sli3_add_test(test_features            tests/test_features.cpp)
+sli3_add_test(test_state_ops           tests/test_state_ops.cpp)

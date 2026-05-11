@@ -6,6 +6,7 @@
 #include "sli_dicttype.h"
 #include "sli_functiontype.h"
 #include "sli_io_ops.h"
+#include "sli_state_ops.h"
 #include "sli_readline.h"
 #include "sli_iostreamtype.h"
 #include "sli_math.h"
@@ -263,6 +264,7 @@ void SLIInterpreter::init_internal_functions(void) {
   init_sliarray(this);
   init_container_ops(this);
   init_io_ops(this);
+  init_state_ops(this);
   // GNUreadline / GNUaddhistory must be registered BEFORE sli-init.sli
   // loads — the script's /executive definition gates on
   // `systemdict /GNUreadline known` and only picks the line-editing

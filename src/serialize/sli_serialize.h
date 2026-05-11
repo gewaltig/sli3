@@ -139,6 +139,26 @@ private:
 void write_token(Token const& t, Writer& w);
 Token read_token(Reader& r, SLIInterpreter& interp);
 
+class TokenStack;
+
+/**
+ * Serialize an entire TokenStack bottom-first. Format:
+ *   [count : u32] [token_0] [token_1] ... [token_{count-1}]
+ * where token_0 is the bottom-most entry.
+ *
+ * read_token_stack clears the destination stack and pushes the
+ * elements in saved order, so depth and order are preserved.
+ *
+ * Used by the savestate / restorestate operators
+ * (src/builtins/sli_state_ops.cpp). The Writer's object table is
+ * scoped to a single save/load call, so identity sharing within
+ * the snapshot is preserved (a TokenArray referenced from two
+ * stack slots is serialized once and re-shared on load).
+ * Identity across separate save/load calls is NOT preserved.
+ */
+void write_token_stack(TokenStack const& s, Writer& w);
+void read_token_stack (TokenStack& s, Reader& r, SLIInterpreter& interp);
+
 }  // namespace sli3
 
 #endif

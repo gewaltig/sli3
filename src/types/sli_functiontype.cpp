@@ -1,6 +1,7 @@
 #include "sli_functiontype.h"
 #include "sli_interpreter.h"
 #include "sli_function.h"
+#include "sli_serialize.h"
 
 namespace sli3
 {
@@ -28,7 +29,39 @@ namespace sli3
     else
 	return out;
   }
-   
+
+  void FunctionType::serialize(Token const& t, Writer& w) const
+  {
+    // Null payload (deserialized base default, or cleared slot) is
+    // valid per the null-payload convention; emit an empty name.
+    if (t.data_.func_val)
+      w.write_string(t.data_.func_val->get_name().toString());
+    else
+      w.write_string(std::string());
+  }
+
+  void FunctionType::deserialize(Reader& r, Token& t) const
+  {
+    std::string n = r.read_string();
+    t.type_ = Token::pack_type(const_cast<FunctionType*>(this));
+    if (n.empty()) { t.data_.func_val = nullptr; return; }
+    // Re-resolve the operator by name in the loading interpreter.
+    Token resolved;
+    if (sli_->lookup(Name(n), resolved)
+        && resolved.tag() == sli3::functiontype)
+    {
+      t.data_.func_val = resolved.data_.func_val;
+    }
+    else
+    {
+      // Operator not registered: leave func_val null. The loaded
+      // Token will print/compare as a null function; executing it
+      // is a no-op (see execute() above). Snapshots taken from one
+      // build and loaded into a slimmer build land here.
+      t.data_.func_val = nullptr;
+    }
+  }
+
   void FunctionType::execute(Token &t)
   {
     if(t.data_.func_val)

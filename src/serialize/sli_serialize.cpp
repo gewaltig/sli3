@@ -2,6 +2,7 @@
 
 #include "sli_interpreter.h"
 #include "sli_token.h"
+#include "sli_tokenstack.h"
 #include "sli_type.h"
 
 #include <cstring>
@@ -170,6 +171,25 @@ Token read_token(Reader& r, SLIInterpreter& interp)
     Token t;
     type->deserialize(r, t);
     return t;
+}
+
+void write_token_stack(TokenStack const& s, Writer& w)
+{
+    uint32_t n = static_cast<uint32_t>(s.load());
+    w.write_u32(n);
+    // pick(0) is top; pick(n-1) is bottom. Serialize bottom-first
+    // so read_token_stack can push in order.
+    for (uint32_t i = 0; i < n; ++i)
+        write_token(s.pick(n - 1 - i), w);
+}
+
+void read_token_stack(TokenStack& s, Reader& r, SLIInterpreter& interp)
+{
+    uint32_t n = r.read_u32();
+    s.clear();
+    s.reserve(n);
+    for (uint32_t i = 0; i < n; ++i)
+        s.push(read_token(r, interp));
 }
 
 }  // namespace sli3
