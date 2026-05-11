@@ -822,3 +822,72 @@ it's discoverable later without scrolling:
   the bound case gets the direct-dispatch win. Implementation
   is 6–8 self-contained slices; spec lists files,
   test strategy, risks, and bench expectations.
+
+- 2026-05-11: **Two raiseerror-path bugs fixed** (commits
+  `22aab36`, `2531c8f`), found while investigating the cost of
+  recordstacks=true. Reproducer: `foo foo foo quit` interactively
+  → silent dispatcher halt + segfault on quit.
+
+  1. `DictionaryStack::toArray` (`sli_dictstack.cpp:153–162`)
+     constructed dict-Tokens via raw field assignment
+     (`type_ = ...; data_.dict_val = ...`) without calling
+     `add_reference`. The local Token's destructor decremented
+     a refcount that was never bumped → each recordstacks
+     snapshot drove `systemdict`'s refcount one below true.
+     After ~3 errors the dict was deleted while still in use →
+     heap-use-after-free in `Dictionary::remove_reference`
+     (ASAN confirmed). Fix: explicit `add_reference()` after
+     raw assignment. **General rule**: any pointer-payload
+     Token built by raw field assignment needs an explicit
+     `add_reference` to balance the destructor's decrement.
+     Prefer `new_token<sli3::xtype>(payload)` factories.
+  2. `RaiseerrorFunction::execute` (`sli_control.cpp:1012`)
+     didn't pop its `/cmd /err` args from the ostack or pop
+     itself from the estack — NEST 2.x's
+     `slicontrol.cc:1187-1192` does both. The leaked ostack
+     items per call made `raiseerror`'s
+     `operand_stack_.toArray()` O(N) (O(N²) total) in error
+     loops, swamping any recordstacks measurement and
+     potentially affecting any script that catches errors in
+     tight loops. Fix: `i->pop(2); i->EStack().pop();` before
+     delegating to the C++ `raiseerror(Name, Name)`.
+
+  Documented in CLAUDE.md under "Stack-handling discipline"
+  as the canonical contract for operator authoring.
+
+- 2026-05-11: **Error-path bench family** (commit `eae8e32`).
+  Six new SLI benches under `bench/sli/B6*.sli` measuring the
+  per-error cost of raiseerror + stop + stopped + handleerror,
+  with and without recordstacks. Paired entries in
+  `bench/run.sh`. gs is skipped (PS has no `recordstacks`
+  equivalent — `signalerror` dispatches through
+  `errordict /errname`).
+
+  Measured cost at 100k iters (post-fix, best of 5):
+
+      Bench  rec=true  rec=false  delta/error
+      B6     3.19 us   3.15 us    +0.04 us
+      B6b    3.33 us   3.14 us    +0.19 us
+      B6c    3.37 us   3.04 us    +0.33 us
+
+  recordstacks adds 40-330 ns per error depending on depth.
+  In real scripts that go through `handleerror`, the baseline
+  ~3 µs is dominated by `message()`'s stderr write — recording
+  is a few-percent overhead. Without `handleerror` printing the
+  bare raise+stop path drops to ~0.18 µs and the same
+  +0.33 µs becomes a 3x relative overhead. Conclusion: stack
+  recovery is not the inefficiency it looked like before the
+  bug fixes; the move-not-copy estack optimization discussed
+  earlier would shave another ~0.05–0.10 µs and is not worth
+  the work unless errors become a hot path.
+
+  Cross-check vs gs's `signalerror`: stack effect matches
+  (`/cmd /err raiseerror -> /cmd` ≡ `<obj> /errname signalerror`
+  after handler runs). sli3's raise path (0.18–0.51 µs) is
+  ~5x faster than gs's signalerror (2.7 µs) because sli3 does
+  the populate-$errordict + push-stop work in C++ instead of
+  dispatching through an `errordict /errname get exec`
+  interpreted lookup. Trade-off: sli3 does NOT honor
+  per-error-name handlers placed in `errordict` the way gs
+  does. NEST 2.x never used that mechanism so this is fine for
+  scope, but it's a documented PS-faithfulness gap.

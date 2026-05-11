@@ -36,6 +36,7 @@ Grouped by severity. **Critical** = will crash, corrupt, or silently produce wro
 
 ### Container ownership / refcount
 
+- **`src/containers/sli_dictstack.cpp:153-162`** — `DictionaryStack::toArray` constructed dict-Tokens via raw field assignment (`type_ = ...; data_.dict_val = ...`) without `add_reference`. The local's destructor decremented an unbumped refcount, so each snapshot drove the dict's true refcount down by 1. Surfaced as a heap-use-after-free on `systemdict` after 3 consecutive errors with `recordstacks=true` (ASAN confirmed); the silent dispatcher halt + segfault-on-quit after `foo foo foo`. **Resolved 2026-05-11** (commit `22aab36`): explicit `dicttoken.add_reference()` after raw assignment. General rule documented in CLAUDE.md "Stack-handling discipline".
 - **`src/containers/sli_dictstack.h:64`, `src/containers/sli_dictstack.cpp:24-26`** — `DictionaryStack::base_` is a raw pointer with no member-init and no zeroing in the default ctor. `baselookup`/`basedef`/`set_basedict` all dereference it; calling any of them before the first `push` + `set_basedict` segfaults.
 - **`src/containers/sli_dictstack.cpp:28-31, 204-214`** — Copy ctor and `operator=` copy the `list<Dictionary*>` of bare pointers without calling `add_reference`. Don't propagate `base_`, `cache_`, `basecache_`. Two stacks share dicts that one can free, dangling the other.
 - **`src/containers/sli_dictstack.cpp:33-39, 101-107`** — Destructor and `clear()` call `dict->clear()` on every dict but **never call `remove_reference`** to pair with the `add_reference` that `push()` does. Every dict left on the stack at destruction leaks one ref.
@@ -74,7 +75,7 @@ The `sli_typeid` enum is documented as a permanent wire contract, but multiple t
 ### Exception machinery
 
 - **`src/util/sli_exceptions.h:225-227`** — `DictError(char const * const)` ignores its argument and always passes `"DictError"` to the parent `SLIException`. So when `UndefinedName` (line 242) calls the parent ctor with `"UndefinedName"`, the `what_` string ends up `"DictError"`. Every `errordict /errorname` from a dict failure is reported as the generic `DictError` — `UndefinedName`, `EntryTypeMismatch`, etc. all collapse.
-- **`src/interpreter/sli_interpreter.cpp:304-308` vs `:312-335`** — `raiseerror(Name)` pops the e-stack first then delegates to `(Name,Name)`; `raiseerror(std::exception&)` does not pop. Two error entry-paths leave the e-stack in different states. Inconsistent error handling depending on which path threw.
+- **`src/interpreter/sli_interpreter.cpp:304-308` vs `:312-335`** — `raiseerror(Name)` pops the e-stack first then delegates to `(Name,Name)`; `raiseerror(std::exception&)` does not pop. Two error entry-paths leave the e-stack in different states. Inconsistent error handling depending on which path threw. ~~Plus:~~ `RaiseerrorFunction::execute` (the SLI-callable version, `sli_control.cpp:1012`) does neither — leaks 2 ostack items per call. **Partially resolved 2026-05-11** (commit `2531c8f`): SLI-side `RaiseerrorFunction` now pops args + self per NEST 2.x `slicontrol.cc:1187`. The C++-side `(Name)` vs `(std::exception&)` inconsistency remains; both now pop estack, but the bigger cleanup (unify the three overloads) is pending.
 
 ### Bodies replaced with comments (registered, but functionally NULL)
 

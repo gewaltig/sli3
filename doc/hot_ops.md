@@ -200,6 +200,17 @@ live under `bench/sli/` and `bench/ps/`; run them all with
 | B4    | `1 1 add_ii pop` (direct typed leaf)            | 100 M | 2.41 s    | 3.94 s    | n/a       | n/a        |
 | B5    | `<< /a 1 /b 2 >> begin a b add pop end`         | 100 M | **16.34 s** | 43.13 s | 24.67 s   | **−34 %**  |
 
+Error-path numbers (B6 family) are tracked separately — they
+measure the cost of `raiseerror` + `stop` + `stopped` +
+`handleerror`, not the dispatcher hot path. See
+`implementation_spec.md` Decisions log entry 2026-05-11 for the
+full table. Short version: ~3 µs/error baseline (dominated by
+`handleerror`'s `message()` stderr write), with `recordstacks=true`
+adding 0.04–0.33 µs depending on stack depth. gs's `signalerror`
+is ~2.7 µs/error — sli3's raise path is intrinsically faster
+because it skips the interpreted `errordict /errname get exec`
+lookup gs uses.
+
 Per-iteration cost:
 
 | Bench | sli3 ns/iter | gs ns/iter | gap         |

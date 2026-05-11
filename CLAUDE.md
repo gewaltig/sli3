@@ -164,6 +164,18 @@ exist**, not implementation to translate.
 SLI was first written in 1996 — much of the existing scaffolding only
 existed because pre-C++98 stdlib was unreliable. We don't need it now.
 
+## Stack-handling discipline (operator authoring contract)
+
+Operators **must not modify either stack until they are guaranteed to succeed**. PostScript's `stopped`/`stop` recovery model depends on this: when `raiseerror` fires, the stacks should still reflect the call site so that `$errordict /ostack` and `/estack` snapshots (and the dispatcher's unwind) work. The convention:
+
+- **Validate first.** `require_stack_load(N)`, `require_stack_type(...)`, range checks — all before mutating anything.
+- **Peek operands, don't pop them.** Use `i->pick(n)` / `i->top()` to read; only call `i->pop(N)` once all checks pass and the work is done.
+- **Pop self from estack on the success path only.** Most operators end with `i->EStack().pop()` after their work; on the error path they `raiseerror(...)` and return, leaving themselves on the estack — `raiseerror` will pop them.
+- **For pointer-payload Tokens constructed by raw field assignment**, call `add_reference()` after setting `data_.<kind>_val`. Without it, the local's destructor decrement is unbalanced and you'll get a use-after-free once the value is shared. See `DictionaryStack::toArray` for the canonical fix (`sli_dictstack.cpp:158`). Prefer `new_token<sli3::xtype>(payload)` factories where they exist.
+- **`raiseerror(Name, Name)`** (the C++ entry point, `sli_interpreter.cpp:410`) does *not* pop the calling operator from the estack. The single-arg `raiseerror(Name)` overload does. SLI-callable `RaiseerrorFunction` must therefore pop its args from ostack AND pop itself from estack before delegating (matches NEST 2.x `slicontrol.cc:1187`).
+
+These rules are not just style — violating them produced two ~latent bugs that surfaced during the recordstacks investigation (see Decisions log in `implementation_spec.md`, 2026-05-11): a UAF on `systemdict` after three errors, and quadratic raiseerror cost under heavy error loops. Both are fixed; the contract above is the prophylactic.
+
 ## Known issues / gotchas
 
 - `Token::operator std::string&()` is the only string-conversion operator (the const-by-value form was removed in Stage 2). Callers needing a `std::string&` from a Token use `static_cast<std::string&>(token)` or `token.operator std::string&()`.
@@ -171,6 +183,7 @@ existed because pre-C++98 stdlib was unreliable. We don't need it now.
 - `evalstring` is pushed onto the execution stack in `SLIInterpreter::execute(const std::string&)` (line 494) but never registered as a function — the path is dead until Slice 5 wires startup.
 - Streams are not serializable. `IstreamType` / `OstreamType::serialize` emit a stderr warning and write no payload; deserialize produces a Token whose underlying `SLIistream`/`SLIostream` has `valid() == false`. Per design — OS resources don't survive a snapshot.
 - The `sli_typeid` enum is a **permanent wire contract** (append-only). Renumbering an existing entry breaks every saved snapshot ever made. Adding a new type: append at the end and bump `kSerializeVersion`.
+- `recordstacks` defaults to `true` after `sli-init.sli` runs `init_errordict` (`lib/sli/sli-init.sli:217`), not `false` as the C++ default at registration time (`sli_control.cpp:2072`) suggests. Every `raiseerror` therefore snapshots ostack/estack/dstack into `$errordict` unless explicitly disabled. Cost is ~0.04–0.33 µs per error depending on depth — see `bench/sli/B6*.sli`.
 
 ## Reference NEST 2.20.2 checkout
 
