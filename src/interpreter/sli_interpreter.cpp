@@ -879,6 +879,19 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               execution_stack_.pop(2);
               break;
             }
+            // Inline fast path: functiontype calls execute directly,
+            // then loop back. See irepeat's case for the same trick.
+            if (t.tag() == sli3::functiontype) {
+              execution_stack_.push(t);
+              if (__builtin_expect(count_calls_, 0))
+                ++call_counts_[t.data_.func_val];
+              t.data_.func_val->execute(this);
+              if (execution_stack_.top().tag() == sli3::iiteratetype) {
+                proc = execution_stack_.pick(2).data_.array_val;
+                goto start_iterate;
+              }
+              break;
+            }
             execution_stack_.push(t);
             break;
           }
@@ -898,6 +911,26 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             const Token &t = proc->get(pos);
             ++pos;
             if (t.is_executable()) {
+              // Inline fast path for functiontype tokens: push the
+              // function token (raiseerror reads the operator name
+              // from estack top), call execute() directly, then loop
+              // back to start_repeat instead of returning to the
+              // outer switch. The function's body pops its own
+              // estack frame. If the function nested any deeper
+              // execution (pushed onto estack and didn't pop net),
+              // we fall back to the outer dispatcher by breaking.
+              if (t.tag() == sli3::functiontype) {
+                execution_stack_.push(t);
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[t.data_.func_val];
+                t.data_.func_val->execute(this);
+                if (execution_stack_.top().tag() == sli3::irepeattype) {
+                  // proc may have moved (estack reallocation) -- reload
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  goto start_repeat;
+                }
+                break;
+              }
               execution_stack_.push(t);
               break;
             }
@@ -927,6 +960,18 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             const Token &t = proc->get(pos);
             ++pos;
             if (t.is_executable()) {
+              // Inline functiontype: see irepeat case.
+              if (t.tag() == sli3::functiontype) {
+                execution_stack_.push(t);
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[t.data_.func_val];
+                t.data_.func_val->execute(this);
+                if (execution_stack_.top().tag() == sli3::ifortype) {
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  goto start_for;
+                }
+                break;
+              }
               execution_stack_.push(t);
               break;
             }
@@ -961,6 +1006,18 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             const Token &t = proc->get(pos);
             ++pos;
             if (t.is_executable()) {
+              // Inline functiontype: see irepeat case.
+              if (t.tag() == sli3::functiontype) {
+                execution_stack_.push(t);
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[t.data_.func_val];
+                t.data_.func_val->execute(this);
+                if (execution_stack_.top().tag() == sli3::iforalltype) {
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  goto start_forall;
+                }
+                break;
+              }
               execution_stack_.push(t);
               break;
             }
