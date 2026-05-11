@@ -49,7 +49,7 @@ cost shows up at percent level in B1/B2/B3.
 | `repeat` | `int proc repeat -> -` | fn | ✅ inlined (irepeattype) | Iter case body in `execute_dispatch_`. |
 | `for` | `init step lim proc for -> ...` | fn | ✅ inlined (ifortype) | Iter case body. |
 | `loop` | `proc loop -> -` | fn | 🔲 fn | LoopFunction is generic; no super-instruction. |
-| `forall` | `coll proc forall -> -` | trie | ⚠ trie | Dispatches to forall_a / forall_s / forall_di. |
+| `forall` | `coll proc forall -> -` | fn | ✅ compact | ForallFunction dispatches array/string to C++ leaves; for dict+proc it pushes the SLI-defined /forall_di to the e-stack. |
 | `pop` | `any -> -` | fn | ✅ compact | PopFunction is a single function. |
 | `dup` | `any -> any any` | fn | ✅ compact | DupFunction is a single function. |
 | `exch` | `a b -> b a` | fn | ✅ compact | ExchFunction. |
@@ -168,14 +168,13 @@ the bottom of the iteration story.
 
 Looking only at things still marked ⚠/🔲:
 
-1. **`forall`** (Tier 1): trie selects forall_a / forall_s /
-   forall_di which then set up an iter frame. Compact dispatcher
-   keeps the typed leaves but skips the trie.
-2. **`def`** (Tier 4): 4-arm trie. Highly used during script
+1. **`def`** (Tier 4): 4-arm trie. Highly used during script
    loading. Less hot in steady-state user code.
-3. **`cvi` / `cvd` / `cvs` / `cvlit` / `cvx`** (Tier 5):
+2. **`cvi` / `cvd` / `cvs` / `cvlit` / `cvx`** (Tier 5):
    trie-bound conversions. Common in I/O code and metaprogramming.
    Compact same as the other trie cases.
+3. **`forallindexed`** (Tier 1): companion to `forall`, same
+   2-arm shape (array/proc, string/proc). Same recipe.
 4. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
    / `reverse`** (Tier 3): all still trie. Lower hit rates than
    the already-compacted ops so deferable.

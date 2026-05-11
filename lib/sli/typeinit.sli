@@ -293,11 +293,10 @@ def
   exch forall
   
 } bind def
-/forall trie
-  [/arraytype      /proceduretype] /forall_a    load addtotrie
-  [/stringtype     /proceduretype] /forall_s    load addtotrie
-  [/dictionarytype /proceduretype] /forall_di   load addtotrie
-def
+% sli3 Stage 9: /forall bound in C++ to ForallFunction
+% (sli_control.cpp). Dispatches array/string to the C++ leaves
+% directly; for dict+proc it pushes the SLI-defined /forall_di
+% procedure onto the e-stack so the procedure machinery runs it.
 
 /forallindexed trie
   [/arraytype  /proceduretype] /forallindexed_a load addtotrie

@@ -191,6 +191,24 @@ namespace sli3
     Forall_sFunction() {}
     void execute(SLIInterpreter *) const;
   };
+
+  /**
+   * Compact /forall dispatcher. Switches on the collection
+   * type and invokes the appropriate iterator setup:
+   *   array  / proc -> Forall_aFunction::execute  (C++ leaf)
+   *   string / proc -> Forall_sFunction::execute  (C++ leaf)
+   *   dict   / proc -> the SLI-defined `/forall_di` proc
+   * The dict arm has to do a name lookup at runtime because
+   * forall_di is itself a procedure built in typeinit.sli;
+   * the baselookup cache makes that cheap after the first
+   * call. Replaces the trie that sli-init.sli formerly built.
+   */
+  class ForallFunction: public SLIFunction
+  {
+  public:
+    ForallFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
   
   class RaiseerrorFunction: public SLIFunction
   {

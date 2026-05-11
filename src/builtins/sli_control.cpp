@@ -844,6 +844,54 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
     i->pop(2);
 }
 
+/* ForallFunction: compact /forall dispatcher. Replaces the
+ * 3-arm trie formerly built by typeinit.sli. The C++ array
+ * and string arms call the typed leaves directly; the dict
+ * arm pushes the SLI-defined /forall_di procedure onto the
+ * e-stack, where the procedure machinery picks it up on the
+ * next iteration.
+ *
+ * Call: coll proc forall -> -
+ * pick  1    0
+ *
+ * The forall_afunction / forall_sfunction instances are
+ * defined further down in this file; forward-extern them so
+ * we can call them here.
+ */
+extern Forall_aFunction forall_afunction;
+extern Forall_sFunction forall_sfunction;
+
+void ForallFunction::execute(SLIInterpreter *i) const
+{
+    i->require_stack_load(2);
+    if (i->pick(0).tag() != sli3::proceduretype) {
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
+    switch (i->pick(1).tag()) {
+      case sli3::arraytype:
+        forall_afunction.execute(i);
+        return;
+      case sli3::stringtype:
+        forall_sfunction.execute(i);
+        return;
+      case sli3::dictionarytype: {
+        // /forall_di is defined in typeinit.sli as an SLI
+        // procedure. Look it up (baselookup cache hit after
+        // first call) and let the procedure machinery run it.
+        // forall_di consumes the dict+proc pair from the ostack
+        // itself, so we leave them in place and just push the
+        // procedure onto the estack -- after popping our own
+        // function frame off the top.
+        Token forall_di = i->baselookup(Name("forall_di"));
+        i->EStack().pop();             // pop /forall function frame
+        i->EStack().push(forall_di);   // schedule the SLI proc
+        return;
+      }
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
 /* BeginDocumentation
  Name: raiseerror - raise an error to the system
  Synopsis:
@@ -1883,6 +1931,7 @@ void NoopFunction::execute(SLIInterpreter *i) const
 
  ForFunction              forfunction;
  Forall_aFunction         forall_afunction;
+ ForallFunction           forallfunction;
  Forallindexed_aFunction  forallindexed_afunction;
  Forallindexed_sFunction  forallindexed_sfunction;
  Forall_sFunction         forall_sfunction;
@@ -1970,6 +2019,9 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("lookup",&lookupfunction);
   i->createcommand("for",&forfunction);
   i->createcommand("forall_a",&forall_afunction);
+  // Stage 9: compact /forall dispatcher replaces the trie
+  // formerly built in typeinit.sli.
+  i->createcommand("forall",  &forallfunction);
   i->createcommand("forallindexed_a",&forallindexed_afunction);
   i->createcommand("forallindexed_s",&forallindexed_sfunction);
   i->createcommand("forall_s",&forall_sfunction);
