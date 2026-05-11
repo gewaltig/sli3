@@ -1,13 +1,22 @@
 # sli3 implementation spec
 
-Working document for reviving sli3. **Status as of 2026-05-05:** Stages 1
-and 2 done; Stage 3 underway (slices 1, 1.5, 2, 3 landed). Work happens on
-the `revive` branch. See the Decisions log at the bottom for chronological
-entries.
+Working document for reviving sli3. **Status as of 2026-05-11:**
+Stages 1–5 done; bootstrap functional; full fix-plan Stages 0–5,
+7, and 9 done; Stage 9 (trie compaction, 10 batches) complete at
+tag `stage9-complete`. Work happens on the `revive` branch. See
+the Decisions log at the bottom for chronological entries.
 
-Open questions Q1–Q13 are answered (see Decisions). Stage 3 is now broken
-into slices, tracked in the section below; one commit per slice on
-`revive`.
+Open questions Q1–Q13 are answered (see Decisions). Companion
+documents:
+
+- `fix-plan.md` — staged correctness fix plan (Stages 0–9).
+- `doc/hot_ops.md` — operator catalog + current bench standing
+  vs nest 2.20 and gs 10.07.
+- `doc/compact_procedure_spec.md` — design for the next
+  optimization (compact procedure storage, the only remaining
+  path to within 15 % of gs on B2b).
+- `bench/run.sh`, `bench/sli/*.sli`, `bench/ps/*.ps` —
+  microbenchmark harness.
 
 ---
 
@@ -668,3 +677,148 @@ it's discoverable later without scrolling:
   CTest binary covers the simple operators directly and drives the
   dispatcher for Map/MapIndexed/MapThread (3/3 tests pass).
   Token: 16 / Dictionary: 32 unchanged.
+
+- 2026-05-07 → 05-08: **Bootstrap complete.** Slice 5b/5c done.
+  `./build/sli3` boots to interactive prompt and runs `1 1 add ==`
+  → `2`. Many small fixes along the way (raiseerror infinite
+  recursion, IfelseFunction reading the wrong stack slot, dispatch
+  mode wired into startup, anytype wildcard in TrieType::lookup,
+  litproceduretype name mismatch, parser context, …). Recorded in
+  the git log; see also `fix-plan.md`. A REPL with line editing and
+  history (`~/.sli3_history`) lives behind the interactive prompt.
+
+- 2026-05-08: **Fix-plan Stages 0–5 + 7 done.** Test infrastructure,
+  Token/SLIType foundation, container correctness, error handling,
+  bootstrap-blocking operators, math/scanner/stack edge cases,
+  dispatcher-parity + static-cache lifetime. CTest suite at 18
+  binaries; Release + ASAN both green.
+
+- 2026-05-08: **Pointer tagging.** `Token::type_`'s top byte
+  encodes the typeid (arm64 TBI; sanitizer builds fall back to
+  reading `type_->get_typeid()` via `SLI3_NO_PTR_TAG`).
+  Dispatcher saves one chained load per iteration. Bench gain:
+  ~6–17 % on B1/B2/B3 vs nest 2.20. Branch-predictor hint
+  (`__builtin_expect`) on the count-calls flag added; pointer-tag
+  scheme documented in `sli_token.h`.
+
+- 2026-05-08: **Stats mode.** `SLI3_STATS=1 ./build/sli3 <
+  script.sli` prints a per-binding call count on exit, keyed by
+  systemdict / userdict names. Implementation: one bool +
+  `std::unordered_map<void const*, uint64_t>` on
+  `SLIInterpreter`, incremented in the dispatcher's functiontype
+  and trietype cases (guarded by the bool, hint-folded). The
+  stats output guided every subsequent compaction priority.
+
+- 2026-05-08 → 05-11: **Stage 9 trie compaction (10 batches),
+  tag `stage9-complete`.** Removed the trie indirection from
+  every common operator by writing a compact C++ function per
+  name that switches on operand tags inline and delegates to
+  the existing typed leaves. Trie machinery stays; typed leaves
+  stay registered under their compound names. Batches:
+
+  1. add / sub / mul / div
+  2. max / min / gt / lt / leq / geq / eq / neq / and / or / xor / not
+  3. sin / cos / asin / acos / exp / ln / log / sqr / sqrt / pow
+  4. join / getinterval
+  5. length / get / put
+  6. forall
+  7. def (4-arm trie: 2-arg → DefFunction; 3-arg → /:def_ SLI proc)
+  8. cvi / cvd / cvlit / cvx / cvn
+  9. forallindexed
+  10. empty / size / reserve / insertelement / append / prepend /
+      search / cva
+
+  Templated combinators in `sli_op_bodies.h` (`binary_numeric_arith`,
+  `compare`, `minmax`, `unary_to_double`) factor the four-arm /
+  two-arm shapes into one body each, reused by the SLIFunction
+  wrappers in `sli_math.cpp`. Container dispatchers
+  (`/length`, `/get`, `/put`, `/empty`, `/size`, `/append`,
+  `/prepend`, `/search`, `/cva`, `/getinterval`, `/join`) live
+  in `sli_container_ops.cpp`. Control dispatchers (`/forall`,
+  `/forallindexed`, `/def`) live in `sli_control.cpp`. cv*
+  dispatchers in `sli_typecheck.cpp`.
+
+  Stubbed-upstream names (`/capacity`, `/:resize`, `/shrink`,
+  `/references`) stay trie-bound — their typed leaves are
+  Unimplemented; compacting would relocate the error without
+  fixing it.
+
+- 2026-05-08: **Dispatcher iter-case inline.** The four iter
+  cases (`iiteratetype`, `irepeattype`, `ifortype`,
+  `iforalltype`) inline both `functiontype` and `nametype`
+  dispatch so a procedure body's tokens are handled in one
+  case-body iteration rather than via outer-switch round-trips.
+  Bench impact:
+
+      B2  unbound `{1 1 add pop} repeat`:   3.43 s → 2.40 s
+      B2b bound `{1 1 add pop} bind repeat`: 2.39 s → 1.91 s
+
+  Hot-op super-instructions tried via `HotOp` enum + dispatch
+  switch in `sli_op_bodies.h::dispatch_hot()` — measured
+  regression of 5–10 % across all benches; reverted. The
+  virtual call to a single dominant target is well-predicted
+  on M2 and the extra byte load + switch cost more than the
+  call saves. Conclusion: the SLIFunction::execute virtual
+  call is not the bottleneck on this architecture.
+
+- 2026-05-08: **GhostScript reference checkout.** `/tmp/ghostpdl/`
+  (GitHub mirror `ArtifexSoftware/ghostpdl`). Used to study
+  gs's interpreter design: `ref` is a 16-byte struct (6-bit
+  type tag in the ref itself + 8-byte value union + size
+  field). Main dispatch is a label-goto big switch in
+  `psi/interp.c` (~line 1000), with direct cases for hot
+  operators (`tx_op_add`, `tx_op_pop`, etc.). `bind`
+  (`psi/zmisc.c`) replaces name refs with operator refs in
+  procedure bodies. Procedure bodies use `ref_packed` (2-byte
+  packed elements) for tighter cache footprint.
+
+- 2026-05-11: **Bench infrastructure** (`bench/`). `bench/run.sh`
+  runs `./build/sli3`, NEST 2.20.2's `sli` (if present), and
+  Ghostscript (if installed) against five workloads. Scripts
+  under `bench/sli/` and `bench/ps/`; `bench/README.md`
+  documents the suite. Workloads:
+
+      B1   1 pop                              × 100M
+      B2   1 1 add pop                        × 100M
+      B2b  {1 1 add pop} bind repeat          × 100M
+      B3   100k { 1 1 1000 { 2 add pop } for } repeat
+      B4   1 1 add_ii pop                     × 100M
+      B5   << /a 1 /b 2 >> begin a b add pop end × 100M
+
+- 2026-05-11: **Bench standing at `stage9-complete`** (best of
+  five, real wall):
+
+      Bench  sli3       nest 2.20  gs 10.07   sli3 vs gs
+      B1     1.33 s     2.01 s     1.32 s     tied
+      B2     2.40 s     4.37 s     2.70 s     −11 %
+      B2b    1.91 s     3.45 s     1.23 s     +55 %
+      B3     2.10 s     4.34 s     2.58 s     −19 %
+      B4     2.41 s     3.94 s     n/a        n/a
+      B5    16.34 s    43.13 s    24.67 s     −34 %
+
+  sli3 beats nest 2.20 on all six workloads. sli3 beats gs on
+  B1/B2/B3/B5; B2b still trails gs because pre-bound procedure
+  bodies have no name lookup to amortize and gs's threaded-code
+  per-token dispatch is intrinsically tighter.
+
+- 2026-05-11: **Catalog**. `doc/hot_ops.md` lists every common
+  operator in six tiers (dispatcher hot path, arithmetic /
+  compare, container reads / writes, dictionary / dictstack,
+  type / conversion / introspection, control-flow markers) with
+  binding kind (`fn` / `op` / `trie`), compaction status, and
+  notes. Includes the bench standing table. Used to prioritise
+  compaction work and to guide future contributors to ops worth
+  caring about.
+
+- 2026-05-11: **Next-step spec** at
+  `doc/compact_procedure_spec.md`. Handoff-ready design for
+  compact procedure body storage (gs's `ref_packed` idea
+  adapted to sli3): a `CompactProc` type with 4-byte slots
+  plus per-procedure spill pools, produced at `bind` time.
+  Targets B2b specifically; predicted gain takes B2b from
+  1.91 s to ~1.3 s (within 15 % of gs). Spec preserves
+  PostScript late-binding semantics — names without `bind`
+  stay as names and are re-resolved at execution time; only
+  the bound case gets the direct-dispatch win. Implementation
+  is 6–8 self-contained slices; spec lists files,
+  test strategy, risks, and bench expectations.
