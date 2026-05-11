@@ -424,12 +424,10 @@ Author: docu by Sirko Straube
 SeeAlso: cst, cv1d, cv2d, cva, cvd, cvi, cvlit, cvn, cvs, cvt_a
 */
 
-/cvx trie
-[/arraytype]   /cvx_a load addtotrie
-[/istreamtype] /cvx_f load addtotrie
-[/stringtype]  {cst cvx_a} bind addtotrie
-[/anytype]    {}           addtotrie % ignore all other types
-def
+% sli3 Stage 9: /cvx bound in C++ to CvxFunction. Switches on
+% the operand tag and dispatches to cvx_a (array), cvx_f
+% (istream), or cst (stringtype -- broken upstream, raises
+% as before). Other types pass through unchanged.
 
 /** @BeginDocumentation
 
@@ -464,11 +462,8 @@ def
    SeeAlso:  floor, cst, cv1d, cv2d, cva_d, cva_t, cvd, cvi_s, cvlit, cvn, cvs, cvt_a
 */
 
-/cvi trie
- [/integertype] {} addtotrie
- [/doubletype]  /int_d load addtotrie
- [/stringtype] /cvi_s load addtotrie
-def
+% sli3 Stage 9: /cvi bound in C++ to CviFunction. integer is
+% identity; double calls int_d; string dispatches to cvi_s.
 
 /** @BeginDocumentation
 
@@ -500,11 +495,8 @@ def
 
 */
 
-/cvd trie
- [/integertype] /double_i load addtotrie
- [/doubletype]  {}  addtotrie
- [/stringtype] /cvd_s load addtotrie
-def
+% sli3 Stage 9: /cvd bound in C++ to CvdFunction. integer
+% calls double_i; double is identity; string dispatches to cvd_s.
 
 /exec_ /exec load def
 /exec trie
@@ -849,12 +841,9 @@ def
    SeeAlso:  cst, cva, cv1d, cv2d, cvd, cvi, cvn, cvs, cvt_a
 
 */
-/cvlit trie
-[/nametype]      /cvlit_n  load addtotrie
-[/proceduretype] /cvlit_p  load addtotrie
-[/stringtype] {cvn_s cvlit_n} bind addtotrie
-[/literaltype] {}  addtotrie
-def
+% sli3 Stage 9: /cvlit bound in C++ to CvlitFunction. name ->
+% cvlit_n; procedure -> cvlit_p; literal is identity; string
+% routes through cvn_s (broken upstream, raises as before).
 
 /** @BeginDocumentation
 
@@ -885,11 +874,9 @@ def
    SeeAlso: cst, cva, cv1d, cv2d, cvd, cvi, cvlit, cvs, cvt_a
 
 */
-/cvn trie
-[/literaltype] /cvn_l load addtotrie
-[/stringtype]  /cvn_s load addtotrie
-[/nametype]    {}      addtotrie
-def
+% sli3 Stage 9: /cvn bound in C++ to CvnFunction. literal ->
+% cvn_l; name is identity; string routes through cvn_s
+% (broken upstream, raises as before).
 
 % {} cvlp /{}
 /cvlp trie

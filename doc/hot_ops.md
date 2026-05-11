@@ -144,8 +144,9 @@ metaprogramming.
 |---|---|---|---|---|
 | `type` | `any -> /typename` | fn | ✅ compact | Returns literal of typename. |
 | `typeinfo` | `any -> /typename` | fn | ✅ compact | NEST compat alias. |
-| `cvi` / `cvd` / `cvs` | conversions | trie | ⚠ trie | Multi-arm by source type. |
-| `cvlit` / `cvx` | exec-bit toggle | trie | ⚠ trie | array/proc/name variants. |
+| `cvi` / `cvd` | conversions | fn | ✅ compact | CviFunction / CvdFunction switch on source-type tag; int<->double<->string arms. Identity arm preserved (e.g. /cvi on integertype). |
+| `cvs` | any -> string | n/a | n/a | Not currently bound at /cvs. Use cvs_x leaves directly. |
+| `cvlit` / `cvx` / `cvn` | exec-bit / type toggle | fn | ✅ compact | CvlitFunction / CvxFunction / CvnFunction switch on the operand type. The stringtype arm of cvx/cvlit/cvn depends on cst/cvn_s which are stubbed Unimplemented upstream -- baselookup pushes them so the same error fires. |
 | `cvn` | `string -> /literal` | fn | ✅ compact | |
 
 ## Tier 6 — control flow primitives
@@ -168,15 +169,12 @@ the bottom of the iteration story.
 
 Looking only at things still marked ⚠/🔲:
 
-1. **`cvi` / `cvd` / `cvs` / `cvlit` / `cvx`** (Tier 5):
-   trie-bound conversions. Common in I/O code and metaprogramming.
-   Compact same as the other trie cases.
-2. **`forallindexed`** (Tier 1): companion to `forall`, same
+1. **`forallindexed`** (Tier 1): companion to `forall`, same
    2-arm shape (array/proc, string/proc). Same recipe.
-3. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
+2. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
    / `reverse`** (Tier 3): all still trie. Lower hit rates than
    the already-compacted ops so deferable.
-4. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
+3. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
    virtual call to a single dominant target is essentially free
    on M2 (experiments with super-instructions did not pay off),
    so leave as-is unless a future architecture change reopens

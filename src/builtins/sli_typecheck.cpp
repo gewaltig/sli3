@@ -20,6 +20,7 @@
 #include "sli_typecheck.h"
 #include "sli_control.h"  // TypeinfoFunction lives here
 #include "sli_iostream.h"
+#include "sli_math.h"      // IntegerFunction, DoubleFunction (cv* dispatchers)
 #include <iostream>
 #include <sstream>
 
@@ -373,6 +374,197 @@ public:
     }
 };
 
+// Stage 9 batch 8: compact dispatchers for the cv* conversion
+// family. Each replaces a small trie that typeinit.sli built.
+// Bodies share one shape:
+//
+//   require_stack_load(1)
+//   switch (top.tag()) {
+//     case <matching type>: identity (just pop our own e-stack frame)
+//     case <other type 1>:  call typed leaf
+//     ...
+//     default:              ArgumentTypeError
+//   }
+//
+// "Identity" arms preserve the original trie's `{}` no-op
+// branches (e.g. /cvi on integertype). The estack frame for
+// our /cvX function is popped either way; the operand stays.
+//
+// A few arms were already broken before this refactor because
+// the underlying leaves (cst, cvn_s) are stubbed Unimplemented
+// in sli_startup.cpp. Those arms continue to raise the same
+// way: we dispatch to the named function via baselookup and
+// the procedure machinery picks it up.
+
+// Forward declarations for typed-leaf instances defined in
+// other translation units. The compact dispatchers below
+// invoke them directly.
+extern IntegerFunction integerfunction;       // sli_math.cpp
+extern DoubleFunction  doublefunction;        // sli_math.cpp
+
+// In-TU forward declarations: the variables are defined
+// later in this same file. The classes are already in scope.
+extern Cvlit_nFunction cvlit_nfunction;
+extern Cvn_lFunction   cvn_lfunction;
+extern Cvlit_pFunction cvlit_pfunction;
+
+// cvi_s_fn / cvd_s_fn live in an anonymous namespace inside
+// sli_container_ops.cpp; reach them via baselookup of their
+// public names so we don't depend on file-private symbols.
+
+class CvxFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        switch (i->top().tag()) {
+          case sli3::arraytype:
+            cvx_a_fn.execute(i);
+            return;
+          case sli3::istreamtype: {
+            // /cvx_f lives in sli_io_ops.cpp; reach it by name.
+            Token op = i->baselookup(Name("cvx_f"));
+            i->EStack().pop();
+            i->EStack().push(op);
+            return;
+          }
+          case sli3::stringtype: {
+            // Trie had {cst cvx_a}. `cst` is Unimplemented today
+            // (see sli_startup.cpp), so this raises the same way
+            // the trie's leaf would. Push the cst lookup and let
+            // the procedure machinery surface the error.
+            Token op = i->baselookup(Name("cst"));
+            i->EStack().pop();
+            i->EStack().push(op);
+            return;
+          }
+          // /anytype arm of the original trie was `{}` -- a true
+          // no-op that left the operand on the stack. We mirror
+          // that for the remaining types: no error, just pop our
+          // own frame.
+          default:
+            i->EStack().pop();
+            return;
+        }
+    }
+};
+
+class CviFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        switch (i->top().tag()) {
+          case sli3::integertype:
+            // identity: drop our frame, leave the int.
+            i->EStack().pop();
+            return;
+          case sli3::doubletype:
+            integerfunction.execute(i);    // int_d: floor double -> int
+            return;
+          case sli3::stringtype: {
+            // cvi_s_fn is anonymous-namespace in sli_container_ops.cpp;
+            // reach via baselookup.
+            Token op = i->baselookup(Name("cvi_s"));
+            i->EStack().pop();
+            i->EStack().push(op);
+            return;
+          }
+          default:
+            i->raiseerror(i->ArgumentTypeError);
+        }
+    }
+};
+
+class CvdFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        switch (i->top().tag()) {
+          case sli3::integertype:
+            doublefunction.execute(i);     // double_i: int -> double
+            return;
+          case sli3::doubletype:
+            i->EStack().pop();             // identity
+            return;
+          case sli3::stringtype: {
+            Token op = i->baselookup(Name("cvd_s"));
+            i->EStack().pop();
+            i->EStack().push(op);
+            return;
+          }
+          default:
+            i->raiseerror(i->ArgumentTypeError);
+        }
+    }
+};
+
+class CvlitFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        switch (i->top().tag()) {
+          case sli3::nametype:
+            cvlit_nfunction.execute(i);
+            return;
+          case sli3::proceduretype:
+            cvlit_pfunction.execute(i);
+            return;
+          case sli3::literaltype:
+            i->EStack().pop();             // identity
+            return;
+          case sli3::stringtype: {
+            // Trie had {cvn_s cvlit_n}. cvn_s is Unimplemented;
+            // mirror via baselookup so the same error fires.
+            Token op = i->baselookup(Name("cvn_s"));
+            i->EStack().pop();
+            i->EStack().push(op);
+            return;
+          }
+          default:
+            i->raiseerror(i->ArgumentTypeError);
+        }
+    }
+};
+
+class CvnFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        switch (i->top().tag()) {
+          case sli3::literaltype:
+            cvn_lfunction.execute(i);
+            return;
+          case sli3::nametype:
+            i->EStack().pop();             // identity
+            return;
+          case sli3::stringtype: {
+            // cvn_s is Unimplemented; same story as above.
+            Token op = i->baselookup(Name("cvn_s"));
+            i->EStack().pop();
+            i->EStack().push(op);
+            return;
+          }
+          default:
+            i->raiseerror(i->ArgumentTypeError);
+        }
+    }
+};
+
+CvxFunction   cvxfunction;
+CviFunction   cvifunction;
+CvdFunction   cvdfunction;
+CvlitFunction cvlitfunction;
+CvnFunction   cvnfunction;
+
 TrieFunction      triefunction;
 TrieInfoFunction  trieinfofunction;
 AddtotrieFunction addtotriefunction;
@@ -398,6 +590,14 @@ void init_slitypecheck(SLIInterpreter *i)
     i->createcommand("cvn_l",     &cvn_lfunction);
     i->createcommand("cvlit_p",   &cvlit_pfunction);
     i->createcommand("cvx_lp",    &cvx_lpfunction);
+    // Stage 9 batch 8: compact /cvx /cvi /cvd /cvlit /cvn
+    // dispatchers replace the tries formerly in typeinit.sli.
+    // Typed leaves stay registered under their compound names.
+    i->createcommand("cvx",       &cvxfunction);
+    i->createcommand("cvi",       &cvifunction);
+    i->createcommand("cvd",       &cvdfunction);
+    i->createcommand("cvlit",     &cvlitfunction);
+    i->createcommand("cvn",       &cvnfunction);
 }
 
 }
