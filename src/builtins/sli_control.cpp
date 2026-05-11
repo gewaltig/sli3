@@ -1021,6 +1021,8 @@ void RaiseerrorFunction::execute(SLIInterpreter *i) const
     Name errorname(i->top().data_.name_val);
     Name cmdname(i->pick(1).data_.name_val);
 
+    i->pop(2);            // consume both literal args (matches NEST 2.x convention)
+    i->EStack().pop();    // pop self from estack
     i->raiseerror(cmdname, errorname);
 }
 
