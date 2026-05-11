@@ -8,5 +8,5 @@
 % So the loop measures dict alloc/free + dictstack push/pop
 % PLUS two name lookups per iteration that traverse the
 % pushed dict.
-tic 1000000 { << /a 1 /b 2 >> begin a b add pop end } repeat toc ==
+tic 100000000 { << /a 1 /b 2 >> begin a b add pop end } repeat toc ==
 quit
