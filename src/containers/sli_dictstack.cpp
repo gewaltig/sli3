@@ -157,6 +157,11 @@ void DictionaryStack::toArray(SLIInterpreter &sli, TokenArray &ta) const
     Token dicttoken;
     dicttoken.type_=sli.get_type(sli3::dictionarytype);
     dicttoken.data_.dict_val=*i;
+    dicttoken.add_reference();  // raw-assigned payload: bump dict refcount so
+                                // the local destructor's remove_reference is
+                                // balanced (otherwise vector entry's bump and
+                                // local's drop cancel, leaving the array
+                                // entry without a true reference).
     ta.push_back(dicttoken);
    ++i;
   }
