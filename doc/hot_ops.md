@@ -94,9 +94,9 @@ batch.
 
 | Op | Signature | Binding | Status | Notes |
 |---|---|---|---|---|
-| `length` | `coll -> int` | trie | ⚠ trie | length_a / length_s / length_d / length_p / length_lp. |
-| `get` | `coll key -> elt` | trie | ⚠ trie | get_a (array+int), get_s (string+int), get_d (dict+lit), get_p/lp (proc/litproc+int). |
-| `put` | `coll key elt -> coll` | trie | ⚠ trie | Mirrors `get`. |
+| `length` | `coll -> int` | fn | ✅ compact | LengthFunction dispatches by collection tag to length_a / length_s / length_d / length_p / length_lp. |
+| `get` | `coll key -> elt` | fn | ✅ compact | GetFunction switches on (coll.tag, key.tag); arms: get_a (array+int), get_a_a (array+array), get_s (string+int), get_d (dict+lit), get_p/lp (proc/litproc+int). |
+| `put` | `coll key elt -> coll` | fn | ✅ compact | PutFunction mirrors `get`; element-type arm is anytype so the typed leaf handles it. |
 | `getinterval` | `coll idx n -> sub` | fn | ✅ compact | Array/string dispatcher in C++. |
 | `join` | `coll1 coll2 -> coll3` | fn | ✅ compact | Array/string/procedure. |
 | `first` / `last` | `coll -> elt` | trie | 🔲 trie | Rare; not urgent. |
@@ -168,26 +168,22 @@ the bottom of the iteration story.
 
 Looking only at things still marked ⚠/🔲:
 
-1. **`get` / `put` / `length`** (Tier 3): trie-bound and very
-   common. Compact each as a single function that switches on
-   the collection tag inline. Same recipe as `getinterval` /
-   `join` (Stage 9 batch 4). Likely ~5-10 ns saving per call.
-2. **`forall`** (Tier 1): trie selects forall_a / forall_s /
+1. **`forall`** (Tier 1): trie selects forall_a / forall_s /
    forall_di which then set up an iter frame. Compact dispatcher
    keeps the typed leaves but skips the trie.
-3. **`def`** (Tier 4): 4-arm trie. Highly used during script
+2. **`def`** (Tier 4): 4-arm trie. Highly used during script
    loading. Less hot in steady-state user code.
-4. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
-   body is `if bool { proc estack.push break }` — could potentially
-   inline as super-instructions in the iter case bodies, but
-   our experiment with hot-op super-instructions did not pay
-   off; the virtual call to a single dominant target is
-   essentially free on M2.
-5. **`cvi` / `cvd` / `cvs`** (Tier 5): trie-bound conversions.
-   Common in I/O code. Compact same as the other trie cases.
-6. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
+3. **`cvi` / `cvd` / `cvs` / `cvlit` / `cvx`** (Tier 5):
+   trie-bound conversions. Common in I/O code and metaprogramming.
+   Compact same as the other trie cases.
+4. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
    / `reverse`** (Tier 3): all still trie. Lower hit rates than
-   get/put/length so deferable.
+   the already-compacted ops so deferable.
+5. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
+   virtual call to a single dominant target is essentially free
+   on M2 (experiments with super-instructions did not pay off),
+   so leave as-is unless a future architecture change reopens
+   the question.
 
 ## Methodology note
 
