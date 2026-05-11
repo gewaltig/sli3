@@ -57,3 +57,6 @@ run_one "B3   100k {1 1 1k {2 add pop} for} repeat" \
 
 run_one "B4   1 1 add_ii pop              x 100M  (typed-leaf direct)" \
         "$SLI_DIR/B4_add_ii.sli"         ""
+
+run_one "B5   << ... >> begin ... end     x 1M    (dict alloc + dictstack)" \
+        "$SLI_DIR/B5_dict_begin_end.sli" "$PS_DIR/B5_dict_begin_end.ps"
