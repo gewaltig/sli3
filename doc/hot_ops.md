@@ -184,6 +184,48 @@ Looking only at things still marked ⚠/🔲:
    so leave as-is unless a future architecture change reopens
    the question.
 
+## Current bench standing (post-Stage 9)
+
+Best of five wall-time runs (`time -p`, real seconds), on
+Apple silicon. Lower is better. The microbenchmark scripts
+live under `bench/sli/` and `bench/ps/`; run them all with
+`bench/run.sh`.
+
+| Bench | Body (per iter)                                 | iters | sli3      | nest 2.20 | gs 10.07  | sli3 vs gs |
+|-------|-------------------------------------------------|------:|----------:|----------:|----------:|-----------:|
+| B1    | `1 pop`                                         | 100 M | 1.33 s    | 2.01 s    | 1.32 s    | tied       |
+| B2    | `1 1 add pop`                                   | 100 M | 2.40 s    | 4.37 s    | 2.70 s    | **−11 %**  |
+| B2b   | `{1 1 add pop} bind repeat`                     | 100 M | 1.91 s    | 3.45 s    | 1.23 s    | +55 %      |
+| B3    | nested `{ 1 1 1k { 2 add pop } for }`           | 100 k | 2.10 s    | 4.34 s    | 2.58 s    | **−19 %**  |
+| B4    | `1 1 add_ii pop` (direct typed leaf)            | 100 M | 2.41 s    | 3.94 s    | n/a       | n/a        |
+| B5    | `<< /a 1 /b 2 >> begin a b add pop end`         | 100 M | **16.34 s** | 43.13 s | 24.67 s   | **−34 %**  |
+
+Per-iteration cost:
+
+| Bench | sli3 ns/iter | gs ns/iter | gap         |
+|-------|-------------:|-----------:|-------------|
+| B1    | 13.3         | 13.2       | tied        |
+| B2    | 24.0         | 27.0       | gs +3 ns    |
+| B2b   | 19.1         | 12.3       | sli3 +7 ns  |
+| B3    | 21.0         | 25.8       | gs +5 ns    |
+| B5    | 163.4        | 246.7      | gs +83 ns   |
+
+What the numbers say:
+
+- **sli3 wins on every workload except B2b.** B2b stresses
+  pure dispatcher-loop overhead inside a pre-bound procedure
+  body where there's no name lookup, no allocation, nothing
+  but per-token iter machinery — gs's threaded-code
+  dispatch is intrinsically tighter for that.
+- **The dict / dictstack pipeline (B5) is our strongest
+  showing**: dict alloc + begin/end + two name lookups +
+  add+pop is 83 ns/iter faster than gs. The std::map-backed
+  Dictionary and the dictstack name-lookup cache
+  (`std::vector<Token*>` keyed by Name handle) carry their
+  weight.
+- **B1 is at machine noise**: our dispatcher loop is the same
+  speed as gs's for pure push/pop work.
+
 ## Methodology note
 
 The frequency numbers come from a 100M-iteration B3 run plus
