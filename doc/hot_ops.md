@@ -100,13 +100,16 @@ batch.
 | `put` | `coll key elt -> coll` | fn | ✅ compact | PutFunction mirrors `get`; element-type arm is anytype so the typed leaf handles it. |
 | `getinterval` | `coll idx n -> sub` | fn | ✅ compact | Array/string dispatcher in C++. |
 | `join` | `coll1 coll2 -> coll3` | fn | ✅ compact | Array/string/procedure. |
-| `first` / `last` | `coll -> elt` | trie | 🔲 trie | Rare; not urgent. |
-| `append` | `coll elt -> coll'` | trie | 🔲 trie | |
-| `prepend` | `elt coll -> coll'` | trie | 🔲 trie | |
-| `reverse` | `coll -> coll'` | trie | 🔲 trie | |
-| `empty` | `coll -> bool` | trie | 🔲 trie | empty_a / empty_s / empty_d. |
-| `cva` | `coll -> array` | trie | 🔲 trie | cva_d for dict, others. |
-| `size_a` / `size_s` | `coll -> int` | fn | ✅ compact | Typed leaves. |
+| `first` / `last` | `coll -> elt` | — | n/a | Not bound at top level today. |
+| `append` | `coll elt -> coll'` | fn | ✅ compact | AppendFunction dispatches array / proc / string. |
+| `prepend` | `elt coll -> coll'` | fn | ✅ compact | PrependFunction; same shape as append. |
+| `reverse` | `coll -> coll'` | — | n/a | Not bound at top level (only /Reverse is). |
+| `empty` | `coll -> bool` | fn | ✅ compact | EmptyFunction dispatches array / dict / string. |
+| `cva` | `coll -> array` | fn | ✅ compact | CvaFunction. dict -> cva_d. trie -> baselookup(cva_t). array arm relies on upstream-stubbed ops. |
+| `size` | `coll -> int` | fn | ✅ compact | SizeFunction dispatches array / string. |
+| `reserve` | `coll int -> coll` | fn | ✅ compact | ReserveFunction. |
+| `insertelement` | `coll int elt -> coll` | fn | ✅ compact | InsertelementFunction. |
+| `search` | `coll needle -> ... bool` | fn | ✅ compact | SearchFunction dispatches array / string. |
 
 ## Tier 4 — dictionary / dictstack operations
 
@@ -170,9 +173,11 @@ the bottom of the iteration story.
 
 Looking only at things still marked ⚠/🔲:
 
-1. **`empty` / `cva` / `first` / `last` / `append` / `prepend`
-   / `reverse`** (Tier 3): all still trie. Lower hit rates than
-   the already-compacted ops so deferable.
+1. **`capacity` / `:resize` / `shrink` / `references`** (Tier 3):
+   2-arm tries whose typed leaves are stubbed Unimplemented
+   upstream. Compacting them just routes errors through a
+   different layer; perf-neutral and unblocks the user-facing
+   names if leaves get implemented later.
 2. **`if` / `ifelse`** (Tier 1): each is one SLIFunction. The
    virtual call to a single dominant target is essentially free
    on M2 (experiments with super-instructions did not pay off),

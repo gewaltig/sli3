@@ -1154,7 +1154,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
     terminate(sli3::exception);
   } catch (...) {
     cycle_count_ = local_cycles;
-    message(M_FATAL, "SLIInterpreter", "An unknown c++ exception occured.");
+    message(M_FATAL, "SLIInterpreter", "An unknown C++ exception occured.");
     operand_stack_.dump(std::cerr);
     execution_stack_.dump(std::cerr);
     terminate(sli3::exception);

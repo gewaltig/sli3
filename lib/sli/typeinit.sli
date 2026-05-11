@@ -327,46 +327,20 @@ def
   [/stringtype /integertype /integertype ]  /erase_s load addtotrie
 def
 
-/insertelement trie
-  [/arraytype      /integertype /anytype]     /insertelement_a load addtotrie
-  [/stringtype     /integertype /integertype] /insertelement_s load addtotrie
-def
+% sli3 Stage 9 batch 10: /insertelement bound in C++ to
+% InsertelementFunction. Dispatches array / string to the leaves.
 
-/prepend trie
-  [/arraytype      /anytype]       /prepend_a load addtotrie
-  [/arraytype      /integertype]   /prepend_a load addtotrie
-  [/proceduretype  /anytype]       /prepend_p load addtotrie
-  [/proceduretype  /integertype]   /prepend_p load addtotrie
-  [/stringtype     /integertype]   /prepend_s load addtotrie
-def
-
-/append trie
-  [/arraytype      /anytype]       /append_a load addtotrie  
-  [/arraytype      /integertype]   /append_a load addtotrie
-  [/proceduretype  /anytype]       /append_p load addtotrie
-  [/proceduretype  /integertype]   /append_p load addtotrie
-  [/stringtype     /integertype]   /append_s load addtotrie
-%  [/proceduretype  /proceduretype] /join_p load addtotrie
-def
-
-/search trie
-  [/arraytype  /arraytype  ]   /search_a load addtotrie
-  [/stringtype /stringtype ]   /search_s load addtotrie
-def
+% sli3 Stage 9 batch 10: /prepend /append /search /size
+% /reserve bound in C++ to compact dispatchers. Each routes
+% on the collection's tag (slot 1 of the operand stack) and
+% delegates to the matching typed leaf.
+% /capacity is still trie-bound -- its capacity_a / capacity_s
+% leaves are stubbed Unimplemented; replacing the trie would
+% surface the same error from a slightly different layer.
 
 /capacity trie
  [/arraytype  ]    /capacity_a load addtotrie
  [/stringtype ]    /capacity_s load addtotrie
-def
-
-/size trie
- [/arraytype  ]    /size_a load addtotrie
- [/stringtype ]    /size_s load addtotrie
-def
-
-/reserve trie
- [/arraytype  /integertype]    /reserve_a load addtotrie
- [/stringtype /integertype]    /reserve_s load addtotrie
 def
 
 /:resize trie
@@ -384,11 +358,8 @@ of length 0, or the supplied dict has no entries.
 Examples: (hello) empty -> (hello) false
 SeeAlso: length, size
 */
-/empty trie
- [/arraytype     ]    /empty_a load addtotrie
- [/dictionarytype]    /empty_D load addtotrie
- [/stringtype    ]    /empty_s load addtotrie
-def
+% sli3 Stage 9 batch 10: /empty bound in C++ to EmptyFunction.
+% Dispatches array / dict / string to empty_a / empty_D / empty_s.
 
 /shrink trie
  [/arraytype  ]    /shrink_a load addtotrie
@@ -790,11 +761,12 @@ def
 } def
 
 
-/cva trie
-[/dictionarytype] /cva_d load addtotrie
-[/trietype] {cva_t exch pop} addtotrie
-[/arraytype] { {dup type /cva load triematches {cva} if} Map } addtotrie
-def
+% sli3 Stage 9 batch 10: /cva bound in C++ to CvaFunction.
+% dict -> cva_d (functional). trie -> routes through cva_t
+% via baselookup (caller may need `exch pop` to discard the
+% size field, matching the trie's wrapper). array arm was a
+% recursive Map that depends on operators stubbed upstream;
+% it now raises ArgumentType.
 
 
 %%%%%%

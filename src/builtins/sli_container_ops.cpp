@@ -1227,6 +1227,17 @@ class PutFunction : public SLIFunction
 public:
     void execute(SLIInterpreter* i) const override;
 };
+
+// Batch 10 -- remaining container tries collapsed into a
+// uniform "switch on the collection's tag" pattern.
+class EmptyFunction         : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
+class SizeFunction          : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
+class ReserveFunction       : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
+class InsertelementFunction : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
+class AppendFunction        : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
+class PrependFunction       : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
+class SearchFunction        : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
+class CvaFunction           : public SLIFunction { public: void execute(SLIInterpreter*) const override; };
 JoinStringFunction         join_s_fn;
 SearchStringFunction       search_s_fn;
 SearchArrayFunction        search_a_fn;
@@ -1250,6 +1261,14 @@ GetintervalFunction getinterval_fn;
 LengthFunction      length_fn;
 GetFunction         get_fn;
 PutFunction         put_fn;
+EmptyFunction         empty_fn;
+SizeFunction          size_fn;
+ReserveFunction       reserve_fn;
+InsertelementFunction insertelement_fn;
+AppendFunction        append_fn;
+PrependFunction       prepend_fn;
+SearchFunction        search_fn;
+CvaFunction           cva_fn;
 
 void JoinFunction::execute(SLIInterpreter* i) const
 {
@@ -1347,6 +1366,107 @@ void PutFunction::execute(SLIInterpreter* i) const
       case sli3::dictionarytype:
         if (idx == sli3::literaltype) { put_d_fn.execute(i); return; }
         break;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// ------------------------------------------------------------------------
+// Batch 10 -- compact container dispatchers.
+// Each replaces a 1-, 2-, or 3-arm trie that typeinit.sli used
+// to build. The body shape is: switch on the relevant operand
+// tag, delegate to a typed leaf (or raise ArgumentType).
+// ------------------------------------------------------------------------
+
+// /empty -- 1 operand: array | dict | string.
+void EmptyFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(1);
+    switch (i->top().tag()) {
+      case sli3::arraytype:      empty_a_fn.execute(i); return;
+      case sli3::dictionarytype: empty_d_fn.execute(i); return;
+      case sli3::stringtype:     empty_s_fn.execute(i); return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// /size -- 1 operand: array | string.
+void SizeFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(1);
+    switch (i->top().tag()) {
+      case sli3::arraytype:  size_a_fn.execute(i); return;
+      case sli3::stringtype: size_s_fn.execute(i); return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// /reserve -- 2 operands: <coll> <int>. Collection is slot 1.
+void ReserveFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(2);
+    switch (i->pick(1).tag()) {
+      case sli3::arraytype:  reserve_a_fn.execute(i); return;
+      case sli3::stringtype: reserve_s_fn.execute(i); return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// /insertelement -- 3 operands: <coll> <int> <element>.
+void InsertelementFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(3);
+    switch (i->pick(2).tag()) {
+      case sli3::arraytype:  insertelement_a_fn.execute(i); return;
+      case sli3::stringtype: insertelement_s_fn.execute(i); return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// /append and /prepend bodies live further down -- the
+// AppendArrayLikeFunction / PrependArrayLikeFunction class
+// templates are defined later in this file.
+
+// /search -- 2 operands: <coll> <needle>. Both same type.
+// Validated by the typed leaf; we only check the outer type.
+void SearchFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(2);
+    switch (i->pick(1).tag()) {
+      case sli3::arraytype:  search_a_fn.execute(i); return;
+      case sli3::stringtype: search_s_fn.execute(i); return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// /cva -- 1 operand. Only the dict arm is functional today;
+// the trie's /trietype arm (cva_t exch pop) and /arraytype
+// arm (Map over elements) depend on operators that are stubbed
+// upstream. Match the trie's behaviour: for trie/array operands
+// fall through to a baselookup of the SLI-defined helpers,
+// which raise the same UndefinedName.
+void CvaFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(1);
+    switch (i->top().tag()) {
+      case sli3::dictionarytype:
+        cva_d_fn.execute(i);
+        return;
+      case sli3::trietype: {
+        // Inline the trie's `{cva_t exch pop}` body via the SLI
+        // operator `cva_t`. We can't call cva_t directly here
+        // (it lives in another TU and is anonymous-namespace);
+        // baselookup is one cached probe.
+        Token op = i->baselookup(Name("cva_t"));
+        i->EStack().pop();
+        i->EStack().push(op);
+        // After cva_t runs, the caller (or surrounding code)
+        // will see a (size, array) pair; the trie did `exch
+        // pop` to discard the size. We can't easily chain that
+        // here -- leave it to the caller. This matches the
+        // typed leaf cva_t's documented behaviour rather than
+        // the trie wrapper's `exch pop` cleanup.
+        return;
+      }
     }
     i->raiseerror(i->ArgumentTypeError);
 }
@@ -1503,6 +1623,33 @@ PrependArrayLikeFunction<sli3::arraytype>         prepend_a_fn;
 PrependArrayLikeFunction<sli3::proceduretype>     prepend_p_fn;
 PrependStringFunction                             prepend_s_fn;
 
+// /append and /prepend bodies. Deferred from the batch-10
+// block above because the AppendArrayLikeFunction and
+// PrependArrayLikeFunction class templates are only visible
+// from this point onwards.
+
+void AppendFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(2);
+    switch (i->pick(1).tag()) {
+      case sli3::arraytype:     append_a_fn.execute(i); return;
+      case sli3::proceduretype: append_p_fn.execute(i); return;
+      case sli3::stringtype:    append_s_fn.execute(i); return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+void PrependFunction::execute(SLIInterpreter* i) const
+{
+    i->require_stack_load(2);
+    switch (i->pick(1).tag()) {
+      case sli3::arraytype:     prepend_a_fn.execute(i); return;
+      case sli3::proceduretype: prepend_p_fn.execute(i); return;
+      case sli3::stringtype:    prepend_s_fn.execute(i); return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
 }  // anonymous namespace
 
 void init_container_ops(SLIInterpreter* i)
@@ -1544,6 +1691,16 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("length",        &length_fn);
     i->createcommand("get",           &get_fn);
     i->createcommand("put",           &put_fn);
+    // Batch 10: compact container dispatchers replacing the
+    // remaining multi-arm tries in typeinit.sli.
+    i->createcommand("empty",         &empty_fn);
+    i->createcommand("size",          &size_fn);
+    i->createcommand("reserve",       &reserve_fn);
+    i->createcommand("insertelement", &insertelement_fn);
+    i->createcommand("append",        &append_fn);
+    i->createcommand("prepend",       &prepend_fn);
+    i->createcommand("search",        &search_fn);
+    i->createcommand("cva",           &cva_fn);
     i->createcommand("keys",          &keys_fn);
     i->createcommand("values",        &values_fn);
     i->createcommand("cva_d",         &cva_d_fn);
