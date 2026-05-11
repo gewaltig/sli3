@@ -892,6 +892,31 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               }
               break;
             }
+            // Inline name -> function dispatch (un-bound procs).
+            if (t.tag() == sli3::nametype) {
+              const Token &resolved = lookup(t.data_.long_val);
+              if (resolved.tag() == sli3::functiontype) {
+                execution_stack_.push(resolved);
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[resolved.data_.func_val];
+                resolved.data_.func_val->execute(this);
+                if (execution_stack_.top().tag() == sli3::iiteratetype) {
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  goto start_iterate;
+                }
+                break;
+              }
+              if (resolved.is_executable()) {
+                execution_stack_.push(resolved);
+                break;
+              }
+              operand_stack_.push(resolved);
+              if (not proc->index_is_valid(pos)) {
+                execution_stack_.pop(3);
+                break;
+              }
+              goto start_iterate;
+            }
             execution_stack_.push(t);
             break;
           }
@@ -930,6 +955,30 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   goto start_repeat;
                 }
                 break;
+              }
+              // Inline name resolution + function dispatch. Two
+              // outer round-trips collapse into one case body --
+              // matters for un-bound procedures where the body
+              // still holds nametype tokens.
+              if (t.tag() == sli3::nametype) {
+                const Token &resolved = lookup(t.data_.long_val);
+                if (resolved.tag() == sli3::functiontype) {
+                  execution_stack_.push(resolved);
+                  if (__builtin_expect(count_calls_, 0))
+                    ++call_counts_[resolved.data_.func_val];
+                  resolved.data_.func_val->execute(this);
+                  if (execution_stack_.top().tag() == sli3::irepeattype) {
+                    proc = execution_stack_.pick(2).data_.array_val;
+                    goto start_repeat;
+                  }
+                  break;
+                }
+                if (resolved.is_executable()) {
+                  execution_stack_.push(resolved);
+                  break;
+                }
+                operand_stack_.push(resolved);
+                goto start_repeat;
               }
               execution_stack_.push(t);
               break;
@@ -971,6 +1020,27 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   goto start_for;
                 }
                 break;
+              }
+              // Inline name -> function dispatch.
+              if (t.tag() == sli3::nametype) {
+                const Token &resolved = lookup(t.data_.long_val);
+                if (resolved.tag() == sli3::functiontype) {
+                  execution_stack_.push(resolved);
+                  if (__builtin_expect(count_calls_, 0))
+                    ++call_counts_[resolved.data_.func_val];
+                  resolved.data_.func_val->execute(this);
+                  if (execution_stack_.top().tag() == sli3::ifortype) {
+                    proc = execution_stack_.pick(2).data_.array_val;
+                    goto start_for;
+                  }
+                  break;
+                }
+                if (resolved.is_executable()) {
+                  execution_stack_.push(resolved);
+                  break;
+                }
+                operand_stack_.push(resolved);
+                goto start_for;
               }
               execution_stack_.push(t);
               break;
@@ -1017,6 +1087,27 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   goto start_forall;
                 }
                 break;
+              }
+              // Inline name -> function dispatch.
+              if (t.tag() == sli3::nametype) {
+                const Token &resolved = lookup(t.data_.long_val);
+                if (resolved.tag() == sli3::functiontype) {
+                  execution_stack_.push(resolved);
+                  if (__builtin_expect(count_calls_, 0))
+                    ++call_counts_[resolved.data_.func_val];
+                  resolved.data_.func_val->execute(this);
+                  if (execution_stack_.top().tag() == sli3::iforalltype) {
+                    proc = execution_stack_.pick(2).data_.array_val;
+                    goto start_forall;
+                  }
+                  break;
+                }
+                if (resolved.is_executable()) {
+                  execution_stack_.push(resolved);
+                  break;
+                }
+                operand_stack_.push(resolved);
+                goto start_forall;
               }
               execution_stack_.push(t);
               break;
