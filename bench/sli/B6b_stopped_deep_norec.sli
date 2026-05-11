@@ -1,0 +1,11 @@
+% B6b with stack recording disabled.
+% B6b - B6b_norec = cost of estack toArray() at this depth, plus
+% the constant per-error ostack/dstack copy. Compare delta against
+% (B6 - B6_norec) to isolate the depth-scaling component.
+errordict /recordstacks false put
+/d4 { /test /Bench raiseerror } def
+/d3 { d4 } def
+/d2 { d3 } def
+/d1 { d2 } def
+tic 1000000 { { d1 } stopped { handleerror } if } repeat toc ==
+quit

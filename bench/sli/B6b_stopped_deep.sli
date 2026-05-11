@@ -1,0 +1,10 @@
+% B6b -- raiseerror with a deeper estack.
+% Each nested proc call adds a frame to the estack before the
+% error fires. The estack snapshot in raiseerror (recordstacks=true)
+% scales linearly with this depth.
+/d4 { /test /Bench raiseerror } def
+/d3 { d4 } def
+/d2 { d3 } def
+/d1 { d2 } def
+tic 1000000 { { d1 } stopped { handleerror } if } repeat toc ==
+quit

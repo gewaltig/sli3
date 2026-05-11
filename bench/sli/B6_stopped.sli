@@ -1,0 +1,9 @@
+% B6 -- baseline raiseerror -> stop round-trip.
+% Each iteration: raiseerror populates $errordict (incl. stack
+% snapshots if recordstacks=true), pushes /cmd onto ostack and
+% stop onto estack; dispatcher runs stop, walks estack to the
+% stopped marker, unwinds; stopped pushes true; handleerror
+% consumes /cmd via print_error and resets newerror.
+% recordstacks defaults to true after sli-init runs init_errordict.
+tic 1000000 { { /test /Bench raiseerror } stopped { handleerror } if } repeat toc ==
+quit

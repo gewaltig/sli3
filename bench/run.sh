@@ -60,3 +60,23 @@ run_one "B4   1 1 add_ii pop              x 100M  (typed-leaf direct)" \
 
 run_one "B5   << ... >> begin ... end     x 1M    (dict alloc + dictstack)" \
         "$SLI_DIR/B5_dict_begin_end.sli" "$PS_DIR/B5_dict_begin_end.ps"
+
+# B6/B6b/B6c -- stopped/raiseerror round-trip with vs. without stack
+# recording. The pairs (B6 vs B6n, B6b vs B6bn, B6c vs B6cn) measure
+# the per-error cost of $errordict's three toArray() snapshots
+# (ostack + estack + dstack). gs is skipped: PS has no recordstacks /
+# raiseerror equivalent.
+run_one "B6   {/t /B raiseerror} stopped pop x 1M  (recordstacks=true)" \
+        "$SLI_DIR/B6_stopped.sli"               ""
+run_one "B6n  same, recordstacks=false       x 1M" \
+        "$SLI_DIR/B6_stopped_norec.sli"         ""
+
+run_one "B6b  deep estack at error           x 1M  (recordstacks=true)" \
+        "$SLI_DIR/B6b_stopped_deep.sli"         ""
+run_one "B6bn same, recordstacks=false       x 1M" \
+        "$SLI_DIR/B6b_stopped_deep_norec.sli"   ""
+
+run_one "B6c  ostack=5 at error              x 1M  (recordstacks=true)" \
+        "$SLI_DIR/B6c_stopped_ostack.sli"       ""
+run_one "B6cn same, recordstacks=false       x 1M" \
+        "$SLI_DIR/B6c_stopped_ostack_norec.sli" ""
