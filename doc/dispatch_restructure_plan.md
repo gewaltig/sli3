@@ -226,6 +226,38 @@ file (`/tmp/axis1-notes.md` or similar).
 
 ## Slice 1 — Add `current_op_` field, refactor raiseerror
 
+**Status (2026-05-11): deferred. Merged into Slice 4.**
+
+Attempted as specified below; reverted. Measured cost: **+4.8% on
+B2b** (1.89 s → 1.98 s best-of-five). Root cause: the wrap adds 2
+member-field stores per op dispatch (`current_op_ = fn` before
+`fn->execute(this)`, clear after). For B2b that's ~0.5 ns × 200M
+dispatches = ~0.1 s, matching the observed regression.
+
+The ±2% bench gate is hard. Slice 1 as a standalone refactor is
+not zero-cost; the cost-of-correctness can only be offset by
+**removing** something on the same path. That removal is the
+e-stack push in Slice 4. So `current_op_` appears at Slice 4 where
+the new field is paired with the removed push:
+
+```cpp
+// Slice 4: replace the function-Token push with current_op_ write
+// + sentinel write. Net per-op cost is the sentinel + 2 stores
+// vs. today's full Token push (4 writes + refcount-aware add).
+current_op_ = fn;
+execution_stack_.top() = dispatch_sentinel;
+fn->execute(this);             // op's self-pop pops the sentinel
+current_op_ = nullptr;
+```
+
+`get_current_name` is updated to consult `current_op_` first at
+the same slice. Slice 2's nested-call audit applies unchanged
+(it touches direct-call sites in `src/builtins/`, not the
+dispatcher).
+
+The text below is the original Slice 1 spec, preserved for
+reference.
+
 **Goal:** decouple `raiseerror` from reading the e-stack top.
 This is a pure refactor: behavior unchanged.
 
@@ -402,17 +434,32 @@ being in registers; they just benefit from them.
 
 ---
 
-## Slice 4 — Drop the function-Token e-stack push, batch 1: dispatcher
+## Slice 4 — Drop the function-Token e-stack push + add `current_op_`
 
 **Goal:** the dispatcher no longer pushes the function Token
 before calling `fn->execute`. This means the function Token
-is *not* on the e-stack during the operator's execution.
+is *not* on the e-stack during the operator's execution. At the
+same time, introduce `current_op_` (originally Slice 1, deferred
+to here so the two changes net out to ~0 cost — see Slice 1).
 
 At this slice, **operators still self-pop** — we cannot drop
 that yet without removing it in 316 places. So we need a
 shim: the dispatcher push a *sentinel* Token before calling
 the operator, so the operator's self-pop pops the sentinel
-instead of corrupting the dispatcher's state.
+instead of corrupting the dispatcher's state. Concurrently,
+`current_op_` records the active operator so `raiseerror`
+and `get_current_name` don't need to read the e-stack.
+
+**Surface added at this slice (from Slice 1):**
+- `SLIInterpreter::current_op_` field, default nullptr.
+- `class SLIFunction;` forward declaration in
+  `sli_interpreter.h`.
+- `get_current_name()` consults `current_op_` first, falls
+  through to the e-stack read.
+- `raiseerror(Name)` and `raiseerror(std::exception&)` route
+  the caller name through `get_current_name`.
+- The dispatcher writes `current_op_ = fn; ... = nullptr;`
+  around every `fn->execute(this)` call (9 sites).
 
 ```cpp
 // Single global sentinel, not refcounted.
@@ -1053,7 +1100,7 @@ non-Axis-I review surface.
 | Slice | Surface | Risk | Bench delta | Notes |
 |---|---|---|---|---|
 | 0 | none | — | baseline | record numbers |
-| 1 | dispatcher + raiseerror | low | 0 | refactor |
+| 1 | dispatcher + raiseerror | low | +4.8 % B2b — reverted | merged into Slice 4 |
 | 2 | ~20 nested-call sites | low | 0 | audit |
 | 3 | dispatcher locals | medium | -0.05–0.1 s B2b | aliasing hazards |
 | 4 | dispatcher 4-5 sites | medium | -0.05 s B2b | sentinel shim |
