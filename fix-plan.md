@@ -358,8 +358,22 @@ B4: tic 100000000 { 1 1 add_ii pop } repeat toc ==   ; bypasses the trie
 |-----------------------------------|--------|-----------|----------|--------|
 | B1 — `1 pop`                      | 1.66 s | 2.00 s    | 1.31 s   | (noise) |
 | B2 — `1 1 add pop`                | 3.43 s | 4.52 s    | 2.74 s   | **−15.7 %** |
+| B2b — `{1 1 add pop} bind repeat` | **2.39 s** | 3.46 s | **1.23 s** | (new)  |
 | B3 — `1k for` × 100k              | 3.11 s | 4.28 s    | 2.55 s   | **−15.9 %** |
 | B4 — `1 1 add_ii pop`             | 3.37 s | 3.75 s    | n/a      | (noise) |
+
+Bind saves a lot:
+
+- sli3: B2 → B2b drops 1.04 s (−30 %); per-name lookup ≈ 5.2 ns
+- nest: drops 0.97 s (−22 %)
+- gs:   drops 1.51 s (−54 %)
+
+**The bound case widens the gap to gs from 28 % to 94 %.** When
+names are pre-resolved, the dispatcher loop alone dominates:
+gs runs the same 4-token body in 12.3 ns/iter, sli3 in 23.9 ns.
+That 11.6 ns gap is the bound dispatcher overhead — pre-resolved
+procedures pay nothing for name lookup, so the cost is all in
+the iiterate/proceduretype machinery.
 
 Per-iteration cost (B2 − B1):
 
@@ -388,13 +402,9 @@ Notes:
 - Per-iteration cost on B4: ~33.5 ns sli3 vs ~37 ns nest — covers
   name lookup, dispatch, two pushes, two pops, and the integer add.
 
-Reproducing:
-```
-for tag in bench1 bench2 bench3 bench_add_ii; do
-  /usr/bin/time -p ./build/sli3 < /tmp/$tag.sli > /dev/null; done
-gs -dNODISPLAY -dQUIET -dBATCH -q /tmp/gs_bench{1,2,3}.ps
-```
-with the scripts above written to those paths.
+Reproducing: `bench/run.sh` (or `bench/run.sh build-asan/sli3`).
+Scripts live under `bench/sli/` and `bench/ps/`; details in
+`bench/README.md`.
 
 ---
 

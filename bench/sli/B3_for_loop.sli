@@ -1,0 +1,2 @@
+tic 100000 { 1 1 1000 { 2 add pop } for } repeat toc ==
+quit
