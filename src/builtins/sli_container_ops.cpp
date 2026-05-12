@@ -44,7 +44,6 @@ public:
         long n = static_cast<long>(i->top().data_.array_val->size());
         i->pop();
         i->push(n);
-        i->EStack().pop();
     }
 };
 
@@ -58,7 +57,6 @@ public:
         long n = static_cast<long>(i->top().data_.string_val->size());
         i->pop();
         i->push(n);
-        i->EStack().pop();
     }
 };
 
@@ -72,7 +70,6 @@ public:
         long n = static_cast<long>(i->top().data_.dict_val->size());
         i->pop();
         i->push(n);
-        i->EStack().pop();
     }
 };
 
@@ -99,7 +96,6 @@ public:
         Token elem = arr->get(idx);
         i->pop(2);
         i->push(elem);
-        i->EStack().pop();
     }
 };
 
@@ -135,7 +131,6 @@ public:
         }
         i->pop(2);
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -158,7 +153,6 @@ public:
         long c = static_cast<unsigned char>(s[idx]);
         i->pop(2);
         i->push(c);
-        i->EStack().pop();
     }
 };
 
@@ -181,7 +175,6 @@ public:
         Token elem = d->lookup(n);
         i->pop(2);
         i->push(elem);
-        i->EStack().pop();
     }
 };
 
@@ -211,7 +204,6 @@ public:
         }
         (*arr)[static_cast<size_t>(idx)] = i->top();
         i->pop(2);
-        i->EStack().pop();
     }
 };
 
@@ -234,7 +226,6 @@ public:
         }
         s[static_cast<size_t>(idx)] = static_cast<char>(c);
         i->pop(2);
-        i->EStack().pop();
     }
 };
 
@@ -250,7 +241,6 @@ public:
         Name n(i->pick(1).data_.name_val);
         d->insert(n, i->top());
         i->pop(3);  // dict / key / value all consumed
-        i->EStack().pop();
     }
 };
 
@@ -301,7 +291,6 @@ public:
             }
         }
         i->pop(2);  // drop path + value, keep array
-        i->EStack().pop();
     }
 };
 
@@ -345,7 +334,6 @@ public:
         out.append(a).append(b);
         i->pop(2);
         i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
-        i->EStack().pop();
     }
 };
 
@@ -379,7 +367,6 @@ public:
             i->push(i->new_token<sli3::stringtype, std::string>(std::move(pre)));
             i->push<bool>(true);
         }
-        i->EStack().pop();
     }
 };
 
@@ -404,7 +391,6 @@ public:
             Token bool_false = i->new_token<sli3::booltype, bool>(false);
             i->pop();         // drop needle
             i->push(bool_false);
-            i->EStack().pop();
             return;
         }
         size_t pos = static_cast<size_t>(hit - a->begin());
@@ -422,7 +408,6 @@ public:
         i->push(match);
         i->push(i->new_token<sli3::arraytype>(pre));
         i->push<bool>(true);
-        i->EStack().pop();
     }
 };
 
@@ -451,7 +436,6 @@ public:
                     throw std::invalid_argument("trailing");
             i->pop();
             i->push(i->new_token<sli3::integertype>(v));
-            i->EStack().pop();
         }
         catch (std::exception const&)
         {
@@ -477,7 +461,6 @@ public:
                     throw std::invalid_argument("trailing");
             i->pop();
             i->push(i->new_token<sli3::doubletype>(v));
-            i->EStack().pop();
         }
         catch (std::exception const&)
         {
@@ -505,7 +488,6 @@ public:
         }
         i->pick(1).data_.array_val->reserve(static_cast<size_t>(n));
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -525,7 +507,6 @@ public:
         }
         i->pick(1).data_.string_val->str().reserve(static_cast<size_t>(n));
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -543,7 +524,6 @@ public:
         i->require_stack_type(0, tid_);
         bool e = i->top().data_.array_val->size() == 0;
         i->push<bool>(e);
-        i->EStack().pop();
     }
 };
 
@@ -556,7 +536,6 @@ public:
         i->require_stack_type(0, sli3::stringtype);
         bool e = i->top().data_.string_val->size() == 0;
         i->push<bool>(e);
-        i->EStack().pop();
     }
 };
 
@@ -569,7 +548,6 @@ public:
         i->require_stack_type(0, sli3::dictionarytype);
         bool e = i->top().data_.dict_val->empty();
         i->push<bool>(e);
-        i->EStack().pop();
     }
 };
 
@@ -594,7 +572,6 @@ public:
             out->push_back(i->new_token<sli3::literaltype, Name>(it->first));
         i->pop();
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -613,7 +590,6 @@ public:
             out->push_back(it->second);
         i->pop();
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -635,7 +611,6 @@ public:
         }
         i->pop();
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -649,7 +624,6 @@ public:
         i->require_stack_type(0, sli3::dictionarytype);
         i->top().data_.dict_val->clear();
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -667,7 +641,6 @@ public:
         Token t(i->get_type(sli3::dictionarytype));
         t.data_.dict_val = copy;
         i->push(t);
-        i->EStack().pop();
     }
 };
 
@@ -691,7 +664,6 @@ public:
         Dictionary const* d = i->top().data_.dict_val;
         d->info(*os);
         i->pop(2);
-        i->EStack().pop();
     }
 };
 
@@ -712,7 +684,6 @@ public:
         }
         i->DStack().top_info(*os);
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -734,7 +705,6 @@ public:
         }
         i->DStack().info(*os);
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -752,7 +722,6 @@ public:
         i->require_stack_type(0, tid_);
         long n = static_cast<long>(i->top().data_.array_val->size());
         i->push<long>(n);
-        i->EStack().pop();
     }
 };
 
@@ -765,7 +734,6 @@ public:
         i->require_stack_type(0, sli3::stringtype);
         long n = static_cast<long>(i->top().data_.string_val->size());
         i->push<long>(n);
-        i->EStack().pop();
     }
 };
 
@@ -806,7 +774,6 @@ public:
             out->push_back(arr->get(static_cast<size_t>(idx + k)));
         i->pop(3);
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -840,7 +807,6 @@ public:
                                    static_cast<size_t>(count));
         i->pop(3);
         i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
-        i->EStack().pop();
     }
 };
 
@@ -863,7 +829,6 @@ public:
         for (size_t k = 0; k < b->size(); ++k) out->push_back(b->get(k));
         i->pop(2);
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -900,7 +865,6 @@ public:
         for (size_t k = pos; k < a1->size(); ++k) out->push_back(a1->get(k));
         i->pop(3);
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -930,7 +894,6 @@ public:
         out.append(s1, pos, std::string::npos);
         i->pop(3);
         i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
-        i->EStack().pop();
     }
 };
 
@@ -977,7 +940,6 @@ public:
         for (size_t k = pos + cnt; k < a1->size(); ++k) out->push_back(a1->get(k));
         i->pop(4);
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -1011,7 +973,6 @@ public:
         out.replace(static_cast<size_t>(idx), static_cast<size_t>(n), s2);
         i->pop(4);
         i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
-        i->EStack().pop();
     }
 };
 
@@ -1062,7 +1023,6 @@ public:
         Token t(i->get_type(tid_));
         t.data_.array_val = out;
         i->push(t);
-        i->EStack().pop();
     }
 };
 
@@ -1093,7 +1053,6 @@ public:
         out.erase(static_cast<size_t>(idx), static_cast<size_t>(n));  // clamps
         i->pop(3);
         i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
-        i->EStack().pop();
     }
 };
 
@@ -1124,7 +1083,6 @@ public:
         for (size_t k = pos; k < a1->size(); ++k) out->push_back(a1->get(k));
         i->pop(3);
         i->push(i->new_token<sli3::arraytype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -1151,7 +1109,6 @@ public:
         out.insert(static_cast<size_t>(idx), 1, static_cast<char>(ch));
         i->pop(3);
         i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
-        i->EStack().pop();
     }
 };
 
@@ -1172,7 +1129,6 @@ public:
         for (size_t k = 0; k < b->size(); ++k) out->push_back(b->get(k));
         i->pop(2);
         i->push(i->new_token<sli3::proceduretype>(out));
-        i->EStack().pop();
     }
 };
 
@@ -1457,7 +1413,6 @@ void CvaFunction::execute(SLIInterpreter* i) const
         // (it lives in another TU and is anonymous-namespace);
         // baselookup is one cached probe.
         Token op = i->baselookup(Name("cva_t"));
-        i->EStack().pop();
         i->EStack().push(op);
         // After cva_t runs, the caller (or surrounding code)
         // will see a (size, array) pair; the trie did `exch
@@ -1489,7 +1444,6 @@ public:
         bool present = d->known(n);
         i->pop(2);
         i->push<bool>(present);
-        i->EStack().pop();
     }
 };
 
@@ -1520,7 +1474,6 @@ public:
         {
             i->push<bool>(false);
         }
-        i->EStack().pop();
     }
 };
 
@@ -1536,7 +1489,6 @@ public:
         Name n(i->top().data_.name_val);
         i->pop();
         try { i->undef(n); } catch (...) { /* tolerate missing */ }
-        i->EStack().pop();
     }
 };
 
@@ -1561,7 +1513,6 @@ public:
         TokenArray* arr = i->pick(1).data_.array_val;
         arr->push_back(i->top());
         i->pop();  // drop value, leave container on top
-        i->EStack().pop();
     }
 };
 
@@ -1576,7 +1527,6 @@ public:
         std::string& s = i->pick(1).data_.string_val->str();
         s.push_back(static_cast<char>(i->top().data_.long_val));
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -1596,7 +1546,6 @@ public:
         TokenArray* arr = i->pick(1).data_.array_val;
         arr->insert(0, i->top());
         i->pop();  // drop value, leave container on top
-        i->EStack().pop();
     }
 };
 
@@ -1611,7 +1560,6 @@ public:
         std::string& s = i->pick(1).data_.string_val->str();
         s.insert(s.begin(), static_cast<char>(i->top().data_.long_val));
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -1740,6 +1688,88 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("prepend_a", &prepend_a_fn);
     i->createcommand("prepend_p", &prepend_p_fn);
     i->createcommand("prepend_s", &prepend_s_fn);
+
+    // Axis I bundle step 3d: every container op converted to new ABI.
+    // Dispatchers (LengthFunction, GetFunction, ...) and typed
+    // leaves (length_a_fn, get_a_fn, ...) convert together: the
+    // leaves no longer self-pop the dispatcher's slot, and the
+    // dispatcher main-case post-check pops it instead. CvaFunction's
+    // pop+push pattern on the trietype arm still works -- the
+    // dispatcher's post-check sees the baselooked-up op on top
+    // (not CvaFunction) and skips the pop.
+    append_a_fn.set_new_abi();
+    append_fn.set_new_abi();
+    append_lp_fn.set_new_abi();
+    append_p_fn.set_new_abi();
+    append_s_fn.set_new_abi();
+    cleardict_fn.set_new_abi();
+    clonedict_fn.set_new_abi();
+    cva_d_fn.set_new_abi();
+    cva_fn.set_new_abi();
+    cvd_s_fn.set_new_abi();
+    cvi_s_fn.set_new_abi();
+    empty_a_fn.set_new_abi();
+    empty_d_fn.set_new_abi();
+    empty_fn.set_new_abi();
+    empty_s_fn.set_new_abi();
+    erase_a_fn.set_new_abi();
+    erase_p_fn.set_new_abi();
+    erase_s_fn.set_new_abi();
+    get_a_a_fn.set_new_abi();
+    get_a_fn.set_new_abi();
+    get_d_fn.set_new_abi();
+    get_fn.set_new_abi();
+    get_lp_fn.set_new_abi();
+    get_p_fn.set_new_abi();
+    get_s_fn.set_new_abi();
+    getinterval_a_fn.set_new_abi();
+    getinterval_fn.set_new_abi();
+    getinterval_s_fn.set_new_abi();
+    info_d_fn.set_new_abi();
+    info_ds_fn.set_new_abi();
+    insert_a_fn.set_new_abi();
+    insert_s_fn.set_new_abi();
+    insertelement_a_fn.set_new_abi();
+    insertelement_fn.set_new_abi();
+    insertelement_s_fn.set_new_abi();
+    join_a_fn.set_new_abi();
+    join_fn.set_new_abi();
+    join_p_fn.set_new_abi();
+    join_s_fn.set_new_abi();
+    keys_fn.set_new_abi();
+    known_fn.set_new_abi();
+    length_a_fn.set_new_abi();
+    length_d_fn.set_new_abi();
+    length_fn.set_new_abi();
+    length_lp_fn.set_new_abi();
+    length_p_fn.set_new_abi();
+    length_s_fn.set_new_abi();
+    prepend_a_fn.set_new_abi();
+    prepend_fn.set_new_abi();
+    prepend_p_fn.set_new_abi();
+    prepend_s_fn.set_new_abi();
+    put_a_a_t_fn.set_new_abi();
+    put_a_fn.set_new_abi();
+    put_d_fn.set_new_abi();
+    put_fn.set_new_abi();
+    put_lp_fn.set_new_abi();
+    put_p_fn.set_new_abi();
+    put_s_fn.set_new_abi();
+    replace_a_fn.set_new_abi();
+    replace_s_fn.set_new_abi();
+    reserve_a_fn.set_new_abi();
+    reserve_fn.set_new_abi();
+    reserve_s_fn.set_new_abi();
+    search_a_fn.set_new_abi();
+    search_fn.set_new_abi();
+    search_s_fn.set_new_abi();
+    size_a_fn.set_new_abi();
+    size_fn.set_new_abi();
+    size_s_fn.set_new_abi();
+    topinfo_d_fn.set_new_abi();
+    undef_fn.set_new_abi();
+    values_fn.set_new_abi();
+    where_fn.set_new_abi();
 }
 
 }  // namespace sli3
