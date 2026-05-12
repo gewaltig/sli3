@@ -1,10 +1,12 @@
 # sli3 implementation spec
 
-Working document for reviving sli3. **Status as of 2026-05-11:**
+Working document for reviving sli3. **Status as of 2026-05-12:**
 Stages 1–5 done; bootstrap functional; full fix-plan Stages 0–5,
-7, and 9 done; Stage 9 (trie compaction, 10 batches) complete at
-tag `stage9-complete`. Work happens on the `revive` branch. See
-the Decisions log at the bottom for chronological entries.
+7, 9, 10 done; Stage 9 (trie compaction, 10 batches) complete at
+tag `stage9-complete`; **Axis I bundle** (dispatcher pre-pop ABI)
+complete at commit `151e5e5`. Work happens on the `revive`
+branch. See the Decisions log at the bottom for chronological
+entries.
 
 Open questions Q1–Q13 are answered (see Decisions). Companion
 documents:
@@ -891,3 +893,75 @@ it's discoverable later without scrolling:
   per-error-name handlers placed in `errordict` the way gs
   does. NEST 2.x never used that mechanism so this is fine for
   scope, but it's a documented PS-faithfulness gap.
+
+- 2026-05-12: **Axis I bundle complete** (commits `46ef896`
+  through `151e5e5`). Dispatcher-restructure axis I shipped as a
+  bundled change: `current_op_` field reroutes raiseerror /
+  get_current_name off the e-stack-top read; per-op
+  `EStack().pop()` ABI replaced by a dispatcher pre-pop
+  contract; ~250 of ~316 operator sites converted to new-ABI
+  via `set_new_abi()` opt-in.
+
+  **Contract revision in step 4.** The original plan (step 3a
+  dual-ABI skeleton) had the dispatcher post-check after
+  `fn->execute` — if top is still the fn slot, pop. Step 4
+  revised this to **pre-pop**: the dispatcher pops the fn
+  slot BEFORE `fn->execute` for new-ABI ops. `raiseerror`
+  conditionally skips its own pop based on
+  `current_op_->uses_new_abi()`. `FunctionType::execute`
+  (plain mode) mirrors the pre-pop so test_dispatch_parity
+  remains valid. The pre-pop contract let ~30 more ops
+  convert (conditionals, switch family, cv* dispatcher arms,
+  savestate/restorestate) that the post-check couldn't
+  handle cleanly.
+
+  **Step-4 audit caught four latent bugs.** Operators whose
+  bodies had no `EStack().pop()` AND weren't marked new-ABI
+  were silently broken — the step-3 post-pop fallback was
+  masking them. Pre-step-4 symptom was infinite loops or
+  silent stack corruption; post-step-4 made the bugs visible
+  immediately. Fixes: `pwrite_fn` (the `<--` operator — same
+  body as `<-`/`write_fn` but `set_new_abi()` was missed in
+  step 3f, so `42 ==` was broken end-to-end); `arrayload_fn`
+  (silent ::nulltype on the operand stack); `getmax_fn` /
+  `getmin_fn` (returned ::nulltype in REPL context). All four
+  needed `set_new_abi()` calls in their files' init function.
+  Regression test landed at `tests/test_dispatch_abi.cpp`
+  — covers both the top-level dispatch path and the iiterate
+  fast path (operator inside a `{ ... } exec` proc body), and
+  asserts on e-stack depth post-call (since silent frame
+  leaks were the failure mode).
+
+  **Old-ABI holdouts (stay old by design).** `StopFunction`
+  (multi-frame unwind by mark), `CloseinputFunction`
+  (multi-frame unwind by xistreamtype), `Map_fn` /
+  `MapIndexed_fn` / `MapThread_fn` (entry funcs that push iter
+  frames), `IMap_fn` / `IMapIndexed_fn` / `IMapThread_fn` (the
+  iter funcs themselves), `ExecFunction` (swap with ostack
+  top), `ExitFunction` (multi-frame pop by mark),
+  `EvalstringFunction` (sets up [xistream, iparse]),
+  `CloseStreamFunction` (manages descriptor lifetime),
+  `IparseFunction` / `IparsestdinFunction` (stay on the
+  e-stack across stream reads).
+
+  **Bench delta** (best-of-five vs `stage9-complete`): B1
+  1.33→0.95 (−29 %), B2 2.40→1.98 (−18 %), B2b 1.91→1.79
+  (−6 %), B3 2.10→1.52 (−28 %), B5 16.34→1.51 (−91 %, from
+  Slice 11 pvalue cache landing in the same bundle), B7
+  2.19→2.10, B9 2.19→2.08, B10 1.82→1.80. sli3 now beats gs
+  on 5 of 9 benches by a wide margin (−27 % to −41 %); the
+  remaining gaps on B2b / B7 / B8 / B9 are structural and the
+  targets of Axis I slice 8 (inline body walk) plus Axes
+  II / III.
+
+  **Operator authoring contract under the new ABI** (added to
+  CLAUDE.md's "Stack-handling discipline" section): an
+  operator body with NO `i->EStack().pop()` MUST be marked
+  new-ABI via `set_new_abi()` in its init function. Otherwise
+  (a) the main dispatcher case sees the slot still on top
+  after `fn->execute` and re-dispatches → infinite loop, or
+  (b) the iiterate fast path's sentinel push for old-ABI ops
+  leaks a nulltype onto the e-stack and the next op sees the
+  wrong stack shape. Audit script: any class with
+  `void execute` whose body has no `EStack().pop()` must
+  appear in some init's `set_new_abi()` call list.

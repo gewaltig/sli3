@@ -104,21 +104,37 @@ I trusted the commit annotation.
 These items have a planned resolution path; not yet started or
 partial.
 
-- **Axis I — dispatcher restructure** (`doc/dispatch_restructure_plan.md`).
-  Subsumes:
-  - "316 `i->EStack().pop()` sites" (per-op self-pop ABI).
-  - Function-Token push on every operator dispatch.
-  - `raiseerror` / `get_current_name` reading the e-stack top
-    (Slice 1 introduces `current_op_`).
-  - Tail-recursion limited to `iiteratetype` (Slice 8 adopts gs's
-    `bot:`/`out:`/`up:` multi-level cascade; see also
-    `doc/tail_recursion.md`).
-  - Iter-case re-pick of `proc` / `pos` per token (Slice 3
-    register-lift).
-  Estimated bench delta from
-  `doc/compact_procedure_spec.md`: B2b 1.91 s → ~1.55 s.
+- **Axis I bundle — dispatcher pre-pop ABI** ✅ **done** (commit
+  `151e5e5`, 2026-05-12). The bundled steps:
+  - `current_op_` field on SLIInterpreter; `raiseerror` /
+    `get_current_name` route through it instead of reading the
+    e-stack top (steps 1–2).
+  - Pos-pointer hoist out of the iter-case label (Slice 3,
+    commit `a9c3d25`).
+  - Name(long) bounds check gated on !NDEBUG (Slice 11, commit
+    `aa14150`).
+  - Per-op ABI conversion: ~250 of ~316 sites switched to new
+    ABI (no self-pop). The dispatcher pre-pops the fn slot
+    before `fn->execute` for new-ABI ops (step 4). Remaining
+    old-ABI ops manage their own frame (StopFunction,
+    CloseinputFunction, Map family, ExecFunction, ExitFunction,
+    iparse / iparsestdin). Regression test:
+    `tests/test_dispatch_abi.cpp`.
+
+  Bench delta (best-of-five vs `stage9-complete`):
+  B1 −29 %, B2 −18 %, B2b −6 %, B3 −28 %, B5 −91 % (1.51 vs
+  16.34 — Slice 11 pvalue cache hit B5 hardest), B7 −4 %,
+  B9 −5 %, B10 −1 %. B2b gap to gs: 47 % (was 55 %). The
+  remaining structural win on B2b is **Axis I slice 8** (inline
+  procedure-body walk into the dispatcher), still open.
+
+- **Axis I slice 8 — inline body walk.** Open. The dispatcher's
+  `iiterate` / `irepeat` / `ifor` / `iforall` cases collapse into
+  one body-walk loop (gs's `bot:`/`out:`/`up:` topology).
+  Predicted: B2b 1.79 s → ~1.50 s. Side effect: multi-level
+  TCO falls out for free (see `doc/tail_recursion.md`).
 - **Axis II — hot-op inlining**
-  (`doc/compact_procedure_spec.md`). Depends on Axis I.
+  (`doc/compact_procedure_spec.md`). Depends on Axis I slice 8.
 - **Axis III — compact procedure storage** (`CompactProc`).
   Lowest-priority of the three axes; depends on I + II.
 

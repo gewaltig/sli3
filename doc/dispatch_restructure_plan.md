@@ -355,51 +355,58 @@ plan is:
   current.
 - Slice 11 is new.
 
-## Axis I bundle (replaces old Slices 4-7)
+## Axis I bundle (replaces old Slices 4-7) — ✅ DONE 2026-05-12
 
-Goal: one atomic change that adds `current_op_`, drops the
+Goal: one bundled change that adds `current_op_`, drops the
 function-Token push at the dispatcher, drops the per-operator
-`EStack().pop()` from all 316 sites, and removes the dual-ABI
-shim. The intermediate states have unacceptable bench profiles
-(per re-cost above); ship as a bundle so the post-bundle bench
-shows a clear win.
+`EStack().pop()`, and inverts the contract from "operator self-pops
+on the way out" to "dispatcher pre-pops on the way in".
 
-Approach:
-1. Add `SLIInterpreter::current_op_` field + forward
+**Actual approach (what shipped):**
+
+1. ✅ Add `SLIInterpreter::current_op_` field + forward
    declaration. `get_current_name` consults `current_op_`
-   first, falls through to e-stack read (unchanged behavior at
-   this step because dispatcher doesn't write `current_op_`
-   yet). Compiles + tests green. **Commit 1.**
-2. Dispatcher: at all 9 fn-dispatch sites, set `current_op_ = fn`
-   before the call, clear after. Drop the explicit push of the
-   function Token in the iter cases (the dispatcher hands the
-   fn Token's identity via `current_op_`, doesn't need it on the
-   e-stack). The standalone `case sli3::functiontype:` already
-   has the fn Token on top; overwrite it with a sentinel before
-   calling. Operators still self-pop (the sentinel) at this
-   step. **Commit 2.** Bench check: expected to regress
-   slightly; OK because Commit 3 recovers.
-3. Convert all 316 `EStack().pop()` sites in `src/builtins/` to
-   no-ops (dispatcher will pop). Set `new_abi_ = true` on each
-   `SLIFunction` instance. Per-file commits within this step
-   (sli_stack.cpp, sli_math.cpp, sli_control.cpp, ...) with
-   ctest after each. **Commits 3.a through 3.h.**
-4. Dispatcher: drop the sentinel write; just don't push
-   anything. Operators don't pop. Remove the `new_abi_` flag.
-   **Commit 4.**
+   first, falls through to e-stack read. **Commit `27d5380`.**
+2. ✅ Dispatcher: at all 9 fn-dispatch sites, set `current_op_ = fn`
+   before the call, clear after. **Commit `86d2d3a`.** Iter
+   cases push a `nulltype` sentinel for old-ABI ops so their
+   self-pop doesn't corrupt the iter frame.
+3. ✅ Per-file ABI conversion (commits `d3766b8` through
+   `373d24f`):
+   - 3a — dual-ABI dispatcher skeleton (post-check pops if
+     new-ABI op left its slot on top). `46ef896`.
+   - 3b — `sli_stack.cpp` (~16 ops). `d3766b8` / `ea9f9d8`.
+   - 3c — `sli_math.cpp` (~105 ops). `f88f18c`.
+   - 3d — `sli_container_ops.cpp` (~73 ops). `f89ffbb`.
+   - 3e — `sli_control.cpp` trailing-pop ops (~17 ops).
+     `25f78c1`.
+   - 3f — 6 smaller files (typecheck, io, startup, array_module,
+     state_ops, readline). `373d24f`.
+4. ✅ **Contract revision** (commit `151e5e5`). The post-check
+   approach was replaced by a **pre-pop contract**: the
+   dispatcher pops the fn slot BEFORE `fn->execute` for
+   new-ABI ops. `raiseerror(Name)` and `raiseerror(exception&)`
+   conditionally skip their own pop based on
+   `current_op_->uses_new_abi()`. `FunctionType::execute`
+   (plain mode) mirrors the pre-pop. This enabled converting
+   ~30 more ops (conditionals, switch family, cv* dispatcher
+   arms, savestate/restorestate) that the post-check couldn't
+   handle. **Step-4 audit caught four latent bugs** that the
+   post-check fallback had been masking (pwrite_fn → `==` was
+   broken; arrayload_fn, getmax_fn, getmin_fn). Regression
+   test: `tests/test_dispatch_abi.cpp`.
 
-Per-step ctest must pass. Per-step bench check is informative
-only; the gate is at Commit 4.
+**Bench gate**: B2b ≤ 1.80 s, B7 ≤ 3.10 s. **Hit**: B2b 1.79 s,
+B7 2.10 s (best-of-five at `151e5e5`). B1 down to 0.95 s (was
+1.33 at `stage9-complete`).
 
-Bench gate at end of bundle: B2b ≤ 1.80 s, B7 ≤ 3.10 s, B9 ≤
-3.60 s. (Conservative: 5-10 % each. Less than the model's max
-predictions to leave room for measurement noise.)
-
-Inventory pre-pass before starting: re-confirm the audit in
-`doc/axis1_slice2_audit.md` is still accurate. All 51 sites
-should default to outer attribution. No code changes needed at
-those sites — they fall through naturally to outer attribution
-because the inner `.execute(i)` doesn't touch `current_op_`.
+**Status of the dual-ABI flag**: `new_abi_` remains as an opt-in
+flag. ~250 of ~316 sites are new-ABI; the rest (Map family iter
+setups, ExecFunction, ExitFunction, StopFunction,
+CloseinputFunction, iparse / iparsestdin) stay old by design —
+they manage their own frame in non-trivial ways. Flipping the
+default and dropping the flag is a future cleanup with no bench
+impact.
 
 ## Slice 11 — pvalue cache on Name (P1 from next_steps.md)
 
@@ -1387,7 +1394,7 @@ non-Axis-I review surface.
 
 ## Risk dashboard
 
-**2026-05-12: dashboard rebuilt for the new plan (post-re-cost).**
+**2026-05-12: post-Axis-I-bundle update.**
 
 | Slice | Surface | Risk | Bench delta (measured / expected) | Notes |
 |---|---|---|---|---|
@@ -1395,10 +1402,10 @@ non-Axis-I review surface.
 | 1 | dispatcher + raiseerror | low | +4.8 % B2b — reverted | merged into Axis I bundle |
 | 2 | ~51 nested-call sites audit | low | 0 | ✓ done (`doc/axis1_slice2_audit.md`) |
 | 3 | pos pointer hoist in iter cases | medium | **−15.6 % B1, −6.9 % B2b, −9.0 % B3** | ✓ done (commit `a9c3d25`) |
-| Axis I bundle (4-7) | dispatcher + 316 builtin sites | high | expected **−5 to −10 % B2b**, larger on B7/B9 (Axis I cleanup of refcount + vector::erase) | ships as one bundle |
-| 8 | dispatcher rewrite | **high** | expected **−15 to −20 % B2b** | unchanged from old plan; expected larger after re-cost |
+| Axis I bundle (4-7) | dispatcher + ~250/316 builtin sites | high | **measured: B1 −29 %, B3 −28 %, B5 −91 % (also from Slice 11), B7 −4 %; B2b parity** | ✓ done (commits `46ef896`..`151e5e5`). Step 4 pre-pop contract revision + audit fixes (pwrite_fn / arrayload_fn / getmax_fn / getmin_fn). Regression test: `tests/test_dispatch_abi.cpp`. |
+| 8 | dispatcher rewrite (inline body walk) | **high** | expected **−15 to −20 % B2b** | unchanged; the remaining structural win on B2b. Multi-level TCO falls out for free (`doc/tail_recursion.md`). |
 | 9 | optional cleanup | low | 0 | continuation ops; cosmetic |
-| **11 (new)** | Name::values_ pvalue cache | medium | expected **−15-20 % on B5/B7/B10, −5 % B9** | gs-derived; addresses the dict-pressure bottleneck the original plan didn't see |
+| 11 | Name::values_ pvalue cache | medium | **measured: B5 16.34 → 1.51 s (−91 %), B7 −4 %, B3 −13 %, B10 −1 %** | ✓ done (commit `aa14150` for the !NDEBUG gate; the cache itself landed earlier in Slice 11 commits). Single biggest perf win to date. |
 
 Stale rows from the old dashboard:
 | 2 | ~20 nested-call sites | low | 0 | audit |

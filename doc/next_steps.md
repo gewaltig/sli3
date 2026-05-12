@@ -1,54 +1,68 @@
 # sli3 — consolidated next-step roadmap
 
-Revision date: 2026-05-12 (post-Slice-11). Anchor: commit
-`aa14150` (Slice 11 Name(long) bounds-check gate landed).
+Revision date: 2026-05-12 (post-Axis-I-bundle). Anchor: commit
+`151e5e5` (Axis I bundle step 4 landed: pre-pop dispatcher
+contract + new-ABI audit fixes).
 
-> **2026-05-12 update**: the original Axis I/II/III ordering has
-> been **re-prioritised** after B7-B10 organic-workload data and
-> profiling showed the original cost model was stale. See
-> `doc/dispatch_restructure_plan.md` "Re-costing (2026-05-12)"
-> for the analysis. Key changes from the 2026-05-11 draft:
+> **2026-05-12 final update**: the **Axis I bundle is done**.
+> Bundled scope: `current_op_` rerouting, pos-pointer hoist
+> (Slice 3, commit `a9c3d25`), Name(long) bounds check gate
+> (Slice 11, commit `aa14150`), and the per-file ABI conversion
+> (steps 3a–3f + step 4 contract revision, commits `46ef896`
+> through `151e5e5`). The pre-pop contract is now the default
+> for ~250 of ~316 operator sites; the remaining old-ABI ops
+> manage their own frame in non-trivial ways and stay old by
+> design. Step 4's audit fixed four latent bugs (pwrite_fn /
+> arrayload_fn / getmax_fn / getmin_fn) — regression test in
+> `tests/test_dispatch_abi.cpp`.
 >
-> - **Slice 11 (Name(long) bounds-check gate) shipped**
->   (commit `aa14150`). Net effect: clean −8 to −12 % on B1,
->   B2, B3, B5, B7, B8, B10 (every bench that does any name
->   dispatch); B2b and B9 see smaller wins. After Slice 3
->   + 11, sli3 wins against gs on 5 of 9 benches; B1/B2/B3/B5
->   are now significant wins (−21 to −40 %).
-> - **Axes I slices 4-7 collapse into one "Axis I bundle"**
->   that ships as a unit. The per-slice bench gates are
->   unmet in isolation (each slice pays a setup cost; only
->   the combined net is favorable).
+> Bench summary: B1 1.03 → 0.95, B3 1.52 → 1.52 (parity), B5
+> 1.51 → 1.51 (parity), B2b 1.79 → 1.79 (parity). The bundle's
+> wins are mostly behind us; the remaining wins are **Axis I
+> slice 8** (inline body walk) for B2b, and Axis II / III for
+> the procedure-call-heavy benches (B7/B8/B9).
+>
 > - **Bench-measurement hygiene**: any `echo ... | ./build/sli3`
 >   pipeline without a trailing `quit` in the input hangs in
->   REPL at 100 % CPU. The first ~12 hours of Slice 3 /
->   Slice 11 measurements were contaminated by two such
->   orphans (one from each of two early sanity-check `Bash`
->   commands that used `run_in_background` and never returned).
->   Clean numbers below replace the orphan-contaminated ones
->   in the Slice 3 + Slice 11 commit messages.
+>   REPL at 100 % CPU. Always include `quit` in piped input.
 
-## Clean bench standing (post-Slice-11, no orphan contamination)
+## Clean bench standing (post-Axis-I-bundle)
 
 Best-of-five wall-time (`/usr/bin/time -p`, real), Apple Silicon,
-AC power, no background load:
+AC power, no background load. Anchor: commit `151e5e5`.
 
 | Bench | sli3 | gs 10.07 | sli3 vs gs |
 |-------|-----:|---------:|-----------:|
-| B1  1 pop                     | 1.03 | 1.31 | **−21 %** (sli3 wins) |
-| B2  1 1 add pop               | 1.99 | 2.69 | **−26 %** (sli3 wins) |
+| B1  1 pop                     | 0.95 | 1.31 | **−27 %** (sli3 wins) |
+| B2  1 1 add pop               | 1.98 | 2.68 | **−26 %** (sli3 wins) |
 | B2b bound proc                | 1.79 | 1.22 | +47 % (sli3 trails) |
-| B3  nested for                | 1.74 | 2.57 | **−32 %** (sli3 wins) |
-| B5  dict alloc + lookup       | 1.50 | 2.49 | **−40 %** (sli3 wins) |
-| B7  bubble sort               | 2.19 | 1.99 | +10 % (sli3 trails) |
-| B8  insertion sort            | 1.53 | 1.01 | +51 % (sli3 trails) |
-| B9  recursive fib(28)         | 2.19 | 1.71 | +28 % (sli3 trails) |
-| B10 matmul 50x50              | 1.82 | 1.89 | **−4 %** (sli3 wins, narrowly) |
+| B3  nested for                | 1.52 | 2.57 | **−41 %** (sli3 wins) |
+| B5  dict alloc + lookup       | 1.51 | 2.47 | **−39 %** (sli3 wins) |
+| B7  bubble sort               | 2.10 | 1.99 | +6 %  (sli3 trails) |
+| B8  insertion sort            | 1.47 | 1.01 | +46 % (sli3 trails) |
+| B9  recursive fib(28)         | 2.08 | 1.70 | +22 % (sli3 trails) |
+| B10 matmul 50x50              | 1.80 | 1.89 | **−5 %** (sli3 wins) |
 
-5 wins, 4 trails. The remaining gaps (B2b, B7, B8, B9, B7 +10 %)
-trace to the same dispatcher overhead: per-operator push + self-pop
-+ name handle traffic. The Axis I bundle (drop fn-Token push +
-drop 316-site self-pop) is the next target.
+5 wins, 4 trails (same shape as post-Slice-11, with extra B3
+−9 pp and B7 −4 pp from step 4). The remaining gaps (B2b, B7,
+B8, B9) are now structural: **the inline body walk (Axis I
+slice 8)** is the right target for B2b; gs's threaded-code
+dispatch is intrinsic for the rest.
+
+Also vs NEST 2.20:
+
+| Bench | sli3 | nest | sli3 vs nest |
+|---|--:|--:|--:|
+| B1  | 0.95 | 1.99 | 2.1× |
+| B2  | 1.98 | 4.35 | 2.2× |
+| B2b | 1.79 | 3.41 | 1.9× |
+| B3  | 1.52 | 4.28 | 2.8× |
+| B5  | 1.51 | 4.31 | 2.9× |
+| B6  | 2.97 | 3.98 | 1.34× |
+| B9  | 2.08 | 4.24 | 2.0× |
+
+sli3 is consistently 1.3–2.9× faster than NEST 2.20 across the
+board.
 
 Revision date (original): 2026-05-11. Anchor: tag `stage9-complete`.
 
@@ -440,27 +454,32 @@ Done:
   Axis I Slice 3 — pos pointer hoist in iter cases             (commit a9c3d25)
   Bench expansion — B7-B10 organic workloads                   (commit 31d6518)
 
-Next (re-prioritised based on profile data):
+Done (Axis I bundle, 2026-05-12):
+  Axis I Slice 11 (Name(long) bounds-check gate)               (commit aa14150)
+  Axis I bundle steps 1-4 (current_op_ + ABI conversion)       (commits 27d5380..151e5e5)
 
-  1. Slice 11 (P1 pvalue cache).
-     Standalone, biggest win on B5/B7/B10 (~−15-20 %) plus
-     incidental win on B9. Independent of Axis I bundle.
+Next:
 
-  2. Axis I bundle (was Slices 4-7).
-     Single bundle: add current_op_, drop fn-Token push, drop
-     316-site self-pop, remove dual-ABI shim. Per-step ctest
-     gate; bench gate only at end of bundle.
+  1. Axis I Slice 8 (inline body walk).
+     Adopt gs's bot:/out:/up: topology. Collapses iter cases into
+     one body-walk loop; multi-level TCO falls out for free.
+     Biggest structural win on B2b (~−15-20 % expected — 1.79 →
+     ~1.50 s). The single most impactful remaining structural
+     change.
 
-  3. Axis I Slice 8 (inline body walk).
-     Biggest structural win on B2b (~−15-20 % expected).
+  2. Flip new_abi_ default to true; drop the dual-ABI flag.
+     Each remaining old-ABI op gets an explicit decision
+     (rewrite vs. keep). Cleanup, no bench impact.
 
-  4. Axis I Slice 9 (continuation ops).
-     Optional cosmetic cleanup.
+  3. Axis I Slice 9 (continuation ops).
+     Optional cosmetic cleanup. Remove iiteratetype / irepeattype /
+     ifortype / iforalltype enum slots in favour of regular
+     continuation operators. 0 perf, simpler dispatcher.
 
-  5. Axis II (hot-op inlining, per doc/compact_procedure_spec.md).
+  4. Axis II (hot-op inlining, per doc/compact_procedure_spec.md).
      ~3-5 % B9 from inlining lt/dup/sub/add/exch/ifelse.
 
-  6. Axis III (compact procedure storage, per doc/compact_procedure_spec.md).
+  5. Axis III (compact procedure storage, per doc/compact_procedure_spec.md).
      Last and smallest. Only if B2b after Axes I + II still > 10 %
      above gs.
 

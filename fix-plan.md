@@ -8,7 +8,7 @@ Throughout: **tests before fixes**. CLAUDE.md's `TDD-first when bootstrap blocks
 
 ---
 
-## Status snapshot (2026-05-11, tag `stage9-complete`)
+## Status snapshot (2026-05-12, post-Axis-I-bundle)
 
 | Stage | Title | Status |
 |-------|-------|--------|
@@ -23,11 +23,13 @@ Throughout: **tests before fixes**. CLAUDE.md's `TDD-first when bootstrap blocks
 | 8 | Cleanup / hardening | ▶ partial — see `code-review.md#open--stage-8-cleanup-items` |
 | 9 | Compact hot operators (10 batches) | ✅ done (tag `stage9-complete`) |
 | 10 | savestate / restorestate | ✅ done (commit `3a7edec`) — dict-stack snapshot still pending Stage 6 closure on `DictionaryType` |
+| 11 | Axis I bundle (dispatcher pre-pop ABI) | ✅ done (commit `151e5e5`) — pre-pop contract live; ~250 of ~316 operator sites converted; new-ABI is the default for converted ops with `set_new_abi()` opt-in. See `tests/test_dispatch_abi.cpp` for the regression test. |
 
-**Next phase: performance optimization driven by gs 10.07.** The
-correctness story is in a steady state. The remaining wins come from
-restructuring the dispatcher to match gs's `interp()` topology and
-related changes. Authoritative plans:
+**Next phase: continued performance work on top of the Axis I
+bundle.** The dispatcher ABI is now restructured. Remaining wins
+come from the body-walk topology (Axis I slice 8 — gs's
+`bot:`/`out:`/`up:`) and the gs-derived proposals
+(`doc/next_steps.md` P1–P4). Authoritative plans:
 
 - `doc/gs_reference.md` — gs interpreter architecture (read first).
 - `doc/tail_recursion.md` — side-by-side TCO comparison.
@@ -39,7 +41,7 @@ related changes. Authoritative plans:
   proposals beyond Axis I-III (pvalue cache, operator return-code
   protocol, continuation-op iter style, multi-level TCO).
 
-Bench standing at `stage9-complete`:
+Bench standing at `stage9-complete` (2026-05-11, for reference):
 
 | Bench | sli3 | nest 2.20 | gs 10.07 | vs gs |
 |-------|------|-----------|----------|-------|
@@ -50,10 +52,29 @@ Bench standing at `stage9-complete`:
 | B4 — `1 1 add_ii pop` × 100M | 2.41 s | 3.94 s | n/a | n/a |
 | B5 — dict alloc + lookup × 100M | 16.34 s | 43.13 s | 24.67 s | −34 % |
 
-Predictions in `doc/compact_procedure_spec.md` § Bench expectations:
-Axis I drops B2b to ~1.55 s; +II ~1.35 s; +III ~1.30 s. The remaining
-gap to gs on B2b is ~7 ns/iter of pure dispatcher overhead, structural
-in nature.
+**Post-Axis-I-bundle (2026-05-12, commit `151e5e5`)**:
+
+| Bench | sli3 | nest 2.20 | gs 10.07 | sli3 vs nest | sli3 vs gs |
+|---|---|---|---|---|---|
+| B1   | 0.95 | 1.99 | 1.31 | 2.1× | 1.4× |
+| B2   | 1.98 | 4.35 | 2.68 | 2.2× | 1.35× |
+| B2b  | 1.79 | 3.41 | 1.22 | 1.9× | 0.68× |
+| B3   | 1.52 | 4.28 | 2.57 | 2.8× | 1.7× |
+| B4   | 1.94 |  —   |  —   |   —  |   —   |
+| B5   | 1.51 | 4.31 | 2.47 | 2.9× | 1.6× |
+| B6   | 2.97 | 3.98 |  —   | 1.34× |   —   |
+| B6n  | 2.64 | 3.37 |  —   | 1.28× |   —   |
+| B7   | 2.10 |  —   | 1.99 |   —  | 0.95× |
+| B8   | 1.47 |  —   | 1.01 |   —  | 0.69× |
+| B9   | 2.08 | 4.24 | 1.70 | 2.0× | 0.82× |
+| B10  | 1.80 |  —   | 1.89 |   —  | 1.05× |
+
+The Axis I bundle (Slice 11 + axis-1 steps 1–4) brought B1, B3, B5
+into the **−25 % to −40 % range vs gs**; sli3 is now consistently
+2–3× faster than NEST 2.20 across the board. B2b still trails gs
+by 47 % — that's Axis I slice 8 (inline body walk) territory.
+B7/B8/B9 trail gs because gs's threaded-code dispatch is intrinsic;
+Axis II / Axis III target the remaining gap.
 
 ---
 

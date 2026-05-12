@@ -1,7 +1,23 @@
 # Axis I bundle — step 3 per-file conversion plan
 
+> **2026-05-12: ✅ DONE.** Step 3 shipped across commits
+> `d3766b8` (3b sli_stack) → `f88f18c` (3c sli_math) → `f89ffbb`
+> (3d sli_container_ops) → `25f78c1` (3e sli_control) → `373d24f`
+> (3f six small files). Step 4 (contract revision) landed in
+> commit `151e5e5` — see `doc/dispatch_restructure_plan.md`
+> "Axis I bundle". This document is preserved for historical
+> reference; the actual conversion deviated from the plan in
+> two ways: (1) the step-3 post-check was replaced by a step-4
+> pre-pop contract, which let more ops convert than this plan
+> anticipated (conditionals, switch family, cv* dispatcher arms,
+> savestate/restorestate); (2) the step-4 audit caught four
+> latent bugs (pwrite_fn / arrayload_fn / getmax_fn / getmin_fn)
+> whose bodies had no e-stack pop but weren't marked new-ABI —
+> the post-check fallback had been masking them. Regression
+> test landed in `tests/test_dispatch_abi.cpp`.
+
 Revision: 2026-05-12. Anchor: commit `ea9f9d8` (sli_stack.cpp on
-new ABI; rest pending).
+new ABI; rest pending — but see status note above).
 
 This document lists every operator in `src/builtins/` and classifies
 it for the step-3 ABI conversion. The classification controls which
