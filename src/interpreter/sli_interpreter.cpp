@@ -4,6 +4,7 @@
 #include "sli_container_ops.h"
 #include "sli_control.h"
 #include "sli_dicttype.h"
+#include "sli_function.h"
 #include "sli_functiontype.h"
 #include "sli_io_ops.h"
 #include "sli_state_ops.h"
@@ -363,6 +364,15 @@ Token SLIInterpreter::read_token(std::istream &in) {
 }
 
 Name SLIInterpreter::get_current_name(void) const {
+  // Axis I bundle step 1: prefer the dispatcher's transient
+  // current_op_ record over the e-stack read. Today (step 1)
+  // current_op_ stays nullptr because the dispatcher doesn't
+  // write it yet; we fall through to the e-stack-top read
+  // unchanged. Step 2 of the bundle will populate current_op_
+  // before each fn->execute call so this branch becomes the
+  // primary path.
+  if (current_op_)
+    return current_op_->get_name();
   if (execution_stack_.top().is_of_type(sli3::functiontype))
     return execution_stack_.top().data_.func_val->get_name();
   //	TrieDatum *trie=dynamic_cast<TrieDatum *>(EStack.top().datum());

@@ -28,6 +28,7 @@ namespace sli3
     extern int signalflag;
 
     class Parser;
+    class SLIFunction;
 
     enum message_level
     {
@@ -596,6 +597,15 @@ namespace sli3
     private:
 	bool count_calls_ = false;
 	std::unordered_map<void const*, uint64_t> call_counts_;
+
+	// Axis I bundle step 1: the currently-executing operator.
+	// Step 2 will have the dispatcher set this to fn before each
+	// fn->execute(this) call and clear after. Until then it
+	// stays nullptr and get_current_name falls through to the
+	// e-stack-top read (today's behavior). Transient state --
+	// non-null only inside an fn->execute call; not preserved
+	// across snapshot/restore boundaries.
+	SLIFunction const* current_op_ = nullptr;
 
 	std::vector<SLIModule *> modules_;
 	DictionaryStack dictionary_stack_;
