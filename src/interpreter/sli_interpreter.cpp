@@ -747,6 +747,14 @@ int SLIInterpreter::execute_debug_(size_t exitlevel) {
 }
 
 int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
+#ifdef SLI3_INLINE_BODY_WALK_ENABLED
+  // Axis I slice 8 step 1 (scaffold): hand off to the unified
+  // body-walk dispatcher. Today this is a byte-identical copy
+  // of the OFF-mode body below. Step 2 unifies the four iter
+  // cases in execute_dispatch_inline_; step 4 deletes this OFF
+  // path entirely and renames the inline_ method back.
+  return execute_dispatch_inline_(exitlevel);
+#endif
   int exitcode = 0;
   const Name exitcode_name("exitcode");
   const Token null_val = new_token<sli3::integertype>(0);
@@ -1294,6 +1302,461 @@ exit_interpreter:
   // bootstrap; otherwise default to 0. (During the very first call
   // to the dispatcher the script may not have populated the entry
   // yet.)
+  if (status_dict_) {
+    Token exit_tk = (*status_dict_)["exitcode"];
+    if (exit_tk.is_of_type(sli3::integertype))
+      exitcode = exit_tk.data_.long_val;
+  }
+
+  if (exitcode != 0 && error_dict_)
+    error_dict_->insert(quitbyerror_name, new_token<sli3::booltype>(true));
+
+  return exitcode;
+}
+
+// =====================================================================
+// Axis I slice 8 step 1 (scaffold).
+//
+// execute_dispatch_inline_ is a verbatim duplicate of
+// execute_dispatch_ above. Step 1's only job is to wire up the
+// CMake flag SLI3_INLINE_BODY_WALK and the dispatch path; both
+// modes must produce byte-identical output. Step 2 will diverge
+// this method by collapsing the four iter cases (iiterate /
+// irepeat / ifor / iforall) into one unified body-walk loop --
+// see doc/axis1_slice8_plan.md.
+//
+// During step 1 -> step 2 review, the diff for this method is
+// the entire dispatcher body. Reviewers should check that the
+// OFF-path body and this method's body remain identical until
+// step 2 lands.
+// =====================================================================
+int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
+  int exitcode = 0;
+  const Name exitcode_name("exitcode");
+  const Token null_val = new_token<sli3::integertype>(0);
+  SLIType *iiterate_t = get_type(sli3::iiteratetype);
+  SLIType *proc_type  = get_type(sli3::proceduretype);
+  const Token sentinel(get_type(sli3::nulltype));
+  if (status_dict_)
+    (*status_dict_)[exitcode_name] = null_val;
+
+  if (sli3::signalflag != 0) {
+    return sli3::unknown_error;
+  }
+
+  size_t local_cycles = cycle_count_;
+  try {
+    do {
+      try {
+        while (execution_stack_.load() > exitlevel) {
+          ++local_cycles;
+
+        switch (execution_stack_.top().tag()) {
+        case sli3::integertype:
+        case sli3::doubletype:
+        case sli3::booltype:
+        case sli3::literaltype:
+        case sli3::marktype:
+        case sli3::stringtype:
+        case sli3::arraytype:
+        case sli3::dictionarytype:
+          operand_stack_.push(execution_stack_.top());
+          execution_stack_.pop();
+          break;
+        case sli3::nametype: {
+          const Token &t = lookup(execution_stack_.top().data_.long_val);
+          if (t.is_executable())
+            execution_stack_.top() = t;
+          else {
+            operand_stack_.push(t);
+            execution_stack_.pop();
+          }
+          break;
+        }
+        case sli3::trietype: {
+          if (__builtin_expect(count_calls_, 0))
+            ++call_counts_[execution_stack_.top().data_.trie_val];
+          const Token &t =
+              execution_stack_.top().data_.trie_val->lookup(operand_stack_);
+          if (t.is_executable())
+            execution_stack_.top() = t;
+          else {
+            operand_stack_.push(t);
+            execution_stack_.pop();
+          }
+          break;
+        }
+        case sli3::litproceduretype:
+          execution_stack_.top().type_ = proc_type;
+          operand_stack_.push(execution_stack_.top());
+          execution_stack_.pop();
+          break;
+
+        case sli3::functiontype: {
+          static int trace = -1;
+          if (trace == -1) {
+            char const *env = std::getenv("SLI3_TRACE");
+            trace = env && env[0] ? 1 : 0;
+          }
+          if (trace) {
+            SLIFunction *fn = execution_stack_.top().data_.func_val;
+            std::cerr << "[fn] " << fn->get_name().toString()
+                      << " ostack=" << operand_stack_.load();
+            size_t lim = std::min<size_t>(operand_stack_.load(), 4);
+            for (size_t k = 0; k < lim; ++k) {
+              std::cerr << " [" << k << "]=";
+              operand_stack_.pick(k).pprint(std::cerr);
+            }
+            std::cerr << '\n';
+          }
+          SLIFunction* fn = execution_stack_.top().data_.func_val;
+          if (__builtin_expect(count_calls_, 0))
+            ++call_counts_[fn];
+          current_op_ = fn;
+          if (fn->uses_new_abi()) {
+            execution_stack_.pop();
+            fn->execute(this);
+          } else {
+            fn->execute(this);
+          }
+          current_op_ = nullptr;
+          break;
+        }
+
+        case sli3::proceduretype:
+          execution_stack_.push(null_val);
+          execution_stack_.push(iiterate_t);
+
+        case sli3::iiteratetype: {
+          TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
+        start_iterate:
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get((*pos_p)++);
+            if (not t.is_executable()) {
+              operand_stack_.push(t);
+              if (not proc->index_is_valid(*pos_p)) {
+                execution_stack_.pop(3);
+                break;
+              }
+              goto start_iterate;
+            }
+            if (not proc->index_is_valid(*pos_p)) {
+              proc->add_reference();
+              execution_stack_.pick(2) = t;
+              proc->remove_reference();
+              execution_stack_.pop(2);
+              break;
+            }
+            if (t.tag() == sli3::functiontype) {
+              SLIFunction* fn = t.data_.func_val;
+              if (__builtin_expect(count_calls_, 0))
+                ++call_counts_[fn];
+              current_op_ = fn;
+              if (fn->uses_new_abi()) {
+                fn->execute(this);
+              } else {
+                execution_stack_.push(sentinel);
+                fn->execute(this);
+              }
+              current_op_ = nullptr;
+              if (execution_stack_.top().tag() == sli3::iiteratetype) {
+                proc = execution_stack_.pick(2).data_.array_val;
+                pos_p = &execution_stack_.pick(1).data_.long_val;
+                goto start_iterate;
+              }
+              break;
+            }
+            if (t.tag() == sli3::nametype) {
+              const Token &resolved = lookup(t.data_.long_val);
+              if (resolved.tag() == sli3::functiontype) {
+                SLIFunction* fn = resolved.data_.func_val;
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[fn];
+                current_op_ = fn;
+                if (fn->uses_new_abi()) {
+                  fn->execute(this);
+                } else {
+                  execution_stack_.push(sentinel);
+                  fn->execute(this);
+                }
+                current_op_ = nullptr;
+                if (execution_stack_.top().tag() == sli3::iiteratetype) {
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
+                  goto start_iterate;
+                }
+                break;
+              }
+              if (resolved.is_executable()) {
+                execution_stack_.push(resolved);
+                break;
+              }
+              operand_stack_.push(resolved);
+              if (not proc->index_is_valid(*pos_p)) {
+                execution_stack_.pop(3);
+                break;
+              }
+              goto start_iterate;
+            }
+            execution_stack_.push(t);
+            break;
+          }
+          execution_stack_.pop(3);
+          break;
+        }
+
+        case sli3::irepeattype: {
+          TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
+        start_repeat:
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get(*pos_p);
+            ++*pos_p;
+            if (t.is_executable()) {
+              if (t.tag() == sli3::functiontype) {
+                SLIFunction* fn = t.data_.func_val;
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[fn];
+                current_op_ = fn;
+                if (fn->uses_new_abi()) {
+                  fn->execute(this);
+                } else {
+                  execution_stack_.push(sentinel);
+                  fn->execute(this);
+                }
+                current_op_ = nullptr;
+                if (execution_stack_.top().tag() == sli3::irepeattype) {
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
+                  goto start_repeat;
+                }
+                break;
+              }
+              if (t.tag() == sli3::nametype) {
+                const Token &resolved = lookup(t.data_.long_val);
+                if (resolved.tag() == sli3::functiontype) {
+                  SLIFunction* fn = resolved.data_.func_val;
+                  if (__builtin_expect(count_calls_, 0))
+                    ++call_counts_[fn];
+                  current_op_ = fn;
+                  if (fn->uses_new_abi()) {
+                    fn->execute(this);
+                  } else {
+                    execution_stack_.push(sentinel);
+                    fn->execute(this);
+                  }
+                  current_op_ = nullptr;
+                  if (execution_stack_.top().tag() == sli3::irepeattype) {
+                    proc = execution_stack_.pick(2).data_.array_val;
+                    pos_p = &execution_stack_.pick(1).data_.long_val;
+                    goto start_repeat;
+                  }
+                  break;
+                }
+                if (resolved.is_executable()) {
+                  execution_stack_.push(resolved);
+                  break;
+                }
+                operand_stack_.push(resolved);
+                goto start_repeat;
+              }
+              execution_stack_.push(t);
+              break;
+            }
+            operand_stack_.push(t);
+            goto start_repeat;
+          }
+
+          long &lc = execution_stack_.pick(3).data_.long_val;
+          if (lc > 0) {
+            *pos_p = 0;
+            --lc;
+          } else {
+            execution_stack_.pop(5);
+          }
+          break;
+        }
+
+        case sli3::ifortype: {
+          TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
+        start_for:
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get(*pos_p);
+            ++*pos_p;
+            if (t.is_executable()) {
+              if (t.tag() == sli3::functiontype) {
+                SLIFunction* fn = t.data_.func_val;
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[fn];
+                current_op_ = fn;
+                if (fn->uses_new_abi()) {
+                  fn->execute(this);
+                } else {
+                  execution_stack_.push(sentinel);
+                  fn->execute(this);
+                }
+                current_op_ = nullptr;
+                if (execution_stack_.top().tag() == sli3::ifortype) {
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
+                  goto start_for;
+                }
+                break;
+              }
+              if (t.tag() == sli3::nametype) {
+                const Token &resolved = lookup(t.data_.long_val);
+                if (resolved.tag() == sli3::functiontype) {
+                  SLIFunction* fn = resolved.data_.func_val;
+                  if (__builtin_expect(count_calls_, 0))
+                    ++call_counts_[fn];
+                  current_op_ = fn;
+                  if (fn->uses_new_abi()) {
+                    fn->execute(this);
+                  } else {
+                    execution_stack_.push(sentinel);
+                    fn->execute(this);
+                  }
+                  current_op_ = nullptr;
+                  if (execution_stack_.top().tag() == sli3::ifortype) {
+                    proc = execution_stack_.pick(2).data_.array_val;
+                    pos_p = &execution_stack_.pick(1).data_.long_val;
+                    goto start_for;
+                  }
+                  break;
+                }
+                if (resolved.is_executable()) {
+                  execution_stack_.push(resolved);
+                  break;
+                }
+                operand_stack_.push(resolved);
+                goto start_for;
+              }
+              execution_stack_.push(t);
+              break;
+            }
+            operand_stack_.push(t);
+            goto start_for;
+          }
+
+          long &count = execution_stack_.pick(3).data_.long_val;
+          long &lim = execution_stack_.pick(4).data_.long_val;
+          long &inc = execution_stack_.pick(5).data_.long_val;
+
+          if (((inc > 0) && (count <= lim)) || ((inc < 0) && (count >= lim))) {
+            *pos_p = 0;
+            operand_stack_.push(execution_stack_.pick(3));
+            count += inc;
+            break;
+          } else
+            execution_stack_.pop(7);
+          break;
+        }
+        case sli3::iforalltype: {
+          TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
+        start_forall:
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get(*pos_p);
+            ++*pos_p;
+            if (t.is_executable()) {
+              if (t.tag() == sli3::functiontype) {
+                SLIFunction* fn = t.data_.func_val;
+                if (__builtin_expect(count_calls_, 0))
+                  ++call_counts_[fn];
+                current_op_ = fn;
+                if (fn->uses_new_abi()) {
+                  fn->execute(this);
+                } else {
+                  execution_stack_.push(sentinel);
+                  fn->execute(this);
+                }
+                current_op_ = nullptr;
+                if (execution_stack_.top().tag() == sli3::iforalltype) {
+                  proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
+                  goto start_forall;
+                }
+                break;
+              }
+              if (t.tag() == sli3::nametype) {
+                const Token &resolved = lookup(t.data_.long_val);
+                if (resolved.tag() == sli3::functiontype) {
+                  SLIFunction* fn = resolved.data_.func_val;
+                  if (__builtin_expect(count_calls_, 0))
+                    ++call_counts_[fn];
+                  current_op_ = fn;
+                  if (fn->uses_new_abi()) {
+                    fn->execute(this);
+                  } else {
+                    execution_stack_.push(sentinel);
+                    fn->execute(this);
+                  }
+                  current_op_ = nullptr;
+                  if (execution_stack_.top().tag() == sli3::iforalltype) {
+                    proc = execution_stack_.pick(2).data_.array_val;
+                    pos_p = &execution_stack_.pick(1).data_.long_val;
+                    goto start_forall;
+                  }
+                  break;
+                }
+                if (resolved.is_executable()) {
+                  execution_stack_.push(resolved);
+                  break;
+                }
+                operand_stack_.push(resolved);
+                goto start_forall;
+              }
+              execution_stack_.push(t);
+              break;
+            }
+            operand_stack_.push(t);
+            goto start_forall;
+          }
+
+          TokenArray *ad = execution_stack_.pick(4).data_.array_val;
+          long &idx = execution_stack_.pick(3).data_.long_val;
+
+          if (ad->index_is_valid(idx)) {
+            *pos_p = 0;
+            operand_stack_.push(ad->get(idx));
+            ++idx;
+          } else {
+            execution_stack_.pop(6);
+          }
+          break;
+        }
+        case sli3::quittype:
+          goto exit_interpreter;
+        default:
+          execution_stack_.top().execute();
+        }
+        }
+      } catch (std::exception &exc) {
+        cycle_count_ = local_cycles;
+        raiseerror(exc);
+        local_cycles = cycle_count_;
+      }
+    } while (execution_stack_.load() > exitlevel);
+  } catch (std::exception &e) {
+    cycle_count_ = local_cycles;
+    message(M_FATAL, "SLIInterpreter", "A C++ library exception occured.");
+    operand_stack_.dump(std::cerr);
+    execution_stack_.dump(std::cerr);
+    message(M_FATAL, "SLIInterpreter", e.what());
+    terminate(sli3::exception);
+  } catch (...) {
+    cycle_count_ = local_cycles;
+    message(M_FATAL, "SLIInterpreter", "An unknown C++ exception occured.");
+    operand_stack_.dump(std::cerr);
+    execution_stack_.dump(std::cerr);
+    terminate(sli3::exception);
+  }
+
+exit_interpreter:
+  cycle_count_ = local_cycles;
+
   if (status_dict_) {
     Token exit_tk = (*status_dict_)["exitcode"];
     if (exit_tk.is_of_type(sli3::integertype))

@@ -110,6 +110,17 @@ target_compile_options(sli3_warnings INTERFACE
   -Wno-unused-parameter
 )
 
+# Axis I slice 8 step 1: select between the legacy four-case
+# dispatcher (OFF, default) and the new unified body-walk loop
+# (ON). Step 1 is the scaffold -- both paths produce identical
+# behaviour while the new path is a verbatim copy. Step 2 will
+# unify the four iter cases in the ON path. After step 4 the
+# flag and the OFF path are deleted.
+option(SLI3_INLINE_BODY_WALK "Use the unified body-walk dispatcher (axis-1 slice 8)" OFF)
+if(SLI3_INLINE_BODY_WALK)
+  target_compile_definitions(sli3_core PUBLIC SLI3_INLINE_BODY_WALK_ENABLED=1)
+endif()
+
 # Optional sanitizer build: -DSLI3_SANITIZE=ON enables ASAN+UBSan.
 # Surfaces self-assign UAFs (Stage 1.1), null-payload UB (Stage 1.2),
 # and the math-op UB (Stage 5: LONG_MIN, divide-by-zero, ...).
