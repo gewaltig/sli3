@@ -202,7 +202,267 @@ In addition to the per-slice test gates already specified:
 
 ---
 
-## Slice 0 — Baseline measurements
+## Re-costing (2026-05-12)
+
+After Slice 0 baseline + Slice 1 attempt (reverted) + Slice 3 land
++ B7-B10 organic benchmarks (commit `31d6518`), the original cost
+model needs revision. Two findings:
+
+**(1) Slice 1/4's "save on the push" prediction was wrong.** The
+plan expected the sentinel-replaces-push pattern to skip a
+refcount-virtual-call. But `Token::Token(Token const&)` already
+has a `needs_refcount()` short-circuit (`sli_token.h:223`), and
+`FunctionType` doesn't override refcount methods. So pushing a fn
+Token already skips the virtual; the sentinel can't beat that.
+Slice 1 reverted at +4.8 % B2b regression (commit `5fe3d6b`).
+
+**(2) Organic workloads have very different bottlenecks than
+B1-B5.** Bench standing at HEAD (`31d6518`):
+
+| Bench | sli3 | gs | sli3 vs gs |
+|-------|-----:|---:|-----------:|
+| B1 1 pop                  | 1.22 | 1.41 | **−13 %** |
+| B2 1 1 add pop            | 2.33 | 2.88 | −19 % |
+| B2b bound proc            | 1.90 | 1.28 | **+48 %** |
+| B3 nested for             | 2.03 | 2.70 | −25 % |
+| B5 dict alloc + lookup    | 1.70 | 2.65 | −36 % |
+| B7 bubble sort            | 3.29 | 2.69 | **+22 %** |
+| B8 insertion sort         | 2.39 | 1.79 | **+34 %** |
+| B9 recursive fib(28)      | 3.83 | 2.58 | **+48 %** |
+| B10 matmul 50x50          | 3.13 | 2.75 | **+14 %** |
+
+Profile data (sample(1), 5s, 1ms intervals, on a 5x-longer run of
+each workload):
+
+### B2b — bottleneck: pure dispatcher overhead
+
+```
+execute_dispatch_   82 %
+AddFunction          9 %
+PopFunction          9 %
+(nothing else)
+```
+
+What helps: dispatcher inner-loop reduction (Slice 8 inline body
+walk). The other slices are noise here.
+
+### B9 fibonacci — bottleneck: recursion + procedure dispatch
+
+```
+execute_dispatch_                 54 %
+vector<Token>::erase              13 %   <-- iter-frame popping
+ArrayType::remove_reference        6 %   <-- refcount on proc pop
+DictionaryStack::lookup            6 %   <-- name dispatch (un-bound)
+IfelseFunction                     5 %
+Name::handleTableInstance_         4 %
+LtFunction / DupFunction /         7 %
+  SubFunction / AddFunction / ExchFunction
+```
+
+What helps:
+- Axis I (drop per-op push + drop self-pop): halves the 13%
+  `vector::erase` cost → ~−6 % B9.
+- pvalue cache (P1): eliminates the 6% `DictionaryStack::lookup`
+  → ~−5 % B9 plus the `handleTableInstance_` cost.
+- Axis II hot-op inlining: replaces 7% of virtual-call op bodies
+  with inline switch arms → ~−3 % B9.
+
+Total Axis I + II + P1 potential on B9: ~−15 %.
+
+### B10 matmul — bottleneck: dictionary pressure
+
+```
+execute_dispatch_              36 %
+vector<Token>::erase           11 %
+DictionaryStack::lookup        10 %
+Name::handleTableInstance_      7 %
+DictionaryStack::def            6 %
+GetArrayLikeFunction (get_a)    6 %
+Dictionary::insert              6 %
+ArrayType::remove_reference     4 %
+Name::num_handles               3 %
+(rest small)
+```
+
+The dict path (lookup + def + insert + Name handling) is **~32 %**
+of total time. The `/sum sum ... add def` loop body hits dict
+insert/lookup every inner iteration.
+
+What helps:
+- **pvalue cache (P1)** dominates: ~15-20 % on B10 directly.
+- Axis I: halves vector::erase (~−5 %).
+- Axis II: get_a body is 6% but hard to inline (not in the hot-op
+  whitelist today).
+
+Total potential on B10: ~−20-25 %.
+
+## Re-prioritised slice ordering
+
+Given the data, the previous Slice 4→5→6→7→8→9 ordering is
+suboptimal. The new ordering:
+
+| Order | Old | New | Why |
+|------:|-----|-----|-----|
+|   1   | —   | **Slice 11 (P1 pvalue cache)** | Biggest single win on B5/B7/B9/B10. Independent of Axis I. Lower risk than dispatcher restructure. |
+|   2   | 4-7 | **Slice 4-7 combined as atomic Axis I** | The original 4→7 progression's bench gates can't be met by any single slice in isolation (each pays setup cost; only the combined net is favorable). Bundle them as one logical change with per-file commits internally; bench gate only at the end. |
+|   3   | 8   | **Slice 8 inline body walk** | Same as before. Highest risk, highest reward on B2b. |
+|   4   | 9   | Slice 9 (continuation ops) | Optional cosmetic cleanup. |
+
+### Per-slice revised cost model
+
+| Slice | Old expected | New expected | Decision |
+|-------|--------------|--------------|----------|
+| 1 | 0 ± 2 % | +5 % B2b alone, recovered with 4-7 | Deferred into 4 |
+| 2 | 0 | 0 (audit-only) | ✓ Done |
+| 3 | −0.05-0.10 s B2b | −0.14 s B2b, −0.22 s B1, −0.20 s B3 measured | ✓ Done |
+| 4 alone | −0.05 s B2b | +5 % B2b (sentinel doesn't beat needs_refcount short-circuit) | Must combine with 5+6+7 |
+| 5+6+7 alone | −0.15-0.25 s B2b | Saves the `vector::erase` work the slice-4 push added; net ~0 to −5 % on B2b | Combine with 4 |
+| 4+5+6+7 combined | n/a | net −5 to −10 % on B2b; bigger on B7/B9 (Axis I cleanup) | New plan |
+| 8 | −0.10-0.15 s B2b | −15 to −20 % on B2b (inline body walk + multi-level TCO) | Keep |
+| 9 | 0 | 0 (cosmetic) | Optional |
+| **11 (new)** | n/a | −15-20 % on B5/B7/B10; −5 % on B9 | New top priority |
+
+Expected end-state after Slice 11 + combined-4-7 + Slice 8:
+
+| Bench | Now | Expected | Δ |
+|-------|----:|---------:|--:|
+| B1    | 1.22 | 1.10 | −10 % |
+| B2    | 2.33 | 2.00 | −14 % |
+| B2b   | 1.90 | 1.40 | **−26 %** (gs is 1.28) |
+| B3    | 2.03 | 1.75 | −14 % |
+| B5    | 1.70 | 1.35 | −21 % |
+| B7    | 3.29 | 2.65 | **−19 %** (gs is 2.69; tied) |
+| B8    | 2.39 | 2.05 | −14 % |
+| B9    | 3.83 | 3.10 | **−19 %** (gs is 2.58; still trailing) |
+| B10   | 3.13 | 2.50 | **−20 %** (gs is 2.75; ahead) |
+
+That would put sli3 ahead of gs on B1/B2/B3/B5/B7/B10, tied on
+B7, still trailing on B2b (within 10 %) and B9 (recursion is
+inherently dispatch-heavy and gs's tail-recursion + 2-byte packed
+slots are intrinsic advantages).
+
+## What changed: the old per-slice descriptions below
+
+The per-slice descriptions in the old plan (Slices 4-9, retained
+verbatim below this section) are now **superseded** by this
+re-costing. They remain for historical context; the actionable
+plan is:
+
+- Skip Slices 4, 5, 6, 7 as separately committable steps. They
+  ship as a single bundle, **Axis I bundle**, when the work is
+  done — see the new section "Axis I bundle" below.
+- Slice 8 is unchanged in spirit but the cost model is now
+  current.
+- Slice 11 is new.
+
+## Axis I bundle (replaces old Slices 4-7)
+
+Goal: one atomic change that adds `current_op_`, drops the
+function-Token push at the dispatcher, drops the per-operator
+`EStack().pop()` from all 316 sites, and removes the dual-ABI
+shim. The intermediate states have unacceptable bench profiles
+(per re-cost above); ship as a bundle so the post-bundle bench
+shows a clear win.
+
+Approach:
+1. Add `SLIInterpreter::current_op_` field + forward
+   declaration. `get_current_name` consults `current_op_`
+   first, falls through to e-stack read (unchanged behavior at
+   this step because dispatcher doesn't write `current_op_`
+   yet). Compiles + tests green. **Commit 1.**
+2. Dispatcher: at all 9 fn-dispatch sites, set `current_op_ = fn`
+   before the call, clear after. Drop the explicit push of the
+   function Token in the iter cases (the dispatcher hands the
+   fn Token's identity via `current_op_`, doesn't need it on the
+   e-stack). The standalone `case sli3::functiontype:` already
+   has the fn Token on top; overwrite it with a sentinel before
+   calling. Operators still self-pop (the sentinel) at this
+   step. **Commit 2.** Bench check: expected to regress
+   slightly; OK because Commit 3 recovers.
+3. Convert all 316 `EStack().pop()` sites in `src/builtins/` to
+   no-ops (dispatcher will pop). Set `new_abi_ = true` on each
+   `SLIFunction` instance. Per-file commits within this step
+   (sli_stack.cpp, sli_math.cpp, sli_control.cpp, ...) with
+   ctest after each. **Commits 3.a through 3.h.**
+4. Dispatcher: drop the sentinel write; just don't push
+   anything. Operators don't pop. Remove the `new_abi_` flag.
+   **Commit 4.**
+
+Per-step ctest must pass. Per-step bench check is informative
+only; the gate is at Commit 4.
+
+Bench gate at end of bundle: B2b ≤ 1.80 s, B7 ≤ 3.10 s, B9 ≤
+3.60 s. (Conservative: 5-10 % each. Less than the model's max
+predictions to leave room for measurement noise.)
+
+Inventory pre-pass before starting: re-confirm the audit in
+`doc/axis1_slice2_audit.md` is still accurate. All 51 sites
+should default to outer attribution. No code changes needed at
+those sites — they fall through naturally to outer attribution
+because the inner `.execute(i)` doesn't touch `current_op_`.
+
+## Slice 11 — pvalue cache on Name (P1 from next_steps.md)
+
+**Goal:** make name lookup one pointer indirection instead of a
+list walk through the dictionary stack. Targets the 10-15 %
+`DictionaryStack::lookup` cost on B5/B7/B9/B10.
+
+`Name::values_` (a `std::vector<Token*>` parallel to
+`Name::table_`) records the current dict-stack slot for each
+interned Name. The slot pointer is updated when names are
+defined / undefined / when dicts are pushed / popped:
+
+- `DictionaryStack::insert(n, t)`: write the just-allocated
+  dict slot's `Token*` to `Name::values_[n.toIndex()]`. If the
+  slot is already set (the name is defined in another dict on
+  the stack), flip it to a "multi" sentinel.
+- `Dictionary::erase(n)`: walk the dict stack and re-find the
+  next-highest definition, or clear to nullptr.
+- `Dictionary::clear()` / dict-stack `pop()`: invalidate slots
+  pointing into the popped dict.
+
+`DictionaryStack::lookup(n)` becomes:
+
+```cpp
+Token& DictionaryStack::lookup(Name const& n) {
+    Token* cached = Name::values_[n.toIndex()];
+    if (cached == kMulti) /* fall through to dict-stack walk */;
+    else if (cached) return *cached;
+    /* slow path: list walk + populate cache */
+}
+```
+
+In the common single-definition case (e.g. `add` is in
+`systemdict` only), the cache hit is one array load + one
+dereference. The current code walks the dict stack via
+`std::list<Dictionary*>::iterator`, hashes the name, and
+returns. The 10-15 % cost on B5/B7/B10 should largely vanish.
+
+**Risk:** cache coherence at every dict-stack mutation. The
+sli_dictstack.h `DICTSTACK_CACHE` already does something
+similar (cache `Token*` keyed by Name handle per dict-stack
+frame), so much of the infrastructure exists. The new cache is
+just a slot-pointer table on `Name` itself, indexed by handle.
+
+**Test:** add tests/test_pvalue_cache.cpp exercising:
+- single-definition lookup (cache hit)
+- multi-definition lookup (cache miss → fall through)
+- begin / end (cache invalidate + restore)
+- undef (cache clear)
+- def followed by undef + def of same name in another dict (state
+  transition through multi)
+
+**Bench gate:** B5 ≤ 1.40 s, B7 ≤ 3.00 s, B9 ≤ 3.50 s, B10 ≤
+2.80 s. (Combined with the new ABI from Axis I bundle, these
+are 10-15 % below current.) If shipping standalone (before
+Axis I bundle), bench gate is more modest: B5 ≤ 1.55 s, B7 ≤
+3.15 s, B10 ≤ 2.95 s.
+
+**Independence:** Slice 11 is independent of Axes I, II, III.
+Could land first (recommended) or in parallel with Axis I bundle
+prep.
+
+---
 
 **Goal:** capture today's numbers as the reference point.
 
@@ -436,6 +696,16 @@ being in registers; they just benefit from them.
 
 ## Slice 4 — Drop the function-Token e-stack push + add `current_op_`
 
+> **2026-05-12: SUPERSEDED by the Axis I bundle (see Re-costing
+> section above).** This slice's bench gate of "+5 % B2b
+> recovered at Slice 6" is unmet by the current cost model
+> because the sentinel doesn't save the refcount-virtual-call
+> it was predicted to save (`Token::Token` already short-
+> circuits via `needs_refcount()`). The work merges into the
+> Axis I bundle which only commits a passing bench at the end
+> of the whole sequence (not per-slice). Description retained
+> below for context.
+
 **Goal:** the dispatcher no longer pushes the function Token
 before calling `fn->execute`. This means the function Token
 is *not* on the e-stack during the operator's execution. At the
@@ -509,6 +779,11 @@ are no-ops.
 
 ## Slice 5 — Drop operator self-pop, batch 1: `sli_stack.cpp`
 
+> **2026-05-12: SUPERSEDED by the Axis I bundle.** Per-file commits
+> happen as steps 3.a-3.h inside the bundle, but the bench gate is
+> at the end of the bundle (not per file). Description retained
+> below for the per-file mechanics.
+
 **Goal:** start the ~316-site ABI conversion. Smallest file
 first (~10 sites). The dispatcher's sentinel from slice 4 is
 removed for ops in this file; the dispatcher no longer
@@ -574,6 +849,10 @@ inspection + tests).
 ---
 
 ## Slice 6 — Drop operator self-pop, remaining batches
+
+> **2026-05-12: SUPERSEDED by the Axis I bundle.** See Slice 5
+> note. The per-file order in this section is the recommended
+> order inside the Axis I bundle.
 
 **Goal:** convert the remaining ~306 sites in chunks. One
 commit per source file:
@@ -649,6 +928,11 @@ any commit, revert that commit and investigate.
 
 ## Slice 7 — Remove the dual-ABI shim; require new ABI
 
+> **2026-05-12: SUPERSEDED by the Axis I bundle.** The dual-ABI
+> shim is set up in step 2 and removed in step 4 of the bundle.
+> The description below for what removing the shim entails is
+> still accurate.
+
 **Goal:** after slice 6, every operator in `src/builtins/` is
 on the new ABI. Drop the `uses_new_abi()` check and the
 sentinel path from the dispatcher.
@@ -687,6 +971,12 @@ this is a cleanup).
 ---
 
 ## Slice 8 — Inline the body walk into the main dispatcher
+
+> **2026-05-12: cost model updated.** Original prediction was
+> −0.10 to −0.15 s on B2b. Revised: B2b drops to ~1.50-1.55 s
+> after Axis I bundle + slice 8, which is −15 to −20 % of the
+> current 1.90 s. Risk and approach unchanged; the structural
+> change is the same.
 
 **Goal:** the biggest single structural win. The dispatcher
 walks procedure bodies inline (gs's `top:` topology) instead
@@ -1097,10 +1387,20 @@ non-Axis-I review surface.
 
 ## Risk dashboard
 
-| Slice | Surface | Risk | Bench delta | Notes |
+**2026-05-12: dashboard rebuilt for the new plan (post-re-cost).**
+
+| Slice | Surface | Risk | Bench delta (measured / expected) | Notes |
 |---|---|---|---|---|
-| 0 | none | — | baseline | record numbers |
-| 1 | dispatcher + raiseerror | low | +4.8 % B2b — reverted | merged into Slice 4 |
+| 0 | none | — | baseline | ✓ done |
+| 1 | dispatcher + raiseerror | low | +4.8 % B2b — reverted | merged into Axis I bundle |
+| 2 | ~51 nested-call sites audit | low | 0 | ✓ done (`doc/axis1_slice2_audit.md`) |
+| 3 | pos pointer hoist in iter cases | medium | **−15.6 % B1, −6.9 % B2b, −9.0 % B3** | ✓ done (commit `a9c3d25`) |
+| Axis I bundle (4-7) | dispatcher + 316 builtin sites | high | expected **−5 to −10 % B2b**, larger on B7/B9 (Axis I cleanup of refcount + vector::erase) | ships as one bundle |
+| 8 | dispatcher rewrite | **high** | expected **−15 to −20 % B2b** | unchanged from old plan; expected larger after re-cost |
+| 9 | optional cleanup | low | 0 | continuation ops; cosmetic |
+| **11 (new)** | Name::values_ pvalue cache | medium | expected **−15-20 % on B5/B7/B10, −5 % B9** | gs-derived; addresses the dict-pressure bottleneck the original plan didn't see |
+
+Stale rows from the old dashboard:
 | 2 | ~20 nested-call sites | low | 0 | audit |
 | 3 | dispatcher locals | medium | -0.05–0.1 s B2b | aliasing hazards |
 | 4 | dispatcher 4-5 sites | medium | -0.05 s B2b | sentinel shim |

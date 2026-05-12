@@ -1,6 +1,25 @@
 # sli3 — consolidated next-step roadmap
 
-Revision date: 2026-05-11. Anchor: tag `stage9-complete`.
+Revision date: 2026-05-12. Anchor: commit `31d6518` (B7-B10 benches
+landed; Slice 3 of Axis I done at `a9c3d25`).
+
+> **2026-05-12 update**: the original Axis I/II/III ordering has
+> been **re-prioritised** after B7-B10 organic-workload data and
+> profiling showed the original cost model was stale. See
+> `doc/dispatch_restructure_plan.md` "Re-costing (2026-05-12)"
+> for the analysis. Key changes from the 2026-05-11 draft:
+>
+> - **Slice 11 (P1 pvalue cache) is now the highest-priority
+>   next step.** Targets the 10-15 % `DictionaryStack::lookup`
+>   cost on B5/B7/B9/B10 that the original plan didn't see.
+> - **Axes I slices 4-7 collapse into one "Axis I bundle"**
+>   that ships as a unit. The per-slice bench gates are
+>   unmet in isolation (each slice pays a setup cost; only
+>   the combined net is favorable).
+> - **Axis I Slice 3 already shipped** (commit `a9c3d25`):
+>   −15.6 % B1, −6.9 % B2b, −9.0 % B3.
+
+Revision date (original): 2026-05-11. Anchor: tag `stage9-complete`.
 
 This document is the single entry point for the next phase of sli3
 work. It supersedes the "What to compact next" sections of
@@ -381,30 +400,46 @@ correct or improve through slice 8" — not as a separate slice.
 
 **Ordering**: rides with A1 slice 8. Not a separate workstream.
 
-## Sequencing summary
+## Sequencing summary (revised 2026-05-12)
 
 ```
-Phase 1 (correctness completion):
+Done:
+  Axis I Slice 0 — baseline                                    (note in /tmp/axis1-baseline.md)
+  Axis I Slice 2 — nested-op attribution audit                 (doc/axis1_slice2_audit.md)
+  Axis I Slice 3 — pos pointer hoist in iter cases             (commit a9c3d25)
+  Bench expansion — B7-B10 organic workloads                   (commit 31d6518)
+
+Next (re-prioritised based on profile data):
+
+  1. Slice 11 (P1 pvalue cache).
+     Standalone, biggest win on B5/B7/B10 (~−15-20 %) plus
+     incidental win on B9. Independent of Axis I bundle.
+
+  2. Axis I bundle (was Slices 4-7).
+     Single bundle: add current_op_, drop fn-Token push, drop
+     316-site self-pop, remove dual-ABI shim. Per-step ctest
+     gate; bench gate only at end of bundle.
+
+  3. Axis I Slice 8 (inline body walk).
+     Biggest structural win on B2b (~−15-20 % expected).
+
+  4. Axis I Slice 9 (continuation ops).
+     Optional cosmetic cleanup.
+
+  5. Axis II (hot-op inlining, per doc/compact_procedure_spec.md).
+     ~3-5 % B9 from inlining lt/dup/sub/add/exch/ifelse.
+
+  6. Axis III (compact procedure storage, per doc/compact_procedure_spec.md).
+     Last and smallest. Only if B2b after Axes I + II still > 10 %
+     above gs.
+
+Correctness backlog (parallel track):
   Stage 6 — close serialization gaps (DictionaryType, TrieType,
-            ProcedureType, OperatorType, null-sentinel disambiguation,
-            stream object-table)
-  Stage 8 — close cleanup items (::pop binding, Cvt_a, Parser dtor,
-            DFA static, signal handler, argv, intvector*type)
-
-Phase 2 (performance — committed):
-  Axis I slices 0-10 (per doc/dispatch_restructure_plan.md):
-    - Includes the gs-style bot:/out:/up: multi-level TCO (P4)
-      via slice 8's design choice.
-    - Includes operator return codes (P2) folded into slice 6's
-      mechanical pass.
-  Axis II — hot-op inlining (per doc/compact_procedure_spec.md §II)
-  Axis III — compact procedure storage (per doc/compact_procedure_spec.md §III)
-
-Phase 3 (performance — gs-derived, new):
-  Proposal P1 — pvalue cache on Name (recommended placement: after
-    A1 slice 7, before slice 8)
-  Proposal P3 — continuation-op iter style (after A1 slice 8 lands
-    cleanly; optional polish)
+            ProcedureType, OperatorType, null-sentinel
+            disambiguation, stream object-table)
+  Stage 8 — close cleanup items (::pop binding, Cvt_a, Parser
+            dtor, DFA static, signal handler, argv,
+            intvector*type)
 ```
 
 The Phase 2/3 ordering boundary is soft. P1 (pvalue cache) is
