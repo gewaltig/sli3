@@ -858,23 +858,22 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           execution_stack_.push(iiterate_t);
 
         case sli3::iiteratetype: {
+          // Axis I Slice 3: hoist proc + pos_p out of the per-
+          // iteration label. See irepeat case for rationale.
           TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
         start_iterate:
-          // pos must be re-assigned in each iteration, because
-          // Estack().push() may re-allocate its storage in which case
-          // the reference would be invalidated.
-          long &pos = execution_stack_.pick(1).data_.long_val;
-          if (proc->index_is_valid(pos)) {
-            const Token &t = proc->get(pos++);
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get((*pos_p)++);
             if (not t.is_executable()) {
               operand_stack_.push(t);
-              if (not proc->index_is_valid(pos)) {
+              if (not proc->index_is_valid(*pos_p)) {
                 execution_stack_.pop(3);
                 break;
               }
               goto start_iterate;
             }
-            if (not proc->index_is_valid(pos)) {
+            if (not proc->index_is_valid(*pos_p)) {
               proc->add_reference();
               execution_stack_.pick(2) = t;
               proc->remove_reference();
@@ -890,6 +889,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               t.data_.func_val->execute(this);
               if (execution_stack_.top().tag() == sli3::iiteratetype) {
                 proc = execution_stack_.pick(2).data_.array_val;
+                pos_p = &execution_stack_.pick(1).data_.long_val;
                 goto start_iterate;
               }
               break;
@@ -904,6 +904,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                 resolved.data_.func_val->execute(this);
                 if (execution_stack_.top().tag() == sli3::iiteratetype) {
                   proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
                   goto start_iterate;
                 }
                 break;
@@ -913,7 +914,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                 break;
               }
               operand_stack_.push(resolved);
-              if (not proc->index_is_valid(pos)) {
+              if (not proc->index_is_valid(*pos_p)) {
                 execution_stack_.pop(3);
                 break;
               }
@@ -928,15 +929,21 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         }
 
         case sli3::irepeattype: {
+          // Axis I Slice 3: hoist proc and pos capture out of the
+          // per-iteration label. Both held as raw pointers/values
+          // (not references). Only `execution_stack_.push()` can
+          // reallocate the e-stack vector and invalidate `pos_p`;
+          // `operand_stack_.push()` cannot (separate vector). So
+          // the literal-push and operand-push paths can re-enter
+          // start_repeat without re-deriving `pos_p`. Re-derive
+          // after every fn->execute that left us in the same iter
+          // frame.
           TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
         start_repeat:
-          // pos must be re-assigned in each iteration, because
-          // Estack().push() may re-allocate its storage in which case
-          // the reference would be invalidated.
-          long &pos = execution_stack_.pick(1).data_.long_val;
-          if (proc->index_is_valid(pos)) {
-            const Token &t = proc->get(pos);
-            ++pos;
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get(*pos_p);
+            ++*pos_p;
             if (t.is_executable()) {
               // Inline fast path for functiontype tokens: push the
               // function token (raiseerror reads the operator name
@@ -952,8 +959,9 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   ++call_counts_[t.data_.func_val];
                 t.data_.func_val->execute(this);
                 if (execution_stack_.top().tag() == sli3::irepeattype) {
-                  // proc may have moved (estack reallocation) -- reload
+                  // proc + pos_p may have moved (estack reallocation)
                   proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
                   goto start_repeat;
                 }
                 break;
@@ -971,6 +979,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   resolved.data_.func_val->execute(this);
                   if (execution_stack_.top().tag() == sli3::irepeattype) {
                     proc = execution_stack_.pick(2).data_.array_val;
+                    pos_p = &execution_stack_.pick(1).data_.long_val;
                     goto start_repeat;
                   }
                   break;
@@ -992,7 +1001,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
 
           long &lc = execution_stack_.pick(3).data_.long_val;
           if (lc > 0) {
-            pos = 0; // reset procedure iterator
+            *pos_p = 0; // reset procedure iterator
             --lc;
           } else {
             execution_stack_.pop(5);
@@ -1001,15 +1010,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         }
 
         case sli3::ifortype: {
+          // Axis I Slice 3: hoist proc + pos_p out of the per-
+          // iteration label. See irepeat case for rationale.
           TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
         start_for:
-          // pos must be re-assigned in each iteration, because
-          // Estack().push() may re-allocate its storage in which case
-          // the reference would be invalidated.
-          long &pos = execution_stack_.pick(1).data_.long_val;
-          if (proc->index_is_valid(pos)) {
-            const Token &t = proc->get(pos);
-            ++pos;
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get(*pos_p);
+            ++*pos_p;
             if (t.is_executable()) {
               // Inline functiontype: see irepeat case.
               if (t.tag() == sli3::functiontype) {
@@ -1019,6 +1027,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                 t.data_.func_val->execute(this);
                 if (execution_stack_.top().tag() == sli3::ifortype) {
                   proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
                   goto start_for;
                 }
                 break;
@@ -1033,6 +1042,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   resolved.data_.func_val->execute(this);
                   if (execution_stack_.top().tag() == sli3::ifortype) {
                     proc = execution_stack_.pick(2).data_.array_val;
+                    pos_p = &execution_stack_.pick(1).data_.long_val;
                     goto start_for;
                   }
                   break;
@@ -1057,7 +1067,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           long &inc = execution_stack_.pick(5).data_.long_val;
 
           if (((inc > 0) && (count <= lim)) || ((inc < 0) && (count >= lim))) {
-            pos = 0; // reset procedure interator
+            *pos_p = 0; // reset procedure interator
 
             operand_stack_.push(
                 execution_stack_.pick(3)); // push counter to user
@@ -1068,15 +1078,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           break;
         }
         case sli3::iforalltype: {
+          // Axis I Slice 3: hoist proc + pos_p out of the per-
+          // iteration label. See irepeat case for rationale.
           TokenArray *proc = execution_stack_.pick(2).data_.array_val;
+          long *pos_p = &execution_stack_.pick(1).data_.long_val;
         start_forall:
-          // pos must be re-assigned in each iteration, because
-          // Estack().push() may re-allocate its storage in which case
-          // the reference would be invalidated.
-          long &pos = execution_stack_.pick(1).data_.long_val;
-          if (proc->index_is_valid(pos)) {
-            const Token &t = proc->get(pos);
-            ++pos;
+          if (proc->index_is_valid(*pos_p)) {
+            const Token &t = proc->get(*pos_p);
+            ++*pos_p;
             if (t.is_executable()) {
               // Inline functiontype: see irepeat case.
               if (t.tag() == sli3::functiontype) {
@@ -1086,6 +1095,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                 t.data_.func_val->execute(this);
                 if (execution_stack_.top().tag() == sli3::iforalltype) {
                   proc = execution_stack_.pick(2).data_.array_val;
+                  pos_p = &execution_stack_.pick(1).data_.long_val;
                   goto start_forall;
                 }
                 break;
@@ -1100,6 +1110,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   resolved.data_.func_val->execute(this);
                   if (execution_stack_.top().tag() == sli3::iforalltype) {
                     proc = execution_stack_.pick(2).data_.array_val;
+                    pos_p = &execution_stack_.pick(1).data_.long_val;
                     goto start_forall;
                   }
                   break;
@@ -1122,7 +1133,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           long &idx = execution_stack_.pick(3).data_.long_val;
 
           if (ad->index_is_valid(idx)) {
-            pos = 0; // reset procedure interator
+            *pos_p = 0; // reset procedure interator
 
             operand_stack_.push(ad->get(idx)); // push object to user
             ++idx;
