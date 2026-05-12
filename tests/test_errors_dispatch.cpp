@@ -63,6 +63,36 @@ std::string get_errorname(SLIInterpreter& i)
     return "<not-name>";
 }
 
+// Same shape for /commandname (the operator that triggered the error).
+// Used to pin down nested-op attribution per Axis I Slice 2 audit:
+// dispatchers (e.g. /get) calling typed leaves (e.g. /get_a) must
+// report the user-facing dispatcher name, not the leaf.
+std::string get_commandname(SLIInterpreter& i)
+{
+    if (!i.error_dict().known(Name("commandname"))) return "";
+    Token const& t = i.error_dict().lookup(Name("commandname"));
+    if (t.is_of_type(sli3::literaltype) ||
+        t.is_of_type(sli3::nametype) ||
+        t.is_of_type(sli3::symboltype))
+    {
+        return Name(t.data_.name_val).toString();
+    }
+    return "<not-name>";
+}
+
+void expect_commandname(SLIInterpreter& i, char const* src, char const* expected)
+{
+    prime_eval(i, src);
+    try { i.execute_dispatch_(0); } catch (...) { /* swallowed */ }
+    auto got = get_commandname(i);
+    if (got != expected)
+    {
+        std::cerr << "FAIL `" << src << "` expected /commandname=" << expected
+                  << " got " << got << "\n";
+        std::exit(1);
+    }
+}
+
 // Run a snippet that is expected to fail with errorname == expected.
 // raiseerror's `stop` will unwind the e-stack; that's fine.
 void expect_error(SLIInterpreter& i, char const* src, char const* expected)
@@ -151,6 +181,49 @@ void test_or_happy_paths(SLIInterpreter& i)
     CHECK(i.OStack().pick(0).data_.bool_val == true);
 }
 
+// ---------- Axis I Slice 2 — nested-op attribution -------------------
+//
+// Stage 9 compaction made common ops (`/get`, `/length`, `/forall`,
+// `/def`, `/cvi`, ...) C++ dispatchers that synchronously call
+// typed leaves (`/get_a`, `/length_s`, `/forall_a`, ...) on the same
+// C stack frame. When the typed leaf raises, /commandname must
+// name the user-facing dispatcher, not the implementation leaf.
+//
+// Today this works because get_current_name() reads the e-stack top
+// (which holds the dispatcher's function Token, pushed by the main
+// dispatcher loop before entering the dispatcher's execute body).
+// After Axis I Slice 4 introduces current_op_, the same attribution
+// must hold via the new field; the audit at doc/axis1_slice2_audit.md
+// concluded that the default behavior (current_op_ unchanged across
+// the inner .execute(i) call) gives the right answer at every site.
+//
+// These tests pin the contract so a regression at Slice 4 surfaces.
+
+void test_attrib_get_range(SLIInterpreter& i)
+{
+    // [1 2 3] has length 3; index 99 is out of range. /get_a raises
+    // RangeCheck. /commandname must be /get (the dispatcher), not
+    // /get_a (the typed leaf).
+    expect_commandname(i, "[1 2 3] 99 get", "get");
+}
+
+void test_attrib_put_range(SLIInterpreter& i)
+{
+    // Same shape for /put -> /put_a.
+    expect_commandname(i, "[1 2 3] 99 42 put", "put");
+}
+
+void test_attrib_cvi_string(SLIInterpreter& i)
+{
+    // Inner-attribution path: /cvi for string input does NOT call
+    // cvi_s directly; it baselookups /cvi_s and pushes it onto the
+    // e-stack, so the dispatcher itself dispatches /cvi_s and that
+    // becomes the current op. /commandname is /cvi_s, not /cvi.
+    // Distinct from /get above which is direct-call.
+    // See doc/axis1_slice2_audit.md for the two patterns.
+    expect_commandname(i, "(notanumber) cvi", "cvi_s");
+}
+
 }  // namespace
 
 int main()
@@ -167,6 +240,10 @@ int main()
 
     test_or_arity(i);
     test_or_happy_paths(i);
+
+    test_attrib_get_range(i);
+    test_attrib_put_range(i);
+    test_attrib_cvi_string(i);
 
     std::cout << "test_errors_dispatch: ok\n";
     return 0;
