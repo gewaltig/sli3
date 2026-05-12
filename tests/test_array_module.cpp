@@ -127,6 +127,33 @@ void test_range(SLIInterpreter& i)
     }
 }
 
+void test_array_op(SLIInterpreter& i)
+{
+    // n array_ -> [0 0 ... 0]  (n integer zeros)
+    {
+        push_estack_placeholder(i);
+        i.push<long>(5);
+        i.lookup(Name("array_")).data_.func_val->execute(&i);
+        CHECK(i.top().is_of_type(sli3::arraytype));
+        TokenArray* r = i.top().data_.array_val;
+        CHECK(r->size() == 5);
+        for (long k = 0; k < 5; ++k) {
+            CHECK((*r)[k].is_of_type(sli3::integertype));
+            CHECK((*r)[k].data_.long_val == 0);
+        }
+        i.pop();
+    }
+    // 0 array_ -> []
+    {
+        push_estack_placeholder(i);
+        i.push<long>(0);
+        i.lookup(Name("array_")).data_.func_val->execute(&i);
+        CHECK(i.top().is_of_type(sli3::arraytype));
+        CHECK(i.top().data_.array_val->size() == 0);
+        i.pop();
+    }
+}
+
 void test_reverse(SLIInterpreter& i)
 {
     push_estack_placeholder(i);
@@ -457,6 +484,7 @@ int main()
     SLIInterpreter i;
 
     test_range(i);
+    test_array_op(i);
     test_reverse(i);
     test_rotate(i);
     test_flatten(i);

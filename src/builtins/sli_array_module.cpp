@@ -139,6 +139,23 @@ public:
         i->top() = i->new_token<sli3::arraytype>(out);
     }
 };
+//------------------------------------------------------------------------
+// array
+//   n array -> [0 .. 0] n times
+//------------------------------------------------------------------------
+class ArrayFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::integertype);
+        long n = i->top().data_.long_val;
+        TokenArray* out = new TokenArray(n,i->new_token<sli3::integertype>());
+
+        i->top() = i->new_token<sli3::arraytype>(out);
+    }
+};
 
 //------------------------------------------------------------------------
 // Reverse
@@ -805,6 +822,7 @@ public:
 //------------------------------------------------------------------------
 
 RangeFunction              range_fn;
+ArrayFunction              array_fn;
 ReverseFunction            reverse_fn;
 RotateFunction             rotate_fn;
 FlattenFunction            flatten_fn;
@@ -829,6 +847,7 @@ IMapThreadFunction         imap_thread_fn;
 void init_sliarray(SLIInterpreter* i)
 {
     i->createcommand("Range",            &range_fn);
+    i->createcommand("array_",           &array_fn);
     i->createcommand("Reverse",          &reverse_fn);
     i->createcommand("Rotate",           &rotate_fn);
     i->createcommand("Flatten",          &flatten_fn);
@@ -851,6 +870,7 @@ void init_sliarray(SLIInterpreter* i)
     // Axis I bundle step 3f: array_module trailing ops new ABI.
 
     // Axis I bundle step 3f: trailing-pop array_module ops to new ABI. Map / MapIndexed / MapThread setups stay old (iter frame push).
+    array_fn.set_new_abi();
     arraystore_fn.set_new_abi();
     finiteq_d_fn.set_new_abi();
     flatten_fn.set_new_abi();
