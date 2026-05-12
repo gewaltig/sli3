@@ -1,7 +1,18 @@
 # sli3 control-flow execution contracts
 
-Revision: 2026-05-12. Status: **draft for review**. Anchor:
-commit `7948d58` (slice 8 plan landed).
+Revision: 2026-05-12 (rev. 2 — review decisions applied). Status:
+**accepted, awaiting implementation**. Anchor: commit `ee2eab7`
+(draft landed), this revision pending commit.
+
+**Review decisions (rev. 2):**
+
+| # | Decision | Where applied |
+|---|---|---|
+| D1 | Multi-level body-exit cascade is **part of slice 8**. The cascade fires only at body-exhaust (rare) and is essential for fib-style recursion. | §3.3, §4.2, §8 (I9, I12) |
+| D2 | Dict-stack restore on stop **follows PostScript**. `stopped` saves the dstack depth on entry; stop and normal completion both restore. | §6.2, §6.3, §9 |
+| D3 | `exit` raises **`invalidexit`** when no enclosing loop exists. Renamed from sli3's previous `EStackUnderflow`. | §5.1, §5.2, §9 |
+| D4 | `cycles` is **monotone non-decreasing and meaningful for debugging**. The exact relation to "number of body tokens dispatched" is implementation-defined; reproducibility across debug sessions matters more than a strict per-token count. | §8 (I13) |
+| D5 | An iter-marker token appearing inside a procedure body **raises an error**. No silent corruption. | §3.2, §8 (I17) |
 
 This document specifies the contract that the sli3 dispatcher and
 the C++ control-flow operators jointly implement. It is the
@@ -346,7 +357,7 @@ For each token `t = proc[pos++]`:
 | trietype             | Look up in trie using current OStack top types. If trie returns executable, replace top; else push to OStack. |
 | proceduretype        | Push a new 3-slot iter frame for the nested proc; continue from the inner pos=0. |
 | litproceduretype     | Tag-only variant of arraytype — pushed to OStack as-is. |
-| iiterate/irepeat/ifor/iforall marker | Cannot appear in a normal proc body. Iter markers are pushed by their setup ops, not by user code. If one appears, the dispatcher will treat it as a frame top — pathological. |
+| iiterate/irepeat/ifor/iforall marker | **Raises `InvalidIterMarker` error** (D5). Iter markers are dispatcher-internal — they must only appear as the top of a freshly-pushed iter frame. Encountering one fetched out of a proc body means somebody constructed the proc by hand (e.g., from a saved snapshot whose layout shifted) and the frame layout invariants are broken. Raising preserves the operator-authoring contract from CLAUDE.md: "errors should never be silent". |
 
 ### 3.3 Tail-call optimization (TCO)
 
@@ -364,19 +375,22 @@ If `t` is itself a proceduretype, the next dispatcher iteration
 pushes a new iter frame for it — at the same depth where the
 old frame was. The e-stack does NOT grow per tail call.
 
-**Today's scope**: iiterate implements this; irepeat/ifor/iforall
-do not (they need to preserve their per-frame counters across
-iterations, so single-level TCO doesn't apply). When slice 8
-unifies the cases, single-level TCO for iiterate continues to
-work; multi-level TCO (a body that ends with a proc that ends
-with a proc) falls out of the unified cascade if the
-implementation cascades the body-exit pop (see §4.2).
+**Slice-8 scope (D1)**: iiterate implements single-level TCO via
+the in-place last-ref replacement. irepeat/ifor/iforall do
+**not** replace their proc slot (they need to preserve per-frame
+counters across iterations). Multi-level TCO across nested
+procs falls out for free from the body-exit cascade in §4.2:
+when an inner iiterate frame body-exhausts, the cascade
+immediately runs the parent's body-exhaust handler too if its
+body is at end. Recursive code like `/fib { ... fib } def fib`
+collapses an N-deep return chain into O(1) dispatcher cycles.
 
 **PS conformance**: Red Book §3.5 ("Procedures … the language
 guarantees that tail recursion does not consume execution-stack
 space"). sli3 conforms for proceduretype-only chains. Loops do
 not tail-recurse on body exhaustion (because the frame must
-persist for the next iteration).
+persist for the next iteration), but the body-exit cascade
+makes nested loop teardown O(1) dispatcher cycles.
 
 ### 3.4 Normal completion
 
@@ -422,11 +436,12 @@ The dispatcher walks the inner irepeat frame to completion (or
 exit/stop). On normal exhaust, the inner frame pops; the outer
 ifor frame resumes from pos N+1.
 
-### 4.2 Multi-level body exit
+### 4.2 Multi-level body exit (D1)
 
 When an inner frame finishes (body-exhaust pop) AND the new top
-is another iter frame, the dispatcher SHOULD resume the outer
-frame's body-walk directly — no outer-switch round trip.
+is another iter frame, the dispatcher **MUST** resume the outer
+frame's body-walk directly — no outer-switch round trip. This is
+the multi-level body-exit cascade.
 
 **Today's behaviour** (pre slice 8): the inner case body
 exhausts, `pop(N); break;`. The outer dispatch loop's switch
@@ -436,11 +451,52 @@ continues. One outer-switch round-trip per cascade step.
 
 **Slice 8 behaviour**: the unified iter case checks the new top
 after each body-exhaust; if it's an iter marker, re-load
-`proc`/`pos_p` and `goto body_walk` directly. No round-trip.
+`proc`/`pos_p` and `goto body_walk` directly. If the outer
+body is also at end, its body-exhaust handler fires immediately
+and may cascade further. The cascade unwinds an arbitrary
+number of simultaneously-completed nested loop frames in a
+tight inner loop, without entering the outer dispatcher switch.
 
-**Invariant preserved**: from the operator's standpoint, the
-order of effects is identical — the same operands are pushed in
-the same order. The only observable change is timing.
+**Worked example.** Consider:
+
+```sli
+1 1 3 {                         % outer for
+   [ 10 20 30 ] {               %   middle forall
+      2 { 42 pop } repeat       %     inner repeat
+   } forall
+} for
+```
+
+On the dispatcher cycle where all three loops simultaneously
+hit "body done" (last repeat iter inside last forall element
+inside last for counter):
+
+```
+[ irepeat | pos | proc | count=0 | mark
+  iforall | pos | proc | idx=3   | array | mark
+  ifor    | pos | proc | ctr=4   | lim=3 | inc=1 | mark
+  ... ]
+```
+
+The cascade:
+
+1. body-exhaust(irepeat): count=0 → `pop(5)`. New top is iforall.
+2. body-exhaust(iforall): idx >= array.size() → `pop(6)`. New top is ifor.
+3. body-exhaust(ifor): ctr > lim → `pop(7)`. New top not an iter marker → `break`.
+
+One outer-switch round-trip instead of three.
+
+**Invariants preserved.** The cascade is a fast path: the same
+operands are pushed in the same order; the same e-stack
+manipulations happen; only the timing changes. From any
+operator's standpoint (including a user-supplied error handler
+inspecting `$errordict /estack`), behaviour is identical to the
+pre-cascade implementation.
+
+**Cost.** One tag check per body-exhaust. Body-exhaust runs once
+per loop iteration's body completion — at most O(loop count)
+per cascade. For tight inner loops the cost is negligible
+because body-exhaust is rare on the hot path.
 
 ### 4.3 Operands surviving body completion
 
@@ -469,12 +525,12 @@ body run.
 nearest `marktype` slot. When found, pops all e-stack frames
 from `exit`'s own slot through the mark inclusive.
 
-Pseudocode (matches ExitFunction):
+Pseudocode (matches ExitFunction, D3 error rename pending):
 
     n = 1     # start at pick(1), skip exit's own slot at pick(0)
     while pick(n) not marktype and n < load:
         ++n
-    if not found: raiseerror("EStackUnderflow"); return
+    if not found: raiseerror("invalidexit"); return   # D3: was "EStackUnderflow"
     pop(n + 1)   # includes exit itself + everything up through mark
 
 **Frames that have a mark** (eligible exit targets):
@@ -492,12 +548,20 @@ PAST the procedure's iiterate frame to the enclosing loop's
 mark. This matches PS standard ("exit terminates the innermost
 enclosing looping context").
 
-### 5.2 PostScript conformance
+### 5.2 PostScript conformance (D3)
 
 Red Book §3.11: "If there is no enclosing loop, exit issues an
-`invalidexit` error." sli3 raises `EStackUnderflow` — different
-name, same effect (the program is interrupted). The error
-machinery (§8) catches this if a `stopped` context is present.
+`invalidexit` error." sli3 (post-D3) raises `invalidexit` — the
+same name and same effect. Previously sli3 raised
+`EStackUnderflow`; this is renamed to match the Red Book.
+
+Implementation note: code under `src/builtins/sli_control.cpp`
+(ExitFunction::execute) and the corresponding entry in
+`src/interpreter/sli_interpreter.cpp` (`SLIInterpreter` member
+initialisers — there is no current `invalidexit_name`; add one)
+need updating. Any test or user-visible string referring to the
+old name needs updating in lockstep. Audit:
+`grep -rn EStackUnderflow src/ tests/ lib/sli/`.
 
 ### 5.3 Inner-most enclosing context
 
@@ -526,22 +590,49 @@ operand stack. If no `stopped` context exists, the interpreter
 behaviour is implementation-defined (gs prints a message and
 returns to the REPL).
 
-### 6.2 sli3 implementation
+### 6.2 sli3 implementation (D2 changes pending)
 
-**StoppedFunction** pushes a frame:
+**StoppedFunction** pushes a frame that captures the **dstack
+depth** at entry (D2 — for dict-stack restore on stop):
 
-    Before:  EStack [ ... ]   OStack [ proc | ... ]
-    After:   EStack [ proc | ::stopped | ... ]   OStack [ ... ]
+    Before:  EStack [ ... ]
+             OStack [ proc | ... ]
+             DStack depth = D₀
+    After:   EStack [ proc | ::stopped | saved_dstack=D₀ | ... ]
+             OStack [ ... ]
+             DStack depth = D₀ (unchanged)
 
-The frame is just `[proc, ::stopped]` — two slots. The proc is
-pushed on top so it dispatches first. After it completes
-normally, ::stopped (a literal name) is on top; the dispatcher
-resolves it via the dict stack. ::stopped is bound to `false`
-(see `sli_control.cpp:2029`), so the resolution pushes `false`
-to the operand stack — the "no stop was raised" signal.
+The frame is three slots:
+
+| pick from top of frame | type | contents |
+|---|---|---|
+| 0 | proceduretype | the body being protected (dispatched first) |
+| 1 | nametype | the literal `::stopped` marker |
+| 2 | integertype | the dstack depth at the moment `stopped` was called |
+
+The proc is pushed on top so it dispatches first. After it
+completes normally, ::stopped is on top; it resolves via dict
+lookup and runs cleanup (D2 — see below). On stop, stop unwinds
+to ::stopped and restores the dstack depth before pushing
+`true`.
+
+**Cleanup contract for ::stopped.** Under D2, `::stopped` is no
+longer a plain name bound to `false`. It is a continuation
+operator (a functiontype Token) whose body:
+
+1. Pops the `saved_dstack` slot from the e-stack (one slot
+   below itself).
+2. Pops dicts from the dictionary stack until DStack.load() ==
+   saved_dstack.
+3. Pushes `false` onto the operand stack.
+
+This gives normal-completion semantics matching the Red Book:
+"the dictionary stack is restored to its state at the entry to
+stopped".
 
 **StopFunction** walks the e-stack looking for the literal name
-`::stopped`:
+`::stopped` (the marker, identified by its nametype + name
+value). Pseudocode:
 
     n = 1
     while pick(n) != ::stopped and n < load:
@@ -550,11 +641,23 @@ to the operand stack — the "no stop was raised" signal.
         message(M_FATAL, "stop", "No stopped context");
         EStack.clear()
         return
+    # Restore dstack depth (D2):
+    saved = pick(n + 1).data_.long_val
+    while DStack.load() > saved: DStack.pop()
+    # Now unwind the e-stack:
     OStack.push(true)
-    EStack.pop(n + 1)   # includes stop + frames up through ::stopped
+    EStack.pop(n + 2)   # includes stop + frames up through ::stopped + saved_dstack
 
-Note: stop's pop INCLUDES the ::stopped marker. Operand stack
-gets `true` pushed after the unwind.
+Note: stop's pop INCLUDES the ::stopped marker AND the
+saved_dstack slot. Operand stack gets `true` pushed after the
+unwind.
+
+**Why a separate saved_dstack slot rather than encoding it in
+::stopped?** Two reasons. (1) Keeps the `::stopped` marker
+recognizable as a constant name in stop's walk — no per-call
+data to inspect. (2) Lets normal completion handle the cleanup
+in a single continuation-op invocation without special-casing
+the dispatcher.
 
 ### 6.3 Interaction with iter frames
 
@@ -582,10 +685,20 @@ StopFunction finds ::stopped at pick(7), `pop(8)`:
 The repeat frame's mark, count, etc. are all gone — no
 body-exhaust ran. This is correct: the repeat was abandoned.
 
-**Invariant**: the dictionary stack is NOT unwound by stop. PS
-standard says the dictionary stack is automatically restored to
-the depth it had at the `stopped` call — but sli3 does not
-implement this today (a known PS-conformance gap; see §10).
+**Invariant (D2)**: the dictionary stack **is** unwound by stop
+to the depth saved at `stopped` entry. PS standard §3.10
+requires this: "the dictionary stack is automatically restored
+to the state it had at the `stopped` call". Implementation
+detail in §6.2; before D2 lands this is a known gap and stop
+leaves the dstack untouched. After D2 lands, stop pops dicts
+from the dstack until depth matches the saved value.
+
+Implication for SLI scripts that do `dict begin ... stop`: any
+`begin` that runs inside the stopped context but doesn't have a
+matching `end` before stop fires will be auto-undone. This is a
+**behaviour change** for any user code that relied on
+leaked-dict semantics (NEST 2.x did not implement this either,
+so leakage was technically possible but discouraged).
 
 ### 6.4 stop without stopped → fatal
 
@@ -706,63 +819,69 @@ dispatcher change) must satisfy. Each item is testable.
 | I10 | After error, `$errordict /commandname` is the failing operator's name | `test_errors_dispatch` |
 | I11 | After error with recordstacks=true, `$errordict /estack` array length matches the live estack at error time minus the failing op | `test_errors_dispatch` |
 | I12 | Nested loop body-exhaust correctly resumes parent loop (no operand-stack corruption, no e-stack leak) | new test for cross-iter nesting |
-| I13 | `cycles` count is non-decreasing and increments at least once per body token | parity test |
+| I13 | **(D4 relaxed)** `cycles` is monotone non-decreasing across a script's execution, and increments enough that two consecutive significant dispatcher events have different cycle values (i.e. cycles is useful for "did the interpreter make progress" debugging). The exact relation to body-token count is implementation-defined. | parity test (verify monotonicity, not exact count) |
 | I14 | OStack contents at the end of `{ body } exec` equal OStack contents at the end of inlined `body` | `test_dispatch_parity` |
 | I15 | Operands pushed during last body iteration survive frame teardown | implicit in I4/I5 |
-| I16 | The dictionary stack is NOT unwound by stop (known gap from PS) | documented, not tested as a positive feature |
-| I17 | An iter-marker token (iiterate, irepeat, ifor, iforall) appearing inside a procedure body (constructed by hand) does not crash the dispatcher | new edge-case test (low priority; pathological input) |
+| I16 | **(D2 promoted)** The dictionary stack IS unwound by stop to the depth saved at `stopped` entry. Same restore happens on normal completion via `::stopped`'s cleanup. | new test `test_dispatch_topology.cpp::stop_restores_dstack` |
+| I17 | **(D5 strengthened)** An iter-marker token (iiterate, irepeat, ifor, iforall) appearing inside a procedure body (constructed by hand or loaded from a saved snapshot) **raises an `InvalidIterMarker` error**. No silent corruption, no crash. | new edge-case test `test_dispatch_topology.cpp::iter_marker_in_body_raises` |
 
 ---
 
 ## 9. PostScript conformance summary
 
-| Feature | PS standard | sli3 | Notes |
+| Feature | PS standard | sli3 (post-slice-8) | Notes |
 |---|---|---|---|
 | Procedure execution | §3.5 | ✓ | |
-| Tail recursion | §3.5 | partial | iiterate single-level; multi-level only when slice 8 cascades |
+| Tail recursion | §3.5 | ✓ (D1) | iiterate single-level + multi-level via cascade |
 | `loop`, `repeat`, `for`, `forall` | §3.11 | ✓ | |
-| `exit` (innermost loop) | §3.11 | ✓ | error name `EStackUnderflow` instead of `invalidexit` |
-| `stop` / `stopped` | §3.10 | ✓ | |
-| stop with no stopped → defined error | §3.10 | partial | sli3 prints fatal + clears estack instead of named error |
-| `errordict` per-name handler dispatch | §3.10 | ✗ | hardcoded `stop` path |
-| Dictionary-stack restore on stop | §3.10 | ✗ | known gap |
-| `signalerror` operator | §3.10 | ✗ | not exposed |
+| `exit` (innermost loop) | §3.11 | ✓ (D3) | error name now `invalidexit` per Red Book |
+| `stop` / `stopped` | §3.10 | ✓ (D2) | |
+| stop with no stopped → defined error | §3.10 | partial | sli3 prints fatal + clears estack; the print is informative, not an actual named error |
+| `errordict` per-name handler dispatch | §3.10 | ✗ | hardcoded `stop` path — by design |
+| Dictionary-stack restore on stop | §3.10 | ✓ (D2) | implemented via saved-dstack slot in `stopped` frame |
+| `signalerror` operator | §3.10 | ✗ | not exposed — by design |
 | `setglobal` / `currentglobal` (VM mode) | §3.8 | ✗ | not in scope (single VM) |
 | `save` / `restore` (VM state) | §3.8 | ✗ | replaced by `savestate`/`restorestate` snapshot (different model) |
 | `errordict` keys | §A.1 | partial | `newerror`, `errorname`, `commandname` per spec; `command` partially set |
 | `recordstacks` flag | NEST 2.x extension | ✓ | not in PostScript |
 
-The major divergences are all by design (single VM, no
-per-error-name dispatch, no dict-stack unwind on stop). They're
-captured here so a future PS-conformance push has a clear
-starting point.
+The remaining divergences are all by design (single VM, no
+per-error-name dispatch). They're captured here so a future
+PS-conformance push has a clear starting point. The fatal-on-
+no-stopped behaviour is a minor cosmetic divergence — gs does
+the same thing differently (prints, returns to REPL).
 
 ---
 
-## 10. Open questions for review
+## 10. Resolved review decisions
 
-1. **Should slice 8 implement multi-level body-exit cascade?** The
-   spec says it MAY (§4.2 "SHOULD" but allows the
-   single-cascade fallback). Strict reading of the Red Book does
-   not require it — multi-level TCO is a quality-of-implementation
-   issue.
-2. **Should we close the dictionary-stack-restore gap?** Adding
-   `save/restore`-like behaviour to stop is invasive and may
-   surface latent bugs in code that mutates the dict stack
-   transiently. Decide before slice 8 lands or defer to a later
-   correctness slice.
-3. **`exit` error name**: rename `EStackUnderflow` →
-   `invalidexit` to match Red Book? Low cost, easy to break
-   downstream user error handlers.
-4. **Cycles count semantics**: I13 in §8 says "at least once per
-   body token". Under slice 8's unified case, the inner
-   `goto body_walk` may or may not cycle `++local_cycles`. Should
-   we preserve today's count exactly (every token of every body
-   counts), or relax to "cycles is monotone non-decreasing"?
-5. **Iter-marker in proc body** (I17): currently undefined
-   behaviour. The dispatcher's main switch would dispatch the
-   marker as a frame-top, but the frame layout above wouldn't
-   match. Should we raise an error? Today: silent corruption.
+All five open questions from the rev-1 draft have been
+resolved. They are listed here for traceability.
+
+1. **Multi-level body-exit cascade** → **D1, in scope of slice 8.**
+   Body-exhaust pop checks the new top; if it's an iter marker,
+   re-enter the body-walk for that frame. Recursive fib-style
+   code collapses an N-deep return chain into O(1) dispatcher
+   cycles. See §4.2.
+2. **Dictionary-stack restore on stop** → **D2, follow PS
+   standard.** `stopped` records DStack depth in a third frame
+   slot; both stop and normal completion restore DStack to that
+   depth before pushing the bool result. See §6.2.
+3. **`exit` error name** → **D3, rename to `invalidexit`.**
+   Matches Red Book §3.11. Audit + update at slice-8 landing
+   time. See §5.1, §5.2.
+4. **Cycles count semantics** → **D4, relax to monotone
+   non-decreasing with debugging utility.** Exact per-token count
+   is not part of the contract; reproducibility of "did the
+   interpreter make progress" between debug sessions is. See I13
+   in §8.
+5. **Iter-marker in proc body** → **D5, raise an error.** The
+   token type `iiterate/irepeat/ifor/iforall` appearing as a
+   fetched proc token raises `InvalidIterMarker`. No silent
+   corruption. See §3.2, I17 in §8.
+
+(Reserved for future decisions: this section accumulates new
+open questions as the spec evolves.)
 
 ---
 
@@ -772,14 +891,60 @@ Slice 8 lands with this spec's invariants as test gates. Each
 invariant in §8 either has an existing test or needs one. New
 tests go in:
 
-- `tests/test_dispatch_parity.cpp`: I9, I12, I13, I14, I15
-- `tests/test_errors_dispatch.cpp`: I10, I11
+- `tests/test_dispatch_parity.cpp`: I9, I12, I13 (monotone
+  cycles), I14, I15.
+- `tests/test_errors_dispatch.cpp`: I10, I11; also update for D3
+  (rename `EStackUnderflow` → `invalidexit` assertions where
+  they exist).
 - `tests/test_dispatch_topology.cpp` (new): I9 (TCO chain),
-  multi-level body exit, cross-iter-type cascade.
+  multi-level body exit cascade (D1), cross-iter-type resume,
+  D2 (`stop_restores_dstack`, `normal_completion_restores_dstack`),
+  D5 (`iter_marker_in_body_raises`).
 
 Each test runs through both `execute_` (plain mode) and
 `execute_dispatch_` (dispatch mode) where applicable, asserting
 identical OStack contents.
+
+**D2 test sketches.**
+
+```cpp
+// stop_restores_dstack
+//
+// Before: DStack.load() = D0
+// Run:    { <<>> begin <<>> begin stop } stopped
+// After:  DStack.load() == D0  (the two begins were undone by stop)
+//         OStack top == true   (stopped caught the stop)
+
+// normal_completion_restores_dstack
+//
+// Before: DStack.load() = D0
+// Run:    { <<>> begin <<>> begin } stopped
+// After:  DStack.load() == D0  (begins undone by ::stopped's cleanup)
+//         OStack top == false  (normal completion)
+```
+
+**D5 test sketch.**
+
+```cpp
+// iter_marker_in_body_raises
+//
+// Construct a proceduretype Token whose array contains an
+// iiteratetype Token directly (cannot be done from SLI source;
+// build via TokenArray API in C++).
+// Run: <constructed proc> exec
+// After: raiseerror("InvalidIterMarker") fires; $errordict /errorname
+//        == /InvalidIterMarker; OStack reflects the error path.
+```
+
+**D3 audit.** `grep -rn "EStackUnderflow" src/ tests/ lib/sli/`:
+the ExitFunction raise site is the only production one; the
+test_errors family asserts on the name string. Rename to
+`invalidexit` everywhere.
+
+**D4 cycles test.** Existing tests should NOT assert on exact
+cycle counts. Audit: `grep -rn "cycles\b" tests/`. Add a test
+that asserts cycles is strictly increasing between two
+checkpoints separated by at least one dispatcher cycle.
 
 ---
 
