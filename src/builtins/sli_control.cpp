@@ -63,7 +63,6 @@ backtrace_off
 void Backtrace_onFunction::execute(SLIInterpreter *i) const
 {
   i->backtrace_on();
-  i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -80,7 +79,6 @@ SeeAlso: backtrace_on
 void Backtrace_offFunction::execute(SLIInterpreter *i) const
 {
   i->backtrace_off();
-  i->EStack().pop();
 }
 
 void OStackdumpFunction::execute(SLIInterpreter *i) const
@@ -473,7 +471,6 @@ void DefFunction::execute(SLIInterpreter *i) const
 
     i->def(i->pick(1).data_.name_val,i->top());
     i->pop(2);
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -508,7 +505,6 @@ void SetFunction::execute(SLIInterpreter *i) const
 
     i->def(name,i->pick(1));
     i->pop(2);
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -528,7 +524,6 @@ void LoadFunction::execute(SLIInterpreter *i) const
     Name name(i->top().data_.name_val);
 
     i->top()=i->lookup(name);
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -957,6 +952,11 @@ void DefDispatchFunction::execute(SLIInterpreter *i) const
     }
     if (i->pick(1).tag() == sli3::literaltype) {
         // 2-arg /lit obj def -> raw C++ def.
+        // Pop our /def frame here: deffunction is now new-ABI and
+        // doesn't self-pop, so DefDispatchFunction (which stays
+        // old-ABI because of the 3-arg branch's pop+push pattern)
+        // must clean up its own slot before delegating.
+        i->EStack().pop();
         deffunction.execute(i);
         return;
     }
@@ -1063,7 +1063,6 @@ void PrinterrorFunction::execute(SLIInterpreter *i) const
     i->print_error(i->top());
 
     i->pop();
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -1571,7 +1570,6 @@ void Sleep_iFunction::execute(SLIInterpreter *i) const
     select( 0, 0, 0, 0, &tv );
   
   i->pop();
-  i->EStack().pop(); 
 }
 
 /*BeginDocumentation
@@ -1602,7 +1600,6 @@ void Sleep_dFunction::execute(SLIInterpreter *i) const
         select(0, 0, 0, 0, &tv);
 
     i->pop();
-    i->EStack().pop();
 }
 
 
@@ -1779,7 +1776,6 @@ void SetGuardFunction::execute(SLIInterpreter *i) const
   long count= i->top().data_.long_val;
   i->setcycleguard(count);
   i->pop();
-  i->EStack().pop();
 }
 
 
@@ -1801,7 +1797,6 @@ void SetGuardFunction::execute(SLIInterpreter *i) const
 void RemoveGuardFunction::execute(SLIInterpreter *i) const
 {
   i->removecycleguard();
-  i->EStack().pop();
 }
 
 
@@ -1860,7 +1855,6 @@ void DebugOnFunction::execute(SLIInterpreter *i) const
   // i->debug_options();
   // i->debug_mode_on();
   // i->set_max_call_depth(i->get_call_depth()+5);
-  i->EStack().pop();
 }
 
 /*
@@ -1890,7 +1884,6 @@ SeeAlso: debugon, debug
 void DebugOffFunction::execute(SLIInterpreter *i) const
 {
     // i->debug_mode_off();
-  i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -1914,7 +1907,6 @@ void DebugFunction::execute(SLIInterpreter *i) const
     // i->EStack().push_move(i->top());
     // i->EStack().push(new NameDatum("debugon"));
 //    i->pop();
-    i->EStack().pop();
 }
 
 void SetVerbosityFunction::execute(SLIInterpreter *i) const
@@ -1924,7 +1916,6 @@ void SetVerbosityFunction::execute(SLIInterpreter *i) const
   long count= i->top().data_.long_val;
   i->set_verbosity(count);
   i->pop();
-  i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -1966,7 +1957,6 @@ void MessageFunction::execute(SLIInterpreter *i) const
 
     i->message(lev,frm->c_str(),msg->c_str());
     i->pop(3);
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -1976,7 +1966,6 @@ Description: This function does nothing. It is used for benchmark purposes.
 
 void NoopFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
 }
 
 
@@ -2142,6 +2131,33 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("debug", &debugfunction);
   i->createcommand("debugon", &debugonfunction);
   i->createcommand("debugoff", &debugofffunction);
+
+    // Axis I bundle step 3e: convert the trailing-pop ops in
+    // sli_control.cpp to new ABI. The remaining ops in this file
+    // (iter setups: RepeatFunction, ForFunction, Forall_*Function;
+    // conditional: IfFunction, IfelseFunction, CaseFunction has
+    // mid-body slot manipulation; control flow: LoopFunction,
+    // StoppedFunction, ExecFunction, ExitFunction, StopFunction;
+    // raiseerror / raiseagain; iter dispatchers ForallFunction,
+    // ForallindexedFunction, DefDispatchFunction) all manipulate
+    // their own e-stack slot mid-body and stay old ABI.
+    backtrace_onfunction.set_new_abi();
+    backtrace_offfunction.set_new_abi();
+    deffunction.set_new_abi();
+    setfunction.set_new_abi();
+    loadfunction.set_new_abi();
+    printerrorfunction.set_new_abi();
+    casefunction.set_new_abi();
+    sleep_ifunction.set_new_abi();
+    sleep_dfunction.set_new_abi();
+    setguardfunction.set_new_abi();
+    removeguardfunction.set_new_abi();
+    debugonfunction.set_new_abi();
+    debugofffunction.set_new_abi();
+    debugfunction.set_new_abi();
+    setverbosityfunction.set_new_abi();
+    messagefunction.set_new_abi();
+    noopfunction.set_new_abi();
 }
 
 }
