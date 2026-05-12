@@ -22,9 +22,38 @@
 
 #include "sli_name.h"
 
+#include <cstdint>
+
 namespace sli3
 {
   class SLIInterpreter;
+
+  // Axis II: hot-op inlining (doc/compact_procedure_spec.md §Axis II).
+  //
+  // The dispatcher's `functiontype` path switches on
+  // SLIFunction::hot_op() before falling back to the virtual
+  // fn->execute(this). For hot ops the body is inlined into the
+  // dispatcher's switch -- one vcall + per-call refcount-on-the-
+  // type elided per dispatch, body folds into the body-walk
+  // fast path so the compiler can keep operand-stack pointers in
+  // registers across the call.
+  //
+  // Default is HOP_NONE; subclasses opt in by setting hot_op_id_
+  // in their constructor. HOP_NONE keeps the virtual-call path.
+  //
+  // Enum is append-only inside the value range; values are
+  // not a wire contract (no serialization depends on them), so
+  // re-ordering is safe -- but additions should stay before
+  // HOP_count to keep the enumerator dense for the dispatcher's
+  // jump table.
+  enum HotOpId : uint8_t {
+      HOP_NONE = 0,
+      HOP_POP,
+      HOP_DUP,
+      HOP_EXCH,
+      HOP_ADD_II,
+      HOP_count
+  };
 
   class SLIFunction
   {
@@ -76,9 +105,18 @@ namespace sli3
       bool uses_new_abi() const { return new_abi_; }
       void set_new_abi() { new_abi_ = true; }
 
+      // Axis II: hot-op tag. Subclasses set this in their
+      // constructor (see Pop/Dup/Exch/Add_ii). HOP_NONE keeps
+      // the virtual-call path. The setter is intentionally
+      // public so the existing leaf SLIFunction subclasses can
+      // self-register without needing a templated ctor argument.
+      HotOpId hot_op() const { return hot_op_id_; }
+      void set_hot_op(HotOpId id) { hot_op_id_ = id; }
+
   private:
       Name name_;
       bool new_abi_ = false;
+      HotOpId hot_op_id_ = HOP_NONE;
   };
 }
 #endif

@@ -22,6 +22,7 @@
 #include "sli_math.h"
 #include "sli_type.h"
 #include "sli_interpreter.h"
+#include "sli_op_bodies.h"
 
 #include <climits>
 #include <cmath>
@@ -102,16 +103,7 @@ void DoubleFunction::execute(SLIInterpreter *i) const
 
 void Add_iiFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(2);
-    long out;
-    if (checked_add(i->pick(1).data_.long_val,
-                    i->pick(0).data_.long_val, &out))
-    {
-        i->raiseerror(i->RangeCheckError);
-        return;
-    }
-    i->pick(1).data_.long_val = out;
-    i->pop();
+    hot_op_add_ii(i);  // shared with dispatcher's inline arm
 }
 
 void Add_ddFunction::execute(SLIInterpreter *i) const
@@ -2159,6 +2151,8 @@ void init_slimath(SLIInterpreter *i)
     add_difunction.set_new_abi();
     add_idfunction.set_new_abi();
     add_iifunction.set_new_abi();
+    // Axis II step 1: hot-op tag for inline dispatcher path.
+    add_iifunction.set_hot_op(HOP_ADD_II);
     addfunction.set_new_abi();
     and_iifunction.set_new_abi();
     andpolyfunction.set_new_abi();

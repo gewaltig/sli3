@@ -19,6 +19,7 @@
 */
 #include "sli_stack.h"
 #include "sli_interpreter.h"
+#include "sli_op_bodies.h"
 namespace sli3
 {
 
@@ -36,8 +37,7 @@ SeeAlso: npop
 
 void PopFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(1);
-    i->pop();
+    hot_op_pop(i);  // shared with dispatcher's inline arm
 }
 
 /*BeginDocumentation
@@ -77,8 +77,7 @@ SeeAlso: over, index, copy
 */
 void DupFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(1);
-    i->OStack().index(0);
+    hot_op_dup(i);  // shared with dispatcher's inline arm
 }
 
 /* BeginDocumentation
@@ -106,8 +105,7 @@ SeeAlso: roll, rollu, rolld, rot
 
 void ExchFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(2);
-    i->OStack().swap();
+    hot_op_exch(i);  // shared with dispatcher's inline arm
 }
 
 /* BeginDocumentation
@@ -391,6 +389,15 @@ void  init_slistack(SLIInterpreter *i)
     rollfunction.set_new_abi();
     rollufunction.set_new_abi();
     rotfunction.set_new_abi();
+
+    // Axis II step 1: hot-op tags for the dispatcher's inline path.
+    // Bodies of these ops are inlined in the body-walk hot path
+    // via sli_op_bodies.h (single source of truth -- the bodies
+    // here remain authoritative; the dispatcher's inline arm
+    // calls the same static helper).
+    popfunction.set_hot_op(HOP_POP);
+    dupfunction.set_hot_op(HOP_DUP);
+    exchfunction.set_hot_op(HOP_EXCH);
 
     // Axis I bundle step 3: ops in sli_stack.cpp converted to the
     // new ABI -- the dispatcher pops the fn slot after execute()

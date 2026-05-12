@@ -5,6 +5,7 @@
 #include "sli_control.h"
 #include "sli_dicttype.h"
 #include "sli_function.h"
+#include "sli_op_bodies.h"
 #include "sli_functiontype.h"
 #include "sli_io_ops.h"
 #include "sli_state_ops.h"
@@ -1480,11 +1481,24 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
               if (__builtin_expect(count_calls_, 0))
                 ++call_counts_[fn];
               current_op_ = fn;
-              if (fn->uses_new_abi()) {
-                fn->execute(this);
-              } else {
-                execution_stack_.push(sentinel);
-                fn->execute(this);
+              // Axis II step 1: hot-op inline arms. Bodies live
+              // in src/builtins/sli_op_bodies.h; the standalone
+              // execute() methods delegate to the same helpers.
+              // HOP_NONE falls through to the virtual-call path
+              // (new-ABI vs old-ABI sentinel handling).
+              switch (fn->hot_op()) {
+                case HOP_POP:    hot_op_pop(this);    break;
+                case HOP_DUP:    hot_op_dup(this);    break;
+                case HOP_EXCH:   hot_op_exch(this);   break;
+                case HOP_ADD_II: hot_op_add_ii(this); break;
+                default:
+                  if (fn->uses_new_abi()) {
+                    fn->execute(this);
+                  } else {
+                    execution_stack_.push(sentinel);
+                    fn->execute(this);
+                  }
+                  break;
               }
               current_op_ = nullptr;
               goto resume_iter;
@@ -1496,11 +1510,19 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
                 if (__builtin_expect(count_calls_, 0))
                   ++call_counts_[fn];
                 current_op_ = fn;
-                if (fn->uses_new_abi()) {
-                  fn->execute(this);
-                } else {
-                  execution_stack_.push(sentinel);
-                  fn->execute(this);
+                switch (fn->hot_op()) {
+                  case HOP_POP:    hot_op_pop(this);    break;
+                  case HOP_DUP:    hot_op_dup(this);    break;
+                  case HOP_EXCH:   hot_op_exch(this);   break;
+                  case HOP_ADD_II: hot_op_add_ii(this); break;
+                  default:
+                    if (fn->uses_new_abi()) {
+                      fn->execute(this);
+                    } else {
+                      execution_stack_.push(sentinel);
+                      fn->execute(this);
+                    }
+                    break;
                 }
                 current_op_ = nullptr;
                 goto resume_iter;
