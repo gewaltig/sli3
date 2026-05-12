@@ -745,6 +745,12 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   // raw types_[i] has no tag and would dispatch as typeid 0.
   SLIType *iiterate_t = get_type(sli3::iiteratetype);
   SLIType *proc_type  = get_type(sli3::proceduretype);
+  // Axis I bundle step 2: sentinel Token for the fn-dispatch sites.
+  // The dispatcher writes this in place of the function Token before
+  // calling fn->execute; the operator's self-pop pops it. Step 3+ of
+  // the bundle will remove the self-pop on a per-operator basis;
+  // step 4 will remove the sentinel write too.
+  const Token sentinel(get_type(sli3::nulltype));
   if (status_dict_)
     (*status_dict_)[exitcode_name] = null_val;
 
@@ -857,9 +863,21 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             }
             std::cerr << '\n';
           }
+          SLIFunction* fn = execution_stack_.top().data_.func_val;
           if (__builtin_expect(count_calls_, 0))
-            ++call_counts_[execution_stack_.top().data_.func_val];
-          execution_stack_.top().data_.func_val->execute(this);
+            ++call_counts_[fn];
+          // Axis I bundle step 2: current_op_ is the truth for
+          // raiseerror / get_current_name during fn->execute.
+          // No sentinel write at THIS site -- the main functiontype
+          // case is hit by operators that may or may not self-pop
+          // (notably IparseFunction stays on the e-stack and
+          // pushes parsed tokens above itself for re-entry).
+          // Iter-case sites (below) push their own sentinel because
+          // they have a stronger contract: ops dispatched from
+          // within a procedure body must self-pop.
+          current_op_ = fn;
+          fn->execute(this);
+          current_op_ = nullptr;
           break;
         }
 
@@ -893,10 +911,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             // Inline fast path: functiontype calls execute directly,
             // then loop back. See irepeat's case for the same trick.
             if (t.tag() == sli3::functiontype) {
-              execution_stack_.push(t);
+              SLIFunction* fn = t.data_.func_val;
               if (__builtin_expect(count_calls_, 0))
-                ++call_counts_[t.data_.func_val];
-              t.data_.func_val->execute(this);
+                ++call_counts_[fn];
+              // Axis I bundle step 2: see main functiontype case.
+              current_op_ = fn;
+              execution_stack_.push(sentinel);
+              fn->execute(this);
+              current_op_ = nullptr;
               if (execution_stack_.top().tag() == sli3::iiteratetype) {
                 proc = execution_stack_.pick(2).data_.array_val;
                 pos_p = &execution_stack_.pick(1).data_.long_val;
@@ -908,10 +930,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             if (t.tag() == sli3::nametype) {
               const Token &resolved = lookup(t.data_.long_val);
               if (resolved.tag() == sli3::functiontype) {
-                execution_stack_.push(resolved);
+                SLIFunction* fn = resolved.data_.func_val;
                 if (__builtin_expect(count_calls_, 0))
-                  ++call_counts_[resolved.data_.func_val];
-                resolved.data_.func_val->execute(this);
+                  ++call_counts_[fn];
+                // Axis I bundle step 2: see main functiontype case.
+                current_op_ = fn;
+                execution_stack_.push(sentinel);
+                fn->execute(this);
+                current_op_ = nullptr;
                 if (execution_stack_.top().tag() == sli3::iiteratetype) {
                   proc = execution_stack_.pick(2).data_.array_val;
                   pos_p = &execution_stack_.pick(1).data_.long_val;
@@ -964,10 +990,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               // execution (pushed onto estack and didn't pop net),
               // we fall back to the outer dispatcher by breaking.
               if (t.tag() == sli3::functiontype) {
-                execution_stack_.push(t);
+                SLIFunction* fn = t.data_.func_val;
                 if (__builtin_expect(count_calls_, 0))
-                  ++call_counts_[t.data_.func_val];
-                t.data_.func_val->execute(this);
+                  ++call_counts_[fn];
+                // Axis I bundle step 2: see main functiontype case.
+                current_op_ = fn;
+                execution_stack_.push(sentinel);
+                fn->execute(this);
+                current_op_ = nullptr;
                 if (execution_stack_.top().tag() == sli3::irepeattype) {
                   // proc + pos_p may have moved (estack reallocation)
                   proc = execution_stack_.pick(2).data_.array_val;
@@ -983,10 +1013,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               if (t.tag() == sli3::nametype) {
                 const Token &resolved = lookup(t.data_.long_val);
                 if (resolved.tag() == sli3::functiontype) {
-                  execution_stack_.push(resolved);
+                  SLIFunction* fn = resolved.data_.func_val;
                   if (__builtin_expect(count_calls_, 0))
-                    ++call_counts_[resolved.data_.func_val];
-                  resolved.data_.func_val->execute(this);
+                    ++call_counts_[fn];
+                  // Axis I bundle step 2: see main functiontype case.
+                  current_op_ = fn;
+                  execution_stack_.push(sentinel);
+                  fn->execute(this);
+                  current_op_ = nullptr;
                   if (execution_stack_.top().tag() == sli3::irepeattype) {
                     proc = execution_stack_.pick(2).data_.array_val;
                     pos_p = &execution_stack_.pick(1).data_.long_val;
@@ -1031,10 +1065,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             if (t.is_executable()) {
               // Inline functiontype: see irepeat case.
               if (t.tag() == sli3::functiontype) {
-                execution_stack_.push(t);
+                SLIFunction* fn = t.data_.func_val;
                 if (__builtin_expect(count_calls_, 0))
-                  ++call_counts_[t.data_.func_val];
-                t.data_.func_val->execute(this);
+                  ++call_counts_[fn];
+                // Axis I bundle step 2: see main functiontype case.
+                current_op_ = fn;
+                execution_stack_.push(sentinel);
+                fn->execute(this);
+                current_op_ = nullptr;
                 if (execution_stack_.top().tag() == sli3::ifortype) {
                   proc = execution_stack_.pick(2).data_.array_val;
                   pos_p = &execution_stack_.pick(1).data_.long_val;
@@ -1046,10 +1084,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               if (t.tag() == sli3::nametype) {
                 const Token &resolved = lookup(t.data_.long_val);
                 if (resolved.tag() == sli3::functiontype) {
-                  execution_stack_.push(resolved);
+                  SLIFunction* fn = resolved.data_.func_val;
                   if (__builtin_expect(count_calls_, 0))
-                    ++call_counts_[resolved.data_.func_val];
-                  resolved.data_.func_val->execute(this);
+                    ++call_counts_[fn];
+                  // Axis I bundle step 2: see main functiontype case.
+                  current_op_ = fn;
+                  execution_stack_.push(sentinel);
+                  fn->execute(this);
+                  current_op_ = nullptr;
                   if (execution_stack_.top().tag() == sli3::ifortype) {
                     proc = execution_stack_.pick(2).data_.array_val;
                     pos_p = &execution_stack_.pick(1).data_.long_val;
@@ -1099,10 +1141,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             if (t.is_executable()) {
               // Inline functiontype: see irepeat case.
               if (t.tag() == sli3::functiontype) {
-                execution_stack_.push(t);
+                SLIFunction* fn = t.data_.func_val;
                 if (__builtin_expect(count_calls_, 0))
-                  ++call_counts_[t.data_.func_val];
-                t.data_.func_val->execute(this);
+                  ++call_counts_[fn];
+                // Axis I bundle step 2: see main functiontype case.
+                current_op_ = fn;
+                execution_stack_.push(sentinel);
+                fn->execute(this);
+                current_op_ = nullptr;
                 if (execution_stack_.top().tag() == sli3::iforalltype) {
                   proc = execution_stack_.pick(2).data_.array_val;
                   pos_p = &execution_stack_.pick(1).data_.long_val;
@@ -1114,10 +1160,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               if (t.tag() == sli3::nametype) {
                 const Token &resolved = lookup(t.data_.long_val);
                 if (resolved.tag() == sli3::functiontype) {
-                  execution_stack_.push(resolved);
+                  SLIFunction* fn = resolved.data_.func_val;
                   if (__builtin_expect(count_calls_, 0))
-                    ++call_counts_[resolved.data_.func_val];
-                  resolved.data_.func_val->execute(this);
+                    ++call_counts_[fn];
+                  // Axis I bundle step 2: see main functiontype case.
+                  current_op_ = fn;
+                  execution_stack_.push(sentinel);
+                  fn->execute(this);
+                  current_op_ = nullptr;
                   if (execution_stack_.top().tag() == sli3::iforalltype) {
                     proc = execution_stack_.pick(2).data_.array_val;
                     pos_p = &execution_stack_.pick(1).data_.long_val;
