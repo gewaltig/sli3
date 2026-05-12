@@ -21,13 +21,14 @@ SLI_DIR=$ROOT/bench/sli
 PS_DIR=$ROOT/bench/ps
 
 run_one() {
-    local label=$1 sli=$2 ps=$3
+    local label=$1 sli=$2 ps=$3 nest_note=${4:-}
     echo "=== $label ==="
     for impl in sli3 nest gs; do
         local cmd=""
         case $impl in
             sli3) cmd="$SLI3 < $sli" ;;
             nest) [ -x "$NEST" ] || { printf "%-5s: (not installed)\n" nest; continue; }
+                  [ -n "$nest_note" ] && { printf "%-5s: %s\n" nest "$nest_note"; continue; }
                   cmd="$NEST < $sli" ;;
             gs)   command -v "$GS" >/dev/null || { printf "%-5s: (not installed)\n" gs; continue; }
                   [ -z "$ps" ] && { printf "%-5s: (no .ps script)\n" gs; continue; }
@@ -80,3 +81,29 @@ run_one "B6c  ostack=5 at error              x 1M  (recordstacks=true)" \
         "$SLI_DIR/B6c_stopped_ostack.sli"       ""
 run_one "B6cn same, recordstacks=false       x 1M" \
         "$SLI_DIR/B6c_stopped_ostack_norec.sli" ""
+
+# B7-B10 -- organic workloads exercising the operator surface:
+# get/put/comparison/for/if/recursion/arithmetic. The .sli files
+# use sli3's `put`-returns-array semantics ("put pop" everywhere);
+# the .ps files use PS-standard `put` (consumes, no return). nest
+# 2.20 follows PS semantics so the .sli scripts as written will
+# stack-underflow on nest -- skip with a note.
+
+run_one "B7   bubble sort 100 x 1000" \
+        "$SLI_DIR/B7_bubble_sort.sli" \
+        "$PS_DIR/B7_bubble_sort.ps" \
+        "(skip: sli3-specific put semantics)"
+
+run_one "B8   insertion sort 100 x 1000" \
+        "$SLI_DIR/B8_insertion_sort.sli" \
+        "$PS_DIR/B8_insertion_sort.ps" \
+        "(skip: sli3-specific put semantics)"
+
+run_one "B9   recursive fib(28) x 20" \
+        "$SLI_DIR/B9_fibonacci.sli" \
+        "$PS_DIR/B9_fibonacci.ps"
+
+run_one "B10  matmul 50x50 x 100" \
+        "$SLI_DIR/B10_matmul.sli" \
+        "$PS_DIR/B10_matmul.ps" \
+        "(skip: sli3-specific put semantics)"

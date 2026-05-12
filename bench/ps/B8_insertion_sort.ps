@@ -1,0 +1,6 @@
+% B8 -- insertion sort.
+
+/insertion { /n exch def /arr exch def 1 1 n 1 sub { /i exch def /key arr i get def /j i 1 sub def { j 0 lt { exit } if arr j get key gt { arr j 1 add arr j get put /j j 1 sub def } { exit } ifelse } loop arr j 1 add key put } for } def
+/run { /a 100 array def 0 1 99 { /i exch def a i 99 i sub put } for a 100 insertion } def
+1000 { run } repeat
+quit

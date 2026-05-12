@@ -1,0 +1,14 @@
+% B9 -- recursive Fibonacci.
+%
+% Exercises: recursive procedure calls (proc -> proc -> ...),
+% conditional branching (lt + ifelse), basic arithmetic. Stresses
+% the iiterate path because each fib call enters a new proc body.
+%
+% fib(n) = fib(n-1) + fib(n-2); fib(0)=0, fib(1)=1.
+% fib(28) = 317811; total calls ~ 2 * fib(n+1) - 1 = ~1.03M per call.
+%
+% K=20 outer iters of fib(28) = ~20M procedure dispatches.
+
+/fib { dup 2 lt { } { dup 1 sub fib exch 2 sub fib add } ifelse } def
+tic 20 { 28 fib pop } repeat toc ==
+quit

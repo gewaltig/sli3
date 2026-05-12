@@ -1,0 +1,9 @@
+% B10 -- naive NxN matrix multiplication.
+
+/mkrow { /n exch def /r n array def 0 1 n 1 sub { /i exch def r i i put } for r } def
+/mkmat { /n exch def /m n array def 0 1 n 1 sub { /i exch def m i n mkrow put } for m } def
+/matmul { /B exch def /A exch def /n A length def /C n array def 0 1 n 1 sub { /i exch def C i n array put /Ci C i get def /Ai A i get def 0 1 n 1 sub { /j exch def /sum 0 def 0 1 n 1 sub { /k exch def /sum sum Ai k get B k get j get mul add def } for Ci j sum put } for } for C } def
+/A 50 mkmat def
+/B 50 mkmat def
+100 { A B matmul pop } repeat
+quit

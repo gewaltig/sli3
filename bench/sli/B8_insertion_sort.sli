@@ -1,0 +1,15 @@
+% B8 -- insertion sort.
+%
+% Sorts a 100-element reverse-ordered array, repeated K times.
+% Same array+comparison surface as bubble sort, but the inner loop
+% is a while-style search using `loop` + `exit` rather than `for`.
+% Stresses: exit-out-of-loop unwinding, which sli3's irepeattype
+% TCO doesn't handle (irepeat is reused not elided across iters).
+%
+% Worst case: ~ n^2/2 comparisons per sort. n=100, K=1000 sorts:
+% ~5M comparisons.
+
+/insertion { /n exch def /arr exch def 1 1 n 1 sub { /i exch def /key arr i get def /j i 1 sub def { j 0 lt { exit } if arr j get key gt { arr j 1 add arr j get put pop /j j 1 sub def } { exit } ifelse } loop arr j 1 add key put pop } for } def
+/run { /a 100 array def 0 1 99 { /i exch def a i 99 i sub put pop } for a 100 insertion } def
+tic 1000 { run } repeat toc ==
+quit

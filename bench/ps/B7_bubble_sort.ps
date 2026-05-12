@@ -1,0 +1,8 @@
+% B7 -- bubble sort. Same shape as bench/sli/B7_bubble_sort.sli.
+% PostScript put consumes 3 args without returning the array,
+% so no `pop` after each put (compare to the SLI version).
+
+/bubble { /n exch def /arr exch def n 1 sub { 0 1 n 2 sub { /j exch def arr j get arr j 1 add get gt { /tmp arr j get def arr j arr j 1 add get put arr j 1 add tmp put } if } for } repeat } def
+/run { /a 100 array def 0 1 99 { /i exch def a i 99 i sub put } for a 100 bubble } def
+1000 { run } repeat
+quit
