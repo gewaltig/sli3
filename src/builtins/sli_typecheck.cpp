@@ -413,8 +413,8 @@ public:
             return;
           case sli3::istreamtype: {
             // /cvx_f lives in sli_io_ops.cpp; reach it by name.
+            // Axis I bundle step 4: dispatcher pre-popped /cvx.
             Token op = i->baselookup(Name("cvx_f"));
-            i->EStack().pop();
             i->EStack().push(op);
             return;
           }
@@ -424,16 +424,13 @@ public:
             // the trie's leaf would. Push the cst lookup and let
             // the procedure machinery surface the error.
             Token op = i->baselookup(Name("cst"));
-            i->EStack().pop();
             i->EStack().push(op);
             return;
           }
           // /anytype arm of the original trie was `{}` -- a true
-          // no-op that left the operand on the stack. We mirror
-          // that for the remaining types: no error, just pop our
-          // own frame.
+          // no-op that left the operand on the stack. Under step 4
+          // the dispatcher already popped /cvx -- just return.
           default:
-            i->EStack().pop();
             return;
         }
     }
@@ -447,8 +444,7 @@ public:
         i->require_stack_load(1);
         switch (i->top().tag()) {
           case sli3::integertype:
-            // identity: drop our frame, leave the int.
-            i->EStack().pop();
+            // identity: dispatcher already popped /cvi.
             return;
           case sli3::doubletype:
             integerfunction.execute(i);    // int_d: floor double -> int
@@ -457,7 +453,6 @@ public:
             // cvi_s_fn is anonymous-namespace in sli_container_ops.cpp;
             // reach via baselookup.
             Token op = i->baselookup(Name("cvi_s"));
-            i->EStack().pop();
             i->EStack().push(op);
             return;
           }
@@ -478,11 +473,9 @@ public:
             doublefunction.execute(i);     // double_i: int -> double
             return;
           case sli3::doubletype:
-            i->EStack().pop();             // identity
-            return;
+            return;                        // identity, /cvd already popped
           case sli3::stringtype: {
             Token op = i->baselookup(Name("cvd_s"));
-            i->EStack().pop();
             i->EStack().push(op);
             return;
           }
@@ -506,13 +499,11 @@ public:
             cvlit_pfunction.execute(i);
             return;
           case sli3::literaltype:
-            i->EStack().pop();             // identity
-            return;
+            return;                        // identity, /cvlit already popped
           case sli3::stringtype: {
             // Trie had {cvn_s cvlit_n}. cvn_s is Unimplemented;
             // mirror via baselookup so the same error fires.
             Token op = i->baselookup(Name("cvn_s"));
-            i->EStack().pop();
             i->EStack().push(op);
             return;
           }
@@ -533,12 +524,10 @@ public:
             cvn_lfunction.execute(i);
             return;
           case sli3::nametype:
-            i->EStack().pop();             // identity
-            return;
+            return;                        // identity, /cvn already popped
           case sli3::stringtype: {
             // cvn_s is Unimplemented; same story as above.
             Token op = i->baselookup(Name("cvn_s"));
-            i->EStack().pop();
             i->EStack().push(op);
             return;
           }
@@ -600,11 +589,11 @@ void init_slitypecheck(SLIInterpreter *i)
     triefunction.set_new_abi();
     trieinfofunction.set_new_abi();
     typefunction.set_new_abi();
-    // Stage 9 cv* dispatchers also convert: their arms call new-ABI
-    // leaves directly (cvx_a_fn / integerfunction / doublefunction /
-    // cvlit_nfunction / cvlit_pfunction / cvn_lfunction) which no
-    // longer self-pop, and the baselookup-push arms work under new
-    // ABI via the dispatcher post-check.
+    // Stage 9 cv* dispatchers: arms call new-ABI leaves directly
+    // (cvx_a_fn / integerfunction / doublefunction / cvlit_nfunction
+    // / cvlit_pfunction / cvn_lfunction) and the baselookup-push
+    // arms work under step-4 because the dispatcher pre-popped
+    // /cv* already; the body just pushes the next exec frame.
     cvxfunction.set_new_abi();
     cvifunction.set_new_abi();
     cvdfunction.set_new_abi();

@@ -500,6 +500,7 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     endl_fn.set_new_abi();
     flush_fn.set_new_abi();
     write_fn.set_new_abi();
+    pwrite_fn.set_new_abi();
 
     // 2b. Stubs for unimplemented operators that typeinit.sli /
     //     mathematica.sli / etc. reference via `<X> load addtotrie`.

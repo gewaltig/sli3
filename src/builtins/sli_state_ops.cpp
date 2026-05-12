@@ -32,11 +32,9 @@ public:
         std::string filename = i->top().data_.string_val->str();
         i->pop();
 
-        // Self-pop FIRST so the e-stack snapshot reflects "savestate
-        // has returned". After Axis I slice 6 lands and operators
-        // stop self-popping, this line goes away — the dispatcher
-        // will have already popped us by the time we're called.
-        i->EStack().pop();
+        // Axis I bundle step 4: dispatcher pre-popped /savestate,
+        // so the e-stack snapshot already reflects "savestate has
+        // returned" without an explicit pop here.
 
         std::ofstream out(filename, std::ios::binary);
         if (!out)
@@ -81,10 +79,8 @@ public:
         std::string filename = i->top().data_.string_val->str();
         i->pop();
 
-        // Self-pop FIRST: we're about to replace the e-stack
-        // entirely; the dispatcher continues from whatever the
-        // restored e-stack puts on top.
-        i->EStack().pop();
+        // Axis I bundle step 4: dispatcher pre-popped /restorestate;
+        // we're about to overwrite the e-stack entirely anyway.
 
         std::ifstream in(filename, std::ios::binary);
         if (!in)
@@ -122,7 +118,9 @@ void init_state_ops(SLIInterpreter* i)
     i->createcommand("savestate",    &savestate_fn);
     i->createcommand("restorestate", &restorestate_fn);
 
-    // Axis I bundle step 3f: trailing-pop state_ops to new ABI.
+    // Axis I bundle step 4: dispatcher pre-pop contract.
+    savestate_fn.set_new_abi();
+    restorestate_fn.set_new_abi();
 }
 
 }  // namespace sli3

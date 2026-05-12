@@ -83,15 +83,13 @@ void Backtrace_offFunction::execute(SLIInterpreter *i) const
 
 void OStackdumpFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop(); // never forget me!!
-
+    // Axis I bundle step 4: dispatcher pre-popped /ostackdump.
     i->OStack().dump(std::cout);
 }
 
 void EStackdumpFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop(); // never forget me!!
-
+    // Axis I bundle step 4: dispatcher pre-popped /estackdump.
     i->EStack().dump(std::cout);
 }
 
@@ -113,7 +111,8 @@ void LoopFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     i->require_stack_type(0, sli3::proceduretype);
 
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /loop. Push iter
+    // frame directly.
     i->EStack().push(i->baselookup(i->mark_name));
     i->EStack().push(i->top());
     i->EStack().push(0);
@@ -163,17 +162,15 @@ void IfFunction::execute(SLIInterpreter *i) const
 {
     // OStack: bool proc
     //          1    0
+    // EStack (new ABI, step 4): the dispatcher pre-popped /if's
+    // own slot. We just push the proc (if true) or do nothing
+    // (if false), then drop the ostack operands.
     i->require_stack_load(2);
-    // Stage 4.3: type-check the condition. Without this, any
-    // non-bool argument silently took the else branch -- the
-    // operator==(bool) overload returns false for non-booltype
-    // Tokens. PostScript spec: `if` requires a real bool.
     i->require_stack_type(1, sli3::booltype);
 
     if (i->pick(1).data_.bool_val)
-        i->EStack().top() = i->top();   // dispatch the proc next
-    else
-        i->EStack().pop();              // skip
+        i->EStack().push(i->top());     // dispatch the proc next
+    // else: nothing -- dispatcher already popped /if
     i->pop(2);
 }
 
@@ -200,16 +197,10 @@ void IfelseFunction::execute(SLIInterpreter *i) const
 {
     // OStack: bool tproc fproc
     //          2    1      0
-    // Push the chosen branch onto the execution stack and remove all
-    // three operand-stack entries.
+    // EStack (new ABI, step 4): dispatcher pre-popped /ifelse's
+    // slot. Push the chosen branch and drop the ostack operands.
     i->require_stack_load(3);
-    // Stage 4.4: previously this op silently took the false branch
-    // for any non-bool condition -- the agent's review flagged it
-    // as inconsistent with `if` (which today raises). Now both
-    // raise on non-bool. require_stack_type pops the e-stack frame
-    // before raising, so do not pop here too.
     i->require_stack_type(2, sli3::booltype);
-    i->EStack().pop();
 
     if (i->pick(2).data_.bool_val)
         i->EStack().push(i->pick(1));   // tproc
@@ -247,7 +238,10 @@ void RepeatFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(1,sli3::integertype);
 
     TokenArray *proc= i->top().data_.array_val;
-    i->EStack().top().type_=mark_t;
+    // Axis I bundle step 4: dispatcher pre-popped /repeat. Push a
+    // fresh mark + iter frame; pre-step-4 code overwrote the
+    // /repeat slot's type to mark_t in place.
+    i->EStack().push(Token(mark_t));
     i->EStack().push(i->pick(1));
     i->EStack().push(i->pick(0));
     i->EStack().push(i->new_token<sli3::integertype>(proc->size()));
@@ -286,7 +280,7 @@ SeeAlso: stop, raiseerror
 void StoppedFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /stopped.
     i->EStack().push(i->new_token<sli3::nametype>(i->istopped_name));
     i->EStack().push(i->top());
     i->pop();
@@ -459,7 +453,7 @@ void CurrentnameFunction::execute(SLIInterpreter *i) const
     // the caller name; return false so callers can detect the
     // "not available" case rather than reading garbage off the
     // stack.
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /currentname.
     i->push<bool>(false);
 }
 
@@ -544,7 +538,7 @@ void LookupFunction::execute(SLIInterpreter *i) const
 
     Name name(i->top().data_.name_val);
 
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /lookup.
     i->pop();
 
     Token content;
@@ -575,7 +569,7 @@ public:
         Token dict_tok = i->pick(1);   // copy (refcount via Token)
         Name key = i->top().data_.name_val;
         i->pop(2);
-        i->EStack().pop();             // pop self
+        // Axis I bundle step 4: dispatcher pre-popped /call.
         i->DStack().push(dict_tok);    // open namespace
         i->EStack().push(i->baselookup(i->end_name));  // schedule close
         i->EStack().push(i->new_token<sli3::nametype, Name>(key));
@@ -624,7 +618,9 @@ void ForFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(2,sli3::integertype);
     i->require_stack_type(3,sli3::integertype);
 
-    i->EStack().top().type_=mark_t;
+    // Axis I bundle step 4: dispatcher pre-popped /for. Push a
+    // fresh mark + iter frame.
+    i->EStack().push(Token(mark_t));
     i->EStack().push(i->pick(2));      // increment
     i->EStack().push(i->pick(1));      // limit
     i->EStack().push(i->pick(3));      // counter
@@ -707,7 +703,7 @@ void Forall_aFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(1,sli3::arraytype);
     TokenArray *proc= i->top().data_.array_val;
 
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /forall_a.
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
     i->EStack().push(i->new_token<sli3::integertype>(0));          // push array counter
@@ -768,7 +764,6 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
 
     assert(i->top().data_.array_val != 0);
 
-    i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
@@ -796,7 +791,6 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
 
     assert(i->top().data_.array_val != 0);
 
-    i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
@@ -824,7 +818,6 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
 
     assert(i->top().data_.array_val != 0);
 
-    i->EStack().pop();  // pop self before pushing iter frame
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
@@ -882,7 +875,6 @@ void ForallFunction::execute(SLIInterpreter *i) const
         // procedure onto the estack -- after popping our own
         // function frame off the top.
         Token forall_di = i->baselookup(Name("forall_di"));
-        i->EStack().pop();             // pop /forall function frame
         i->EStack().push(forall_di);   // schedule the SLI proc
         return;
       }
@@ -946,17 +938,13 @@ void DefDispatchFunction::execute(SLIInterpreter *i) const
     {
         // 3-arg typecheck form: /lit [/types] obj :def_
         Token def_colon = i->baselookup(Name(":def_"));
-        i->EStack().pop();              // pop /def frame
         i->EStack().push(def_colon);    // schedule SLI proc
         return;
     }
     if (i->pick(1).tag() == sli3::literaltype) {
-        // 2-arg /lit obj def -> raw C++ def.
-        // Pop our /def frame here: deffunction is now new-ABI and
-        // doesn't self-pop, so DefDispatchFunction (which stays
-        // old-ABI because of the 3-arg branch's pop+push pattern)
-        // must clean up its own slot before delegating.
-        i->EStack().pop();
+        // 2-arg /lit obj def -> raw C++ def. Under step-4 contract,
+        // the dispatcher pre-popped /def, so deffunction (new-ABI)
+        // sees a clean e-stack top.
         deffunction.execute(i);
         return;
     }
@@ -1022,7 +1010,8 @@ void RaiseerrorFunction::execute(SLIInterpreter *i) const
     Name cmdname(i->pick(1).data_.name_val);
 
     i->pop(2);            // consume both literal args (matches NEST 2.x convention)
-    i->EStack().pop();    // pop self from estack
+    // Axis I bundle step 4: dispatcher pre-popped /raiseerror; the
+    // C++ raiseerror(N,N) does no estack pop itself.
     i->raiseerror(cmdname, errorname);
 }
 
@@ -1084,7 +1073,7 @@ void PrinterrorFunction::execute(SLIInterpreter *i) const
 
 void RaiseagainFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /raiseagain.
     i->raiseagain();
 }
 
@@ -1094,7 +1083,7 @@ Synopsis: cycles -> n
 */
 void CyclesFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /cycles.
     i->push(i->cycles());
 }
 
@@ -1177,7 +1166,6 @@ void TypeinfoFunction::execute(SLIInterpreter *i) const
     Token t(literal_t);
     t.data_.name_val = i->top().get_typename().toIndex();
     i->push(t);
-    i->EStack().pop();
 }
 
 void SwitchFunction::execute(SLIInterpreter *i) const
@@ -1187,10 +1175,9 @@ void SwitchFunction::execute(SLIInterpreter *i) const
         // exit, the execution of all other objects is
         // terminated.
     i->require_stack_load(1);
+    // Axis I bundle step 4: /switch's own frame already popped by
+    // the dispatcher. The recover/restore dance is gone.
 
-    Token recover=i->EStack().top();
-    i->EStack().pop();    
-    
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->baselookup(i->ipop_name));
 
@@ -1209,14 +1196,11 @@ void SwitchFunction::execute(SLIInterpreter *i) const
 
     if(!found)
     {
-	// Before raising an error, we restore the state of the execution stack.
 	i->EStack().pop(rewind);
-	i->EStack().push(recover);
 	i->raiseerror("UnmatchedMark");
 	return;
     }
     i->pop(pos+1);
-    i->EStack().pop();
 }
 
 void SwitchdefaultFunction::execute(SLIInterpreter *i) const
@@ -1227,9 +1211,7 @@ void SwitchdefaultFunction::execute(SLIInterpreter *i) const
   // else pops defobj and calls switch to execute obj1..objn
   // If one object executes exit, the execution of all other
   // objects is terminated.
-
-    Token recover=i->EStack().top();
-    i->EStack().pop();    
+  // Axis I bundle step 4: /switchdefault frame already popped.
 
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->baselookup(i->ipop_name));
@@ -1256,13 +1238,11 @@ void SwitchdefaultFunction::execute(SLIInterpreter *i) const
 
     if(!found)
     {
-	// Before raising an error, we restore the state of the execution stack.
 	i->EStack().pop(rewind);
-	i->EStack().push(recover);
         i->raiseerror("UnmatchedMark");
 	return;
     }
-    
+
     i->pop(pos+1);
 }
 
@@ -1274,16 +1254,15 @@ void CaseFunction::execute(SLIInterpreter *i) const
 
     i->require_stack_load(2);
 
+    // Axis I bundle step 4: dispatcher pre-popped /case.
     if(i->pick(1) == true)
     {
 	i->top().swap(i->pick(1));
        i->pop();
-       i->EStack().pop();
     }
     else if(i->pick(1) == false)
     {
         i->pop(2);
-        i->EStack().pop();
     }
     else
     {
@@ -1314,7 +1293,6 @@ void CounttomarkFunction::execute(SLIInterpreter *i) const
 	return;
     }
     i->push(pos-1);
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -1359,7 +1337,6 @@ void PclocksFunction::execute(SLIInterpreter *i) const
    result.data_.array_val->push_back(i->new_token<sli3::integertype>((long)foo.tms_cstime));
    i->push(result);
 
-  i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -1386,7 +1363,6 @@ void PclockspersecFunction::execute(SLIInterpreter *i) const
     return;
   }
 
-  i->EStack().pop();
   i->push(cps);
 }
 
@@ -1430,9 +1406,6 @@ void PgetrusageFunction::execute(SLIInterpreter *i) const
   }
   i->push(self);
   i->push(children);
-
-  i->EStack().pop();
-
 }
 
 bool PgetrusageFunction::getinfo_(SLIInterpreter *i, int who, Dictionary *dict) const
@@ -1474,7 +1447,6 @@ bool PgetrusageFunction::getinfo_(SLIInterpreter *i, int who, Dictionary *dict) 
 void TimeFunction::execute(SLIInterpreter *i) const
 {
   long secs = time(0);
-  i->EStack().pop();
   i->push(secs);
 }
 
@@ -1500,7 +1472,6 @@ void RealtimeFunction::execute(SLIInterpreter *i) const
   double const t =
       static_cast<double>(tv.tv_sec) +
       1.0e-6 * static_cast<double>(tv.tv_usec);
-  i->EStack().pop();
   i->push(t);
 }
 
@@ -1547,7 +1518,6 @@ void PtimesFunction::execute(SLIInterpreter *i) const
   Token result(i->get_type(sli3::arraytype));
   result.data_.array_val = arr;
   i->push(result);
-  i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -1618,7 +1588,7 @@ void  Token_sFunction::execute(SLIInterpreter *i) const
   // popping here too would take away an unrelated frame.
   i->require_stack_load(1);
   i->require_stack_type(0, sli3::stringtype);
-  i->EStack().pop();
+  // Axis I bundle step 4: dispatcher pre-popped /token_s.
 
   SLIString *sd = i->top().data_.string_val;
   assert(sd != NULL);
@@ -1675,8 +1645,7 @@ void  Token_isFunction::execute(SLIInterpreter *i) const
   i->require_stack_load(1);
   i->require_stack_type(0,sli3::istreamtype);
 
-  i->EStack().pop();
-
+  // Axis I bundle step 4: dispatcher pre-popped /token_is.
   SLIistream *sd= i->top().data_.istream_val;
   assert(sd != 0);
   assert(sd->get() != NULL);
@@ -1711,7 +1680,7 @@ void  Symbol_sFunction::execute(SLIInterpreter *i) const
   // symbol-only filtering, gate the result Token's typeid here.
   i->require_stack_load(1);
   i->require_stack_type(0, sli3::stringtype);
-  i->EStack().pop();
+  // Axis I bundle step 4: dispatcher pre-popped /symbol_s.
 
   SLIString *sd = i->top().data_.string_val;
   assert(sd != NULL);
@@ -1926,7 +1895,7 @@ SeeAlso: setverbosity, message
 
 void VerbosityFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
+    // Axis I bundle step 4: dispatcher pre-popped /verbosity.
     i->push(i->verbosity());
 }
 
@@ -2158,6 +2127,51 @@ void  init_slicontrol(SLIInterpreter *i)
     setverbosityfunction.set_new_abi();
     messagefunction.set_new_abi();
     noopfunction.set_new_abi();
+    // Axis I bundle step 4: conditionals converted by dropping
+    // their mid-body pop-self (dispatcher now pre-pops).
+    iffunction.set_new_abi();
+    ifelsefunction.set_new_abi();
+    loopfunction.set_new_abi();
+    repeatfunction.set_new_abi();
+    stoppedfunction.set_new_abi();
+    forfunction.set_new_abi();
+    forall_afunction.set_new_abi();
+    forall_sfunction.set_new_abi();
+    forallindexed_afunction.set_new_abi();
+    forallindexed_sfunction.set_new_abi();
+    forallfunction.set_new_abi();
+    forallindexedfunction.set_new_abi();
+    defdispatchfunction.set_new_abi();
+    // Axis I bundle step 4 (second batch): trailing-pop ops and
+    // the switch/case family. SwitchFunction / SwitchdefaultFunction
+    // also had their recover/restore dance removed (dispatcher
+    // already popped /switch, so there is nothing to put back).
+    switchfunction.set_new_abi();
+    switchdefaultfunction.set_new_abi();
+    casefunction.set_new_abi();
+    counttomarkfunction.set_new_abi();
+    pclocksfunction.set_new_abi();
+    ptimesfunction.set_new_abi();
+    typeinfofunction.set_new_abi();
+    // Axis I bundle step 4 (third batch): one-pop-self at body
+    // start / body end. Each had a single trailing-style pop on
+    // the success path -- removed and marked new-ABI.
+    ostackdumpfunction.set_new_abi();
+    estackdumpfunction.set_new_abi();
+    currentnamefunction.set_new_abi();
+    lookupfunction.set_new_abi();
+    cyclesfunction.set_new_abi();
+    pclockspersecfunction.set_new_abi();
+    pgetrusagefunction.set_new_abi();
+    timefunction.set_new_abi();
+    realtimefunction.set_new_abi();
+    token_sfunction.set_new_abi();
+    token_isfunction.set_new_abi();
+    symbol_sfunction.set_new_abi();
+    verbosityfunction.set_new_abi();
+    raiseerrorfunction.set_new_abi();
+    raiseagainfunction.set_new_abi();
+    call_member_fn.set_new_abi();
 }
 
 }

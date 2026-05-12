@@ -236,7 +236,7 @@ public:
         TokenArray* src = i->top().data_.array_val;
         if (src->empty())
         {
-            i->EStack().pop();
+            // Axis I bundle step 4: /Sort frame already popped.
             return;
         }
         unsigned int type_id = src->begin()->type_->get_typeid();
@@ -292,7 +292,7 @@ public:
         {
             TokenArray* empty = new TokenArray();
             i->top() = i->new_token<sli3::arraytype>(empty);
-            i->EStack().pop();
+            // Axis I bundle step 4: /Transpose frame already popped.
             return;
         }
         for (Token const* row = src->begin(); row != src->end(); ++row)
@@ -398,7 +398,7 @@ public:
         for (Token const* t = arr->begin(); t != arr->end(); ++t)
             i->push(*t);
         i->push(sz);
-        i->EStack().pop();
+        // Axis I bundle step 4: /arrayload frame already popped.
         // 'at' destructs and removes its reference on arr.
     }
 };
@@ -861,6 +861,13 @@ void init_sliarray(SLIInterpreter* i)
     sort_fn.set_new_abi();
     transpose_fn.set_new_abi();
     valid_fn.set_new_abi();
+    // Axis I bundle step 4 audit: bodies have no e-stack pop --
+    // they relied on the step 3 post-check (which only fires for
+    // new-ABI ops). Mark them so step 4's pre-pop applies and the
+    // iiterate fast path doesn't push a sentinel that nobody pops.
+    arrayload_fn.set_new_abi();
+    getmax_fn.set_new_abi();
+    getmin_fn.set_new_abi();
 }
 
 }  // namespace sli3

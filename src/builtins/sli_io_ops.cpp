@@ -190,7 +190,7 @@ public:
         if (!s || !s->good())
         {
             i->push<bool>(false);
-            i->EStack().pop();
+            // Axis I bundle step 4: /getline_is frame already popped.
             return;
         }
         std::string line;

@@ -60,7 +60,7 @@ public:
             // EOF (Ctrl-D) or interrupt: tell the executive loop to
             // stop, matching readline's contract in sli-init.sli.
             i->push<bool>(false);
-            i->EStack().pop();
+            // Axis I bundle step 4: /GNUreadline frame already popped.
             return;
         }
         std::string s(line);

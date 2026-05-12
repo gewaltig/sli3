@@ -383,7 +383,13 @@ Name SLIInterpreter::get_current_name(void) const {
 
 void SLIInterpreter::raiseerror(Name err) {
   Name caller = get_current_name();
-  execution_stack_.pop();
+  // Axis I bundle step 4: under new-ABI dispatcher, the fn slot was
+  // pre-popped before fn->execute. raiseerror called from inside a
+  // new-ABI op must NOT pop again -- the slot is already gone. For
+  // old-ABI ops the slot is still on top and gets popped here as
+  // before.
+  if (current_op_ == nullptr || !current_op_->uses_new_abi())
+    execution_stack_.pop();
   raiseerror(caller, err);
 }
 
@@ -394,14 +400,19 @@ void SLIInterpreter::raiseerror(std::exception &err) {
   Name command_n("command");
 
   assert(error_dict_ != NULL);
-  // Read the failing op (top of e-stack) into /command BEFORE
-  // popping. The Name overload pops in raiseerror(Name); we mirror
-  // that here so both error-entry paths leave the e-stack at the
-  // same depth (Stage 3.3). Without the pop, the failing op stays
-  // on the estack with /cmd and stop on top -- when stop unwinds,
-  // the op would be re-executed.
-  error_dict_->insert(command_n, execution_stack_.top());
-  execution_stack_.pop();
+  // Axis I bundle step 4: under new-ABI dispatcher, the fn slot was
+  // pre-popped before fn->execute, so what's on top is NOT the fn
+  // slot anymore. /command in errordict ends up being whatever was
+  // below (often nothing interesting). For old-ABI we keep the
+  // historical behaviour: read top into /command, then pop it.
+  if (current_op_ == nullptr || !current_op_->uses_new_abi()) {
+    error_dict_->insert(command_n, execution_stack_.top());
+    execution_stack_.pop();
+  }
+  // else: /command stays whatever it was previously; new-ABI ops
+  // are uniquely identified via /commandname (set in
+  // raiseerror(Name,Name)) so this is fine for the bench/error
+  // tests.
 
   // SLIException provide addtional information
   SLIException *slierr = dynamic_cast<SLIException *>(&err);
@@ -866,26 +877,24 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           SLIFunction* fn = execution_stack_.top().data_.func_val;
           if (__builtin_expect(count_calls_, 0))
             ++call_counts_[fn];
-          // Axis I bundle step 2-4: current_op_ is the truth for
-          // raiseerror / get_current_name during fn->execute. If
-          // the op uses the new ABI, the dispatcher pops the fn
-          // Token after the call -- but ONLY if the op left it on
-          // top. raiseerror manipulates the e-stack (pops the op
-          // slot + pushes /stop), and iter setup ops (Repeat / For
-          // etc., all old-ABI today) push their iter frames; in
-          // both cases the post-execute top is not the fn slot
-          // and the dispatcher must not pop. The
-          // tag+pointer check below distinguishes "op left slot
-          // alone" from "raiseerror or other mutation".
+          // Axis I bundle step 4: contract revision.
+          //
+          // For new-ABI ops, the dispatcher pre-pops the fn slot
+          // BEFORE calling fn->execute. Operators never see their
+          // own slot -- they push results / iter frames / chosen
+          // procs onto an e-stack that already has fn gone.
+          // raiseerror inside a new-ABI op must NOT pop again
+          // (the slot is already gone); the raiseerror() body
+          // checks current_op_->uses_new_abi() to skip the pop.
+          //
+          // For old-ABI ops, no change: the op self-pops or
+          // manages its own slot.
           current_op_ = fn;
-          fn->execute(this);
-          if (fn->uses_new_abi() && execution_stack_.load() > 0)
-          {
-            Token const& post_top = execution_stack_.top();
-            if (post_top.tag() == sli3::functiontype &&
-                post_top.data_.func_val == fn) {
-              execution_stack_.pop();
-            }
+          if (fn->uses_new_abi()) {
+            execution_stack_.pop();
+            fn->execute(this);
+          } else {
+            fn->execute(this);
           }
           current_op_ = nullptr;
           break;
