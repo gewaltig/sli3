@@ -131,7 +131,7 @@ public:
   }
 
   bool lookup(Name const & n, Token &result)
-  { 
+  {
     Name::handle_t key=n.toIndex();
     if (key<cache_.size())
       {
@@ -144,13 +144,13 @@ public:
       }
 
     std::list<Dictionary *>::const_iterator i=d.begin();
-    
+
     while (i!=d.end())
       {
 	TokenMap::iterator where =(*i)->find(n);
 	if(where!=(*i)->end())
 	  {
-	    cache_token(n,&(where->second)); // Update the cache 
+	    cache_token(n,&(where->second)); // Update the cache
 	    result= where->second;
 	    return true;
 	  }
@@ -160,7 +160,7 @@ public:
   }
 
   Token& lookup(Name const & n)
-  { 
+  {
     Name::handle_t key=n.toIndex();
     if (key<cache_.size())
       {
@@ -168,22 +168,22 @@ public:
     	if(ct)
 	  return *ct;
       }
-    
+
     std::list<Dictionary *>::const_iterator i=d.begin();
-    
+
     while (i!=d.end())
       {
 	TokenMap::iterator where =(*i)->find(n);
 	if(where!=(*i)->end())
 	  {
-	    cache_token(n,&(where->second)); // Update the cache 
+	    cache_token(n,&(where->second)); // Update the cache
 	    return where->second;
 	  }
 	++i;
       }
     throw UndefinedName(n.toString());
   }
-  
+
   bool known(Name const & n)
   {
     Token result;

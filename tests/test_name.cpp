@@ -57,9 +57,14 @@ void test_intern_persists()
     CHECK(n.toString() == "zzz_unique");
 }
 
-// Stage 2.10: Name(long h) now bounds-checks at construction.
+// Stage 2.10: Name(long h) bounds-checks at construction.
+// Slice 11 (2026-05-12): the check is gated on !NDEBUG to save
+// ~10 % on B10 matmul (handleTableInstance_().size() resolution
+// on every dispatcher name lookup). In Debug builds the throw
+// still fires; in Release builds it doesn't. Test gated to match.
 void test_name_long_out_of_range()
 {
+#ifndef NDEBUG
     bool threw = false;
     try { (void) Name(LONG_MAX); }
     catch (std::out_of_range const&) { threw = true; }
@@ -69,8 +74,9 @@ void test_name_long_out_of_range()
     try { (void) Name(-1L); }
     catch (std::out_of_range const&) { threw = true; }
     CHECK(threw);
+#endif
 
-    // Valid handles still work.
+    // Valid handles still work in both Debug and Release.
     Name n("test_name_known");
     Name from_handle(static_cast<long>(n.toIndex()));
     CHECK(from_handle == n);

@@ -59,14 +59,26 @@ namespace sli3
       // The handle must already exist in the interning table —
       // anything else is a programming error and would otherwise
       // segfault inside std::deque::operator[].
+      //
+      // Slice 11: the bounds check is gated on !NDEBUG. In Release
+      // builds (-DNDEBUG) it compiles away, eliminating the
+      // num_handles() → handleTableInstance_().size() Meyers-
+      // singleton resolution on every dispatcher name lookup
+      // (~10 % of B10 matmul, 6-7 % of B5/B7). In Debug builds
+      // the bounds check still throws, preserving the safety
+      // surface that test_name.cpp's
+      // test_name_long_out_of_range exercises.
       Name(long h)            : handle_(static_cast<handle_t>(h))
 	  {
+#ifndef NDEBUG
 	      if (h < 0 || static_cast<size_t>(h) >= num_handles())
 	          throw std::out_of_range("sli3::Name: handle out of range");
+#endif
 	  }
 
       Name(const char s[])       : handle_(insert(std::string(s))) {}
       Name(const std::string &s) : handle_(insert(s)) {}
+
       operator int() const
       {
 	return handle_;
