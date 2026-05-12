@@ -84,7 +84,6 @@ void IntegerFunction::execute(SLIInterpreter *i) const
 
     i->require_stack_load(1);
     // i->require_stack_type(0, sli3::doubletype);
-    i->EStack().pop();
 
     i->top().type_=int_tid;
     i->top().data_.long_val=static_cast<long>(i->top().data_.double_val);
@@ -96,7 +95,6 @@ void DoubleFunction::execute(SLIInterpreter *i) const
 
     i->require_stack_load(1);
     // i->require_stack_type(0, sli3::integertype);
-    i->EStack().pop();
 
     i->top().type_=double_tid;
     i->top().data_.double_val=static_cast<double>(i->top().data_.long_val);
@@ -112,7 +110,6 @@ void Add_iiFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->RangeCheckError);
         return;
     }
-    i->EStack().pop();
     i->pick(1).data_.long_val = out;
     i->pop();
 }
@@ -120,7 +117,6 @@ void Add_iiFunction::execute(SLIInterpreter *i) const
 void Add_ddFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val+= i->pick(0).data_.double_val;
     i->pop();
@@ -129,7 +125,6 @@ void Add_ddFunction::execute(SLIInterpreter *i) const
 void Add_diFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val+= i->pick(0).data_.long_val;
     i->pop();
@@ -138,7 +133,6 @@ void Add_diFunction::execute(SLIInterpreter *i) const
 void Add_idFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val = i->pick(1).data_.long_val + i->pick(0).data_.double_val;
     i->pick(1).type_=i->pick(0).type_; // change type id to double
@@ -166,21 +160,18 @@ void AddFunction::execute(SLIInterpreter *i) const
             return;
         }
         a.data_.long_val = out;
-        i->EStack().pop();
         i->pop();
         return;
     }
     if (ta == sli3::doubletype && tb == sli3::doubletype)
     {
         a.data_.double_val += b.data_.double_val;
-        i->EStack().pop();
         i->pop();
         return;
     }
     if (ta == sli3::doubletype && tb == sli3::integertype)
     {
         a.data_.double_val += static_cast<double>(b.data_.long_val);
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -189,7 +180,6 @@ void AddFunction::execute(SLIInterpreter *i) const
         a.data_.double_val =
             static_cast<double>(a.data_.long_val) + b.data_.double_val;
         a.type_ = b.type_;
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -213,21 +203,18 @@ void SubFunction::execute(SLIInterpreter *i) const
             return;
         }
         a.data_.long_val = out;
-        i->EStack().pop();
         i->pop();
         return;
     }
     if (ta == sli3::doubletype && tb == sli3::doubletype)
     {
         a.data_.double_val -= b.data_.double_val;
-        i->EStack().pop();
         i->pop();
         return;
     }
     if (ta == sli3::doubletype && tb == sli3::integertype)
     {
         a.data_.double_val -= static_cast<double>(b.data_.long_val);
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -236,7 +223,6 @@ void SubFunction::execute(SLIInterpreter *i) const
         a.data_.double_val =
             static_cast<double>(a.data_.long_val) - b.data_.double_val;
         a.type_ = b.type_;
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -260,21 +246,18 @@ void MulFunction::execute(SLIInterpreter *i) const
             return;
         }
         a.data_.long_val = out;
-        i->EStack().pop();
         i->pop();
         return;
     }
     if (ta == sli3::doubletype && tb == sli3::doubletype)
     {
         a.data_.double_val *= b.data_.double_val;
-        i->EStack().pop();
         i->pop();
         return;
     }
     if (ta == sli3::doubletype && tb == sli3::integertype)
     {
         a.data_.double_val *= static_cast<double>(b.data_.long_val);
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -283,7 +266,6 @@ void MulFunction::execute(SLIInterpreter *i) const
         a.data_.double_val =
             static_cast<double>(a.data_.long_val) * b.data_.double_val;
         a.type_ = b.type_;
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -313,7 +295,6 @@ void DivFunction::execute(SLIInterpreter *i) const
             return;
         }
         a.data_.long_val = num / den;
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -325,7 +306,6 @@ void DivFunction::execute(SLIInterpreter *i) const
             return;
         }
         a.data_.double_val /= b.data_.double_val;
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -337,7 +317,6 @@ void DivFunction::execute(SLIInterpreter *i) const
             return;
         }
         a.data_.double_val /= static_cast<double>(b.data_.long_val);
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -351,7 +330,6 @@ void DivFunction::execute(SLIInterpreter *i) const
         a.data_.double_val =
             static_cast<double>(a.data_.long_val) / b.data_.double_val;
         a.type_ = b.type_;
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -376,14 +354,12 @@ inline void minmax_dispatch(SLIInterpreter *i, Op op)
     if (ta == sli3::integertype && tb == sli3::integertype)
     {
         a.data_.long_val = op(a.data_.long_val, b.data_.long_val);
-        i->EStack().pop();
         i->pop();
         return;
     }
     if (ta == sli3::doubletype && tb == sli3::doubletype)
     {
         a.data_.double_val = op(a.data_.double_val, b.data_.double_val);
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -391,7 +367,6 @@ inline void minmax_dispatch(SLIInterpreter *i, Op op)
     {
         a.data_.double_val = op(a.data_.double_val,
                                 static_cast<double>(b.data_.long_val));
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -400,7 +375,6 @@ inline void minmax_dispatch(SLIInterpreter *i, Op op)
         a.data_.double_val = op(static_cast<double>(a.data_.long_val),
                                 b.data_.double_val);
         a.type_ = b.type_;
-        i->EStack().pop();
         i->pop();
         return;
     }
@@ -445,7 +419,6 @@ inline void compare_dispatch(SLIInterpreter *i, CmpNum cn, CmpStr cs)
     // Overwrite slot 1 with the bool result; pop slot 0.
     a.type_ = bool_tid;
     a.data_.bool_val = result;
-    i->EStack().pop();
     i->pop();
 }
 
@@ -508,7 +481,6 @@ void AndPolyFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->ArgumentTypeError);
         return;
     }
-    i->EStack().pop();
     i->pop();
 }
 
@@ -529,7 +501,6 @@ void OrPolyFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->ArgumentTypeError);
         return;
     }
-    i->EStack().pop();
     i->pop();
 }
 
@@ -547,7 +518,6 @@ void NotPolyFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->ArgumentTypeError);
         return;
     }
-    i->EStack().pop();
 }
 
 void XorPolyFunction::execute(SLIInterpreter *i) const
@@ -567,7 +537,6 @@ void XorPolyFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->ArgumentTypeError);
         return;
     }
-    i->EStack().pop();
     i->pop();
 }
 
@@ -595,7 +564,6 @@ inline void unary_double_dispatch(SLIInterpreter *i, Op op)
         i->raiseerror(i->ArgumentTypeError);
         return;
     }
-    i->EStack().pop();
 }
 }  // namespace
 
@@ -659,7 +627,6 @@ void PowFunction::execute(SLIInterpreter *i) const
     { i->raiseerror(i->ArgumentTypeError); return; }
 
     a.type_ = i->get_type(sli3::doubletype);
-    i->EStack().pop();
     i->pop();
 }
 
@@ -674,7 +641,6 @@ void Sub_iiFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->RangeCheckError);
         return;
     }
-    i->EStack().pop();
     i->pick(1).data_.long_val = out;
     i->pop();
 }
@@ -682,7 +648,6 @@ void Sub_iiFunction::execute(SLIInterpreter *i) const
 void Sub_ddFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val-= i->pick(0).data_.double_val;
     i->pop();
@@ -691,7 +656,6 @@ void Sub_ddFunction::execute(SLIInterpreter *i) const
 void Sub_diFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val-= i->pick(0).data_.long_val;
     i->pop();
@@ -700,7 +664,6 @@ void Sub_diFunction::execute(SLIInterpreter *i) const
 void Sub_idFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val = i->pick(1).data_.long_val - i->pick(0).data_.double_val;
     i->pick(1).type_=i->pick(0).type_; // change type id to double
@@ -717,7 +680,6 @@ void Mul_iiFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->RangeCheckError);
         return;
     }
-    i->EStack().pop();
     i->pick(1).data_.long_val = out;
     i->pop();
 }
@@ -725,7 +687,6 @@ void Mul_iiFunction::execute(SLIInterpreter *i) const
 void Mul_ddFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val*= i->pick(0).data_.double_val;
     i->pop();
@@ -734,7 +695,6 @@ void Mul_ddFunction::execute(SLIInterpreter *i) const
 void Mul_diFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val*= i->pick(0).data_.long_val;
     i->pop();
@@ -743,7 +703,6 @@ void Mul_diFunction::execute(SLIInterpreter *i) const
 void Mul_idFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.double_val = i->pick(1).data_.long_val * i->pick(0).data_.double_val;
     i->pick(1).type_=i->pick(0).type_; // change type id to double
@@ -769,7 +728,6 @@ void Div_iiFunction::execute(SLIInterpreter *i) const
         return;
     }
     i->pick(1).data_.long_val = num / den;
-    i->EStack().pop();
     i->pop();
 }
 
@@ -780,7 +738,6 @@ void Div_ddFunction::execute(SLIInterpreter *i) const
     if(i->pick(0).data_.double_val !=0.0)
     {
 	i->pick(1).data_.double_val /= i->pick(0).data_.double_val;
-	i->EStack().pop();
 	i->pop();
     }
     else
@@ -794,7 +751,6 @@ void Div_diFunction::execute(SLIInterpreter *i) const
     if(i->pick(0).data_.long_val !=0)
     {
 	i->pick(1).data_.double_val /= i->pick(0).data_.long_val;
-	i->EStack().pop();
 	i->pop();
     }
     else
@@ -809,7 +765,6 @@ void Div_idFunction::execute(SLIInterpreter *i) const
     {
 	i->pick(1).data_.double_val =i->pick(1).data_.long_val / i->pick(0).data_.double_val;
 	i->pick(1).type_ =  i->pick(0).type_; 
-	i->EStack().pop();
 	i->pop();
     }
     else
@@ -842,7 +797,6 @@ void Mod_iiFunction::execute(SLIInterpreter *i) const
         return;
     }
     i->pick(1).data_.long_val = num % den;
-    i->EStack().pop();
     i->pop();
 }
 
@@ -866,7 +820,6 @@ void Sin_dFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     
     i->top().data_.double_val= std::sin(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -888,7 +841,6 @@ void Asin_dFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     
     i->top().data_.double_val= std::asin(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 
@@ -911,7 +863,6 @@ void Cos_dFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     
     i->top().data_.double_val= std::cos(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -933,7 +884,6 @@ void Acos_dFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     
     i->top().data_.double_val= std::acos(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 
@@ -952,7 +902,6 @@ void Exp_dFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     
     i->top().data_.double_val= std::exp(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -972,7 +921,6 @@ void Log_dFunction::execute(SLIInterpreter *i) const
     if(val>0.0)
     {
 	val= std::log10(val);
-	i->EStack().pop();
     }
     else
 	i->raiseerror(i->RangeCheckError);
@@ -995,7 +943,6 @@ void Ln_dFunction::execute(SLIInterpreter *i) const
     if(val>0.0)
     {
 	val= std::log(val);
-	i->EStack().pop();
     }
     else
 	i->raiseerror(i->RangeCheckError);
@@ -1013,7 +960,6 @@ void Sqr_dFunction::execute(SLIInterpreter *i) const
     double &val=i->top().data_.double_val;
 
     val *=val;
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -1032,7 +978,6 @@ void Sqrt_dFunction::execute(SLIInterpreter *i) const
     if(val>=0.0)
     {
 	val= std::sqrt(val);
-	i->EStack().pop();
     }
     else
 	i->raiseerror(i->RangeCheckError);
@@ -1056,7 +1001,6 @@ void Pow_ddFunction::execute(SLIInterpreter *i) const
     if(not (op1==0.0 and op2<0.0))
     {
 	op1= std::pow(op1,op2);
-	i->EStack().pop();
 	i->pop();
     }
     else
@@ -1072,7 +1016,6 @@ void Pow_diFunction::execute(SLIInterpreter *i) const
     if(not (op1==0.0 and op2<0))
     {
 	op1= std::pow(op1,static_cast<double>(op2));
-	i->EStack().pop();
 	i->pop();
     }
     else
@@ -1107,7 +1050,6 @@ void Modf_dFunction::execute(SLIInterpreter *i) const
     i->pick(1).data_.double_val = frac;
     i->top().data_.double_val   = int_part;
 
-    i->EStack().pop();
 }
 
 
@@ -1132,7 +1074,6 @@ void Frexp_dFunction::execute(SLIInterpreter *i) const
     i->top().data_.double_val = std::frexp(i->top().data_.double_val, &val);
     i->push<long>(val);  // push exponent as integer on top
 
-    i->EStack().pop();
 }
 
 
@@ -1159,7 +1100,6 @@ void Ldexp_diFunction::execute(SLIInterpreter *i) const
     i->pick(1).data_.double_val= std::ldexp( i->pick(1).data_.double_val,i->pick(0).data_.long_val);
 
     i->pop();
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -1182,7 +1122,6 @@ void Dexp_iFunction::execute(SLIInterpreter *i) const
     i->top().data_.double_val= std::ldexp(1.0, i->top().data_.long_val );
     i->top().type_=double_tid;
  
-    i->EStack().pop();
 }
 
 
@@ -1215,7 +1154,6 @@ void Abs_iFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->RangeCheckError);
         return;
     }
-    i->EStack().pop();
     i->top().data_.long_val = out;
 }
 
@@ -1240,7 +1178,6 @@ void Abs_iFunction::execute(SLIInterpreter *i) const
 void Abs_dFunction::execute(SLIInterpreter *i) const
 { 
     i->require_stack_load(1);
-    i->EStack().pop();
 
     i->top().data_.double_val=std::fabs(i->top().data_.double_val);
 }
@@ -1269,7 +1206,6 @@ void Neg_iFunction::execute(SLIInterpreter *i) const
         i->raiseerror(i->RangeCheckError);
         return;
     }
-    i->EStack().pop();
     i->top().data_.long_val = out;
 }
 
@@ -1289,7 +1225,6 @@ void Neg_iFunction::execute(SLIInterpreter *i) const
 void Neg_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->EStack().pop();
 
     i->top().data_.double_val= - i->top().data_.double_val;
 }
@@ -1308,7 +1243,6 @@ void Inv_dFunction::execute(SLIInterpreter *i) const
     if(val !=0.0)
     {
 	val =1.0/val;
-	i->EStack().pop();
     }
     else
 	i->raiseerror(i->DivisionByZeroError);
@@ -1334,7 +1268,6 @@ void EqFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1)== i->pick(0);
     i->pop();
@@ -1360,7 +1293,6 @@ void NeqFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = not (i->pick(1) == i->pick(0));
     i->pop();
@@ -1384,7 +1316,6 @@ void Geq_iiFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val >= i->pick(0).data_.long_val;
     i->pop();
@@ -1397,7 +1328,6 @@ void Geq_idFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val >= i->pick(0).data_.double_val;
     i->pop();
@@ -1411,7 +1341,6 @@ void Geq_diFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val >= i->pick(0).data_.long_val;
     i->pop();
@@ -1424,7 +1353,6 @@ void Geq_ddFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val >= i->pick(0).data_.double_val;
     i->pop();
@@ -1448,7 +1376,6 @@ void Leq_iiFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val <= i->pick(0).data_.long_val;
     i->pop();
@@ -1461,7 +1388,6 @@ void Leq_idFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val <= i->pick(0).data_.double_val;
     i->pop();
@@ -1474,7 +1400,6 @@ void Leq_diFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val <= i->pick(0).data_.long_val;
     i->pop();
@@ -1487,7 +1412,6 @@ void Leq_ddFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val <= i->pick(0).data_.double_val;
     i->pop();
@@ -1510,7 +1434,6 @@ SeeAlso: and, or, xor
 void Not_bFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->EStack().pop();
 
     i->top().data_.bool_val = not i->top().data_.bool_val;
 }
@@ -1519,7 +1442,6 @@ void Not_bFunction::execute(SLIInterpreter *i) const
 void Not_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->EStack().pop();
 
     i->top().data_.long_val = ~ i->top().data_.long_val;
 }
@@ -1545,7 +1467,6 @@ SeeAlso: and, or, not
 void Or_bbFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
     
     i->pick(1).data_.bool_val = i->pick(1).data_.bool_val or i->pick(0).data_.bool_val ;
 
@@ -1556,7 +1477,6 @@ void Or_bbFunction::execute(SLIInterpreter *i) const
 void Or_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
     
     i->pick(1).data_.long_val |= i->pick(0).data_.long_val ;
 
@@ -1581,7 +1501,6 @@ SeeAlso: and, or, not
 void Xor_bbFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
     
     i->pick(1).data_.bool_val = i->pick(1).data_.bool_val xor i->pick(0).data_.bool_val ;
 
@@ -1591,7 +1510,6 @@ void Xor_bbFunction::execute(SLIInterpreter *i) const
 void Xor_iiFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
     
     i->pick(1).data_.long_val ^= i->pick(0).data_.long_val ;
 
@@ -1615,7 +1533,6 @@ SeeAlso: or, xor, not
 void AndFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
 
     i->pick(1).data_.bool_val = i->pick(1).data_.bool_val and i->pick(0).data_.bool_val ;
 
@@ -1629,7 +1546,6 @@ void AndFunction::execute(SLIInterpreter *i) const
 void And_iiFunction::execute(SLIInterpreter *i) const
 {
      i->require_stack_load(2);
-    i->EStack().pop();
     
     i->pick(1).data_.long_val &= i->pick(0).data_.long_val ;
 
@@ -1653,7 +1569,6 @@ void Gt_idFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val > i->pick(0).data_.double_val;
     i->pop();
@@ -1667,7 +1582,6 @@ void Gt_diFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val > i->pick(0).data_.long_val;
     i->pop();
@@ -1682,7 +1596,6 @@ void Gt_iiFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val > i->pick(0).data_.long_val;
     i->pop();
@@ -1696,7 +1609,6 @@ void Gt_ddFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val > i->pick(0).data_.double_val;
     i->pop();
@@ -1720,7 +1632,6 @@ void Lt_idFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val < i->pick(0).data_.double_val;
     i->pop();
@@ -1734,7 +1645,6 @@ void Lt_diFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val < i->pick(0).data_.long_val;
     i->pop();
@@ -1749,7 +1659,6 @@ void Lt_iiFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.long_val < i->pick(0).data_.long_val;
     i->pop();
@@ -1763,7 +1672,6 @@ void Lt_ddFunction::execute(SLIInterpreter *i) const
     SLIType *bool_tid=i->get_type(sli3::booltype);
 
     i->require_stack_load(2);
-    i->EStack().pop();
     
     bool result = i->pick(1).data_.double_val < i->pick(0).data_.double_val;
     i->pop();
@@ -1779,7 +1687,6 @@ void Gt_ssFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(2);
     i->require_stack_type(1, sli3::stringtype);
     i->require_stack_type(0, sli3::stringtype);
-    i->EStack().pop();
 
     bool result = i->pick(1).data_.string_val->str()
                 > i->pick(0).data_.string_val->str();
@@ -1796,7 +1703,6 @@ void Lt_ssFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(2);
     i->require_stack_type(1, sli3::stringtype);
     i->require_stack_type(0, sli3::stringtype);
-    i->EStack().pop();
 
     bool result = i->pick(1).data_.string_val->str()
                 < i->pick(0).data_.string_val->str();
@@ -1815,7 +1721,6 @@ void UnitStep_dFunction::execute(SLIInterpreter *i) const
     // unchanged -- so `(-1.5) UnitStep` returned -1.5 instead of 0.0.
     i->top().data_.double_val =
         (i->top().data_.double_val >= 0.0) ? 1.0 : 0.0;
-    i->EStack().pop();
 }
 
 // Documentation can be found in file synod2/lib/sli/mathematica.sli
@@ -1828,7 +1733,6 @@ void UnitStep_iFunction::execute(SLIInterpreter *i) const
     // long without updating the type discriminator.
     i->top().data_.long_val =
         (i->top().data_.long_val >= 0) ? 1 : 0;
-    i->EStack().pop();
 }
 
 
@@ -1853,7 +1757,6 @@ void UnitStep_daFunction::execute(SLIInterpreter *i) const
     }
 
     i->top()=i->new_token<sli3::doubletype>(result);
-    i->EStack().pop();
 }
 
 // Documentation can be found in file synod2/lib/sli/mathematica.sli
@@ -1877,7 +1780,6 @@ void UnitStep_iaFunction::execute(SLIInterpreter *i) const
     }
 
     i->top()=i->new_token<sli3::integertype>(result);
-    i->EStack().pop();
 }
 
 // round to the nearest integer
@@ -1889,7 +1791,6 @@ void Round_dFunction::execute(SLIInterpreter *i) const
     // negative half-integers (-0.5 rounded to 0 instead of -1) and
     // lost precision near LONG_MAX where 0.5 < ULP.
     i->top().data_.double_val = std::round(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 // Documentation can be found in file synod2/lib/sli/mathematica.sli
@@ -1897,7 +1798,6 @@ void Floor_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
     i->top().data_.double_val= std::floor(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 // Documentation can be found in file synod2/lib/sli/mathematica.sli
@@ -1905,7 +1805,6 @@ void Ceil_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
     i->top().data_.double_val= std::ceil(i->top().data_.double_val);
-    i->EStack().pop();
 }
 
 
@@ -1917,7 +1816,6 @@ void Max_i_iFunction::execute(SLIInterpreter *i) const
 
     i->pick(1).data_.long_val = max(i->pick(0).data_.long_val,i->pick(1).data_.long_val);
     i->pop();
-    i->EStack().pop();
 }
 
 void Max_i_dFunction::execute(SLIInterpreter *i) const
@@ -1927,7 +1825,6 @@ void Max_i_dFunction::execute(SLIInterpreter *i) const
     i->pick(1).data_.double_val = max(static_cast<double>(i->pick(1).data_.long_val),i->pick(0).data_.double_val);
     i->pick(1).type_=i->top().type_;
     i->pop();
-    i->EStack().pop();
 }
 
 void Max_d_iFunction::execute(SLIInterpreter *i) const
@@ -1936,7 +1833,6 @@ void Max_d_iFunction::execute(SLIInterpreter *i) const
 
     i->pick(1).data_.double_val = max(static_cast<double>(i->pick(0).data_.long_val),i->pick(1).data_.double_val);
     i->pop();
-    i->EStack().pop();
 
 }
 void Max_d_dFunction::execute(SLIInterpreter *i) const
@@ -1945,7 +1841,6 @@ void Max_d_dFunction::execute(SLIInterpreter *i) const
 
     i->pick(1).data_.double_val = max(i->pick(0).data_.double_val,i->pick(1).data_.double_val);
     i->pop();
-    i->EStack().pop();
 }
 
 // Documentation can be found in file synod2/lib/sli/typeinit.sli
@@ -1955,7 +1850,6 @@ void Min_i_iFunction::execute(SLIInterpreter *i) const
 
     i->pick(1).data_.long_val = min(i->pick(0).data_.long_val,i->pick(1).data_.long_val);
     i->pop();
-    i->EStack().pop();
 }
 
 void Min_i_dFunction::execute(SLIInterpreter *i) const
@@ -1965,7 +1859,6 @@ void Min_i_dFunction::execute(SLIInterpreter *i) const
     i->pick(1).data_.double_val = min(static_cast<double>(i->pick(1).data_.long_val),i->pick(0).data_.double_val);
     i->pick(1).type_=i->top().type_;
     i->pop();
-    i->EStack().pop();
 }
 
 void Min_d_iFunction::execute(SLIInterpreter *i) const
@@ -1974,7 +1867,6 @@ void Min_d_iFunction::execute(SLIInterpreter *i) const
 
     i->pick(1).data_.double_val = min(static_cast<double>(i->pick(0).data_.long_val),i->pick(1).data_.double_val);
     i->pop();
-    i->EStack().pop();
 
 }
 void Min_d_dFunction::execute(SLIInterpreter *i) const
@@ -1983,7 +1875,6 @@ void Min_d_dFunction::execute(SLIInterpreter *i) const
 
     i->pick(1).data_.double_val = min(i->pick(0).data_.double_val,i->pick(1).data_.double_val);
     i->pop();
-    i->EStack().pop();
 }
 
 
@@ -2254,6 +2145,117 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("min_d_i", &min_d_ifunction);
     i->createcommand("min_i_d", &min_i_dfunction);
     i->createcommand("min_i_i", &min_i_ifunction);
+
+    // Axis I bundle step 3c: every math op converted to new ABI.
+    // All math ops follow the "pop self then operate on ostack"
+    // pattern; under new ABI the dispatcher pops the fn slot
+    // after execute() returns (via the post-check that compares
+    // top.func_val to fn). No mid-body push-to-estack to disrupt.
+    abs_dfunction.set_new_abi();
+    abs_ifunction.set_new_abi();
+    acos_dfunction.set_new_abi();
+    acosfunction.set_new_abi();
+    add_ddfunction.set_new_abi();
+    add_difunction.set_new_abi();
+    add_idfunction.set_new_abi();
+    add_iifunction.set_new_abi();
+    addfunction.set_new_abi();
+    and_iifunction.set_new_abi();
+    andpolyfunction.set_new_abi();
+    asin_dfunction.set_new_abi();
+    asinfunction.set_new_abi();
+    ceil_dfunction.set_new_abi();
+    cos_dfunction.set_new_abi();
+    cosfunction.set_new_abi();
+    dexp_ifunction.set_new_abi();
+    div_ddfunction.set_new_abi();
+    div_difunction.set_new_abi();
+    div_idfunction.set_new_abi();
+    div_iifunction.set_new_abi();
+    divfunction.set_new_abi();
+    doublefunction.set_new_abi();
+    eqfunction.set_new_abi();
+    exp_dfunction.set_new_abi();
+    expfunction.set_new_abi();
+    floor_dfunction.set_new_abi();
+    frexp_dfunction.set_new_abi();
+    geq_ddfunction.set_new_abi();
+    geq_difunction.set_new_abi();
+    geq_idfunction.set_new_abi();
+    geq_iifunction.set_new_abi();
+    geqfunction.set_new_abi();
+    gt_ddfunction.set_new_abi();
+    gt_difunction.set_new_abi();
+    gt_idfunction.set_new_abi();
+    gt_iifunction.set_new_abi();
+    gt_ssfunction.set_new_abi();
+    gtfunction.set_new_abi();
+    integerfunction.set_new_abi();
+    inv_dfunction.set_new_abi();
+    ldexp_difunction.set_new_abi();
+    leq_ddfunction.set_new_abi();
+    leq_difunction.set_new_abi();
+    leq_idfunction.set_new_abi();
+    leq_iifunction.set_new_abi();
+    leqfunction.set_new_abi();
+    ln_dfunction.set_new_abi();
+    lnfunction.set_new_abi();
+    log_dfunction.set_new_abi();
+    logfunction.set_new_abi();
+    lt_ddfunction.set_new_abi();
+    lt_difunction.set_new_abi();
+    lt_idfunction.set_new_abi();
+    lt_iifunction.set_new_abi();
+    lt_ssfunction.set_new_abi();
+    ltfunction.set_new_abi();
+    max_d_dfunction.set_new_abi();
+    max_d_ifunction.set_new_abi();
+    max_i_dfunction.set_new_abi();
+    max_i_ifunction.set_new_abi();
+    maxfunction.set_new_abi();
+    min_d_dfunction.set_new_abi();
+    min_d_ifunction.set_new_abi();
+    min_i_dfunction.set_new_abi();
+    min_i_ifunction.set_new_abi();
+    minfunction.set_new_abi();
+    mod_iifunction.set_new_abi();
+    modf_dfunction.set_new_abi();
+    mul_ddfunction.set_new_abi();
+    mul_difunction.set_new_abi();
+    mul_idfunction.set_new_abi();
+    mul_iifunction.set_new_abi();
+    mulfunction.set_new_abi();
+    neg_dfunction.set_new_abi();
+    neg_ifunction.set_new_abi();
+    neqfunction.set_new_abi();
+    not_bfunction.set_new_abi();
+    not_ifunction.set_new_abi();
+    notpolyfunction.set_new_abi();
+    or_bbfunction.set_new_abi();
+    or_iifunction.set_new_abi();
+    orpolyfunction.set_new_abi();
+    pow_ddfunction.set_new_abi();
+    pow_difunction.set_new_abi();
+    powfunction.set_new_abi();
+    round_dfunction.set_new_abi();
+    sin_dfunction.set_new_abi();
+    sinfunction.set_new_abi();
+    sqr_dfunction.set_new_abi();
+    sqrfunction.set_new_abi();
+    sqrt_dfunction.set_new_abi();
+    sqrtfunction.set_new_abi();
+    sub_ddfunction.set_new_abi();
+    sub_difunction.set_new_abi();
+    sub_idfunction.set_new_abi();
+    sub_iifunction.set_new_abi();
+    subfunction.set_new_abi();
+    unitstep_dafunction.set_new_abi();
+    unitstep_dfunction.set_new_abi();
+    unitstep_iafunction.set_new_abi();
+    unitstep_ifunction.set_new_abi();
+    xor_bbfunction.set_new_abi();
+    xor_iifunction.set_new_abi();
+    xorpolyfunction.set_new_abi();
 }
 
 }
