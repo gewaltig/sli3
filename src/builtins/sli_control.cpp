@@ -23,6 +23,7 @@
 
 //#include "sliconfig.h"
 #include "sli_control.h"
+#include "sli_op_bodies.h"
 #include "sli_scanner.h"
 #include "sli_parser.h"
 #include "sli_iostreamtype.h"
@@ -160,18 +161,7 @@ SeeAlso: ifelse
 */
 void IfFunction::execute(SLIInterpreter *i) const
 {
-    // OStack: bool proc
-    //          1    0
-    // EStack (new ABI, step 4): the dispatcher pre-popped /if's
-    // own slot. We just push the proc (if true) or do nothing
-    // (if false), then drop the ostack operands.
-    i->require_stack_load(2);
-    i->require_stack_type(1, sli3::booltype);
-
-    if (i->pick(1).data_.bool_val)
-        i->EStack().push(i->top());     // dispatch the proc next
-    // else: nothing -- dispatcher already popped /if
-    i->pop(2);
+    hot_op_if(i);  // shared with dispatcher's inline arm
 }
 
 /*BeginDocumentation
@@ -460,11 +450,7 @@ void CurrentnameFunction::execute(SLIInterpreter *i) const
 
 void DefFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(2);
-    i->require_stack_type(1,sli3::literaltype);
-
-    i->def(i->pick(1).data_.name_val,i->top());
-    i->pop(2);
+    hot_op_def(i);  // shared with dispatcher's inline arm
 }
 
 /*BeginDocumentation
@@ -2113,6 +2099,8 @@ void  init_slicontrol(SLIInterpreter *i)
     backtrace_onfunction.set_new_abi();
     backtrace_offfunction.set_new_abi();
     deffunction.set_new_abi();
+    // Axis II step 2: hot-op tag for inline dispatcher path.
+    deffunction.set_hot_op(HOP_DEF);
     setfunction.set_new_abi();
     loadfunction.set_new_abi();
     printerrorfunction.set_new_abi();
@@ -2130,6 +2118,8 @@ void  init_slicontrol(SLIInterpreter *i)
     // Axis I bundle step 4: conditionals converted by dropping
     // their mid-body pop-self (dispatcher now pre-pops).
     iffunction.set_new_abi();
+    // Axis II step 2: hot-op tag for inline dispatcher path.
+    iffunction.set_hot_op(HOP_IF);
     ifelsefunction.set_new_abi();
     loopfunction.set_new_abi();
     repeatfunction.set_new_abi();

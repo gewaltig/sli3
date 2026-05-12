@@ -52,6 +52,10 @@ namespace sli3
       HOP_DUP,
       HOP_EXCH,
       HOP_ADD_II,
+      HOP_ADD,      // step 2: poly-add dispatcher (int+int, dd, di, id)
+      HOP_SUB,      // step 2: poly-sub dispatcher
+      HOP_IF,       // step 2: bool proc -> push proc if true
+      HOP_DEF,      // step 2: /lit obj -> def in current dict
       HOP_count
   };
 

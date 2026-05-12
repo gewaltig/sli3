@@ -1491,6 +1491,10 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
                 case HOP_DUP:    hot_op_dup(this);    break;
                 case HOP_EXCH:   hot_op_exch(this);   break;
                 case HOP_ADD_II: hot_op_add_ii(this); break;
+                case HOP_ADD:    hot_op_add(this);    break;
+                case HOP_SUB:    hot_op_sub(this);    break;
+                case HOP_IF:     hot_op_if(this);     break;
+                case HOP_DEF:    hot_op_def(this);    break;
                 default:
                   if (fn->uses_new_abi()) {
                     fn->execute(this);

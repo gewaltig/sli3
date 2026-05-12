@@ -60,6 +60,106 @@ static inline void hot_op_add_ii(SLIInterpreter* i)
     i->pop();
 }
 
+// add -- poly-arithmetic dispatcher (int+int, dd, di, id).
+// Same body as AddFunction::execute; the standalone method
+// delegates here.
+static inline void hot_op_add(SLIInterpreter* i)
+{
+    i->require_stack_load(2);
+    Token& a = i->pick(1);
+    Token& b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+    if (ta == sli3::integertype && tb == sli3::integertype) {
+        long out;
+        if (__builtin_add_overflow(a.data_.long_val, b.data_.long_val, &out)) {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        a.data_.long_val = out;
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::doubletype) {
+        a.data_.double_val += b.data_.double_val;
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::integertype) {
+        a.data_.double_val += static_cast<double>(b.data_.long_val);
+        i->pop();
+        return;
+    }
+    if (ta == sli3::integertype && tb == sli3::doubletype) {
+        a.data_.double_val =
+            static_cast<double>(a.data_.long_val) + b.data_.double_val;
+        a.type_ = b.type_;
+        i->pop();
+        return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// sub -- poly-arithmetic dispatcher, same shape as hot_op_add.
+static inline void hot_op_sub(SLIInterpreter* i)
+{
+    i->require_stack_load(2);
+    Token& a = i->pick(1);
+    Token& b = i->pick(0);
+    unsigned ta = a.tag();
+    unsigned tb = b.tag();
+    if (ta == sli3::integertype && tb == sli3::integertype) {
+        long out;
+        if (__builtin_sub_overflow(a.data_.long_val, b.data_.long_val, &out)) {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        a.data_.long_val = out;
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::doubletype) {
+        a.data_.double_val -= b.data_.double_val;
+        i->pop();
+        return;
+    }
+    if (ta == sli3::doubletype && tb == sli3::integertype) {
+        a.data_.double_val -= static_cast<double>(b.data_.long_val);
+        i->pop();
+        return;
+    }
+    if (ta == sli3::integertype && tb == sli3::doubletype) {
+        a.data_.double_val =
+            static_cast<double>(a.data_.long_val) - b.data_.double_val;
+        a.type_ = b.type_;
+        i->pop();
+        return;
+    }
+    i->raiseerror(i->ArgumentTypeError);
+}
+
+// if -- bool proc -> push proc on e-stack if bool is true.
+// Under the new ABI, the dispatcher pre-popped /if's own slot
+// (in the main case) or never pushed it (in the body-walk
+// fast path). The body just consumes the two ostack args.
+static inline void hot_op_if(SLIInterpreter* i)
+{
+    i->require_stack_load(2);
+    i->require_stack_type(1, sli3::booltype);
+    if (i->pick(1).data_.bool_val)
+        i->EStack().push(i->top());
+    i->pop(2);
+}
+
+// def -- /lit obj -> store under name in current dict.
+static inline void hot_op_def(SLIInterpreter* i)
+{
+    i->require_stack_load(2);
+    i->require_stack_type(1, sli3::literaltype);
+    i->def(i->pick(1).data_.name_val, i->top());
+    i->pop(2);
+}
+
 }  // namespace sli3
 
 #endif  // SLI_OP_BODIES_H

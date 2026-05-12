@@ -137,88 +137,12 @@ void Add_idFunction::execute(SLIInterpreter *i) const
 
 void AddFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(2);
-    Token& a = i->pick(1);
-    Token& b = i->pick(0);
-    unsigned ta = a.tag();
-    unsigned tb = b.tag();
-
-    if (ta == sli3::integertype && tb == sli3::integertype)
-    {
-        long out;
-        if (checked_add(a.data_.long_val, b.data_.long_val, &out))
-        {
-            i->raiseerror(i->RangeCheckError);
-            return;
-        }
-        a.data_.long_val = out;
-        i->pop();
-        return;
-    }
-    if (ta == sli3::doubletype && tb == sli3::doubletype)
-    {
-        a.data_.double_val += b.data_.double_val;
-        i->pop();
-        return;
-    }
-    if (ta == sli3::doubletype && tb == sli3::integertype)
-    {
-        a.data_.double_val += static_cast<double>(b.data_.long_val);
-        i->pop();
-        return;
-    }
-    if (ta == sli3::integertype && tb == sli3::doubletype)
-    {
-        a.data_.double_val =
-            static_cast<double>(a.data_.long_val) + b.data_.double_val;
-        a.type_ = b.type_;
-        i->pop();
-        return;
-    }
-    i->raiseerror(i->ArgumentTypeError);
+    hot_op_add(i);  // shared with dispatcher's inline arm
 }
 
 void SubFunction::execute(SLIInterpreter *i) const
 {
-    i->require_stack_load(2);
-    Token& a = i->pick(1);
-    Token& b = i->pick(0);
-    unsigned ta = a.tag();
-    unsigned tb = b.tag();
-
-    if (ta == sli3::integertype && tb == sli3::integertype)
-    {
-        long out;
-        if (checked_sub(a.data_.long_val, b.data_.long_val, &out))
-        {
-            i->raiseerror(i->RangeCheckError);
-            return;
-        }
-        a.data_.long_val = out;
-        i->pop();
-        return;
-    }
-    if (ta == sli3::doubletype && tb == sli3::doubletype)
-    {
-        a.data_.double_val -= b.data_.double_val;
-        i->pop();
-        return;
-    }
-    if (ta == sli3::doubletype && tb == sli3::integertype)
-    {
-        a.data_.double_val -= static_cast<double>(b.data_.long_val);
-        i->pop();
-        return;
-    }
-    if (ta == sli3::integertype && tb == sli3::doubletype)
-    {
-        a.data_.double_val =
-            static_cast<double>(a.data_.long_val) - b.data_.double_val;
-        a.type_ = b.type_;
-        i->pop();
-        return;
-    }
-    i->raiseerror(i->ArgumentTypeError);
+    hot_op_sub(i);  // shared with dispatcher's inline arm
 }
 
 void MulFunction::execute(SLIInterpreter *i) const
@@ -2151,9 +2075,10 @@ void init_slimath(SLIInterpreter *i)
     add_difunction.set_new_abi();
     add_idfunction.set_new_abi();
     add_iifunction.set_new_abi();
-    // Axis II step 1: hot-op tag for inline dispatcher path.
+    // Axis II step 1+2: hot-op tags.
     add_iifunction.set_hot_op(HOP_ADD_II);
     addfunction.set_new_abi();
+    addfunction.set_hot_op(HOP_ADD);
     and_iifunction.set_new_abi();
     andpolyfunction.set_new_abi();
     asin_dfunction.set_new_abi();
@@ -2243,6 +2168,7 @@ void init_slimath(SLIInterpreter *i)
     sub_idfunction.set_new_abi();
     sub_iifunction.set_new_abi();
     subfunction.set_new_abi();
+    subfunction.set_hot_op(HOP_SUB);
     unitstep_dafunction.set_new_abi();
     unitstep_dfunction.set_new_abi();
     unitstep_iafunction.set_new_abi();
