@@ -869,15 +869,23 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           // Axis I bundle step 2-4: current_op_ is the truth for
           // raiseerror / get_current_name during fn->execute. If
           // the op uses the new ABI, the dispatcher pops the fn
-          // Token after the call; otherwise the op manages its
-          // own slot (self-pops or stays in place for re-entry,
-          // like IparseFunction).
+          // Token after the call -- but ONLY if the op left it on
+          // top. raiseerror manipulates the e-stack (pops the op
+          // slot + pushes /stop), and iter setup ops (Repeat / For
+          // etc., all old-ABI today) push their iter frames; in
+          // both cases the post-execute top is not the fn slot
+          // and the dispatcher must not pop. The
+          // tag+pointer check below distinguishes "op left slot
+          // alone" from "raiseerror or other mutation".
           current_op_ = fn;
-          if (fn->uses_new_abi()) {
-            fn->execute(this);
-            execution_stack_.pop();
-          } else {
-            fn->execute(this);
+          fn->execute(this);
+          if (fn->uses_new_abi())
+          {
+            Token const& post_top = execution_stack_.top();
+            if (post_top.tag() == sli3::functiontype &&
+                post_top.data_.func_val == fn) {
+              execution_stack_.pop();
+            }
           }
           current_op_ = nullptr;
           break;

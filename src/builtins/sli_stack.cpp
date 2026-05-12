@@ -37,7 +37,6 @@ SeeAlso: npop
 void PopFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->EStack().pop();
     i->pop();
 }
 
@@ -65,7 +64,6 @@ void NpopFunction::execute(SLIInterpreter *i) const
     size_t n = static_cast<size_t>(raw);
     i->require_stack_load(n + 1);
     i->pop(n + 1);
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -80,7 +78,6 @@ SeeAlso: over, index, copy
 void DupFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    i->EStack().pop();
     i->OStack().index(0);
 }
 
@@ -96,7 +93,6 @@ SeeAlso: dup, index, copy
 void OverFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
     i->OStack().index(1);
 }
 
@@ -111,7 +107,6 @@ SeeAlso: roll, rollu, rolld, rot
 void ExchFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    i->EStack().pop();
     i->OStack().swap();
 }
 
@@ -134,7 +129,6 @@ void IndexFunction::execute(SLIInterpreter *i) const
     }
     size_t const pos = static_cast<size_t>(raw) + 1;
     i->require_stack_load(pos);
-    i->EStack().pop();
     i->top() = i->pick(pos);
 }
 
@@ -160,7 +154,6 @@ void CopyFunction::execute(SLIInterpreter *i) const
     }
     size_t const n = static_cast<size_t>(raw);
     i->require_stack_load(n + 1);    // n elements + the count itself
-    i->EStack().pop();
     i->pop();
     for (size_t p = 0; p < n; ++p)
         i->OStack().index(n - 1); // stack growing, argument constant
@@ -204,7 +197,6 @@ void RollFunction::execute(SLIInterpreter *i) const
     }
     i->require_stack_load(n+2);
 
-    i->EStack().pop();
     i->pop(2);
     
     i->OStack().roll(n,k);
@@ -221,7 +213,6 @@ SeeAlso: roll, rolld, rot
 void RolluFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(3);
-    i->EStack().pop();
     
     i->OStack().roll(3,1);
 }
@@ -237,7 +228,6 @@ SeeAlso: roll, rollu, rot
 void RolldFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(3);
-    i->EStack().pop();
     i->OStack().roll(3,-1);
 }
 
@@ -249,7 +239,6 @@ SeeAlso: roll, rollu, rolld
 
 void RotFunction::execute(SLIInterpreter *i) const
 {
-  i->EStack().pop();
     
   i->OStack().roll(i->OStack().load(),1);
 }
@@ -260,7 +249,6 @@ Synopsis: obj_n-1 ... obj0 count -> obj_n-1 ... obj0 n
 */
 void CountFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
     
     i->push(i->load());
 }
@@ -271,7 +259,6 @@ SeeAlso: pop, npop
 */
 void ClearFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
     i->OStack().clear();
 }
 
@@ -285,7 +272,6 @@ SeeAlso: restoreestack, operandstack
 */ 
 void ExecstackFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
 
     TokenArray *ta=i->EStack().toArray();
     i->push(i->new_token<sli3::arraytype>(ta));   
@@ -329,7 +315,6 @@ void RestoreostackFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     i->require_stack_type(0,sli3::arraytype);
     i->OStack()=*(i->top().data_.array_val);
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -339,7 +324,6 @@ SeeAlso: restoreostack, arrayload, arraystore
 */ 
 void OperandstackFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().pop();
     i->push(i->new_token<sli3::arraytype>(i->OStack().toArray()));
 }
 
@@ -382,9 +366,32 @@ void  init_slistack(SLIInterpreter *i)
     i->createcommand("rot",  &rotfunction);
     i->createcommand("over", &overfunction);
 
-    i->createcommand("execstack",&execstackfunction);   
-    i->createcommand("restoreestack",&restoreestackfunction);   
-    i->createcommand("restoreostack",&restoreostackfunction);   
-    i->createcommand("operandstack",&operandstackfunction);  
+    i->createcommand("execstack",&execstackfunction);
+    i->createcommand("restoreestack",&restoreestackfunction);
+    i->createcommand("restoreostack",&restoreostackfunction);
+    i->createcommand("operandstack",&operandstackfunction);
+
+    // Axis I bundle step 3: ops in sli_stack.cpp converted to the
+    // new ABI -- the dispatcher pops the fn slot after execute()
+    // (when the slot is still on top; raiseerror's pop+push-/stop
+    // is handled separately). RestoreestackFunction stays old-ABI
+    // because it replaces the entire e-stack and the post-execute
+    // top is not its fn slot.
+    popfunction.set_new_abi();
+    npopfunction.set_new_abi();
+    dupfunction.set_new_abi();
+    exchfunction.set_new_abi();
+    indexfunction.set_new_abi();
+    copyfunction.set_new_abi();
+    rollfunction.set_new_abi();
+    countfunction.set_new_abi();
+    clearfunction.set_new_abi();
+    rollufunction.set_new_abi();
+    rolldfunction.set_new_abi();
+    rotfunction.set_new_abi();
+    overfunction.set_new_abi();
+    execstackfunction.set_new_abi();
+    restoreostackfunction.set_new_abi();
+    operandstackfunction.set_new_abi();
 }
 }
