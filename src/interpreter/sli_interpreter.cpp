@@ -1423,25 +1423,52 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
           break;
         }
 
+        // ----------------------------------------------------------
+        // Axis I slice 8 step 2: unified body-walk for all four
+        // iter types (iiterate / irepeat / ifor / iforall).
+        //
+        // Replaces the four separate case bodies of the OFF-mode
+        // dispatcher with one shared body. proc/pos_p are case-
+        // local so the compiler register-allocates them across
+        // fn->execute calls (cf. slice 8.1 lesson:
+        // doc/axis1_slice8_plan.md "Lessons").
+        //
+        // Wins over OFF-mode:
+        //   D1 cross-iter-type resume: after fn->execute the new
+        //     top can be ANY iter type (not just the one we were
+        //     walking) -- e.g. `for { repeat { } }`, when the
+        //     inner repeat returns the outer for resumes inline.
+        //   D1 multi-level body-exit cascade: when a body
+        //     exhausts and the new top is itself an iter frame
+        //     at body-exhaust, the cascade unwinds all stacked
+        //     frames in one tight loop -- no outer-switch round-
+        //     trip per frame.
+        // ----------------------------------------------------------
         case sli3::proceduretype:
           execution_stack_.push(null_val);
           execution_stack_.push(iiterate_t);
-
-        case sli3::iiteratetype: {
+          // fall through to the unified body-walk case below.
+          // [[fallthrough]]
+        case sli3::iiteratetype:
+        case sli3::irepeattype:
+        case sli3::ifortype:
+        case sli3::iforalltype: {
           TokenArray *proc = execution_stack_.pick(2).data_.array_val;
           long *pos_p = &execution_stack_.pick(1).data_.long_val;
-        start_iterate:
+        body_walk:
           if (proc->index_is_valid(*pos_p)) {
             const Token &t = proc->get((*pos_p)++);
             if (not t.is_executable()) {
               operand_stack_.push(t);
-              if (not proc->index_is_valid(*pos_p)) {
-                execution_stack_.pop(3);
-                break;
-              }
-              goto start_iterate;
+              if (proc->index_is_valid(*pos_p))
+                goto body_walk;
+              goto body_exhausted;
             }
-            if (not proc->index_is_valid(*pos_p)) {
+            // Single-level TCO: only for iiterate
+            // (control_flow_spec.md §3.3). irepeat/ifor/iforall
+            // need their proc slot preserved across iterations.
+            if (not proc->index_is_valid(*pos_p)
+                && execution_stack_.pick(0).tag() == sli3::iiteratetype) {
               proc->add_reference();
               execution_stack_.pick(2) = t;
               proc->remove_reference();
@@ -1460,12 +1487,7 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
                 fn->execute(this);
               }
               current_op_ = nullptr;
-              if (execution_stack_.top().tag() == sli3::iiteratetype) {
-                proc = execution_stack_.pick(2).data_.array_val;
-                pos_p = &execution_stack_.pick(1).data_.long_val;
-                goto start_iterate;
-              }
-              break;
+              goto resume_iter;
             }
             if (t.tag() == sli3::nametype) {
               const Token &resolved = lookup(t.data_.long_val);
@@ -1481,249 +1503,95 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
                   fn->execute(this);
                 }
                 current_op_ = nullptr;
-                if (execution_stack_.top().tag() == sli3::iiteratetype) {
-                  proc = execution_stack_.pick(2).data_.array_val;
-                  pos_p = &execution_stack_.pick(1).data_.long_val;
-                  goto start_iterate;
-                }
-                break;
+                goto resume_iter;
               }
               if (resolved.is_executable()) {
                 execution_stack_.push(resolved);
                 break;
               }
               operand_stack_.push(resolved);
-              if (not proc->index_is_valid(*pos_p)) {
-                execution_stack_.pop(3);
-                break;
-              }
-              goto start_iterate;
+              goto body_walk;
             }
+            // proceduretype / trietype / litproceduretype / other
+            // executable types: push to e-stack and break to the
+            // outer switch. The outer switch handles them; on
+            // return (when the dispatcher re-enters via our case
+            // label) proc/pos_p are re-loaded.
             execution_stack_.push(t);
             break;
           }
-          execution_stack_.pop(3);
-          break;
-        }
 
-        case sli3::irepeattype: {
-          TokenArray *proc = execution_stack_.pick(2).data_.array_val;
-          long *pos_p = &execution_stack_.pick(1).data_.long_val;
-        start_repeat:
-          if (proc->index_is_valid(*pos_p)) {
-            const Token &t = proc->get(*pos_p);
-            ++*pos_p;
-            if (t.is_executable()) {
-              if (t.tag() == sli3::functiontype) {
-                SLIFunction* fn = t.data_.func_val;
-                if (__builtin_expect(count_calls_, 0))
-                  ++call_counts_[fn];
-                current_op_ = fn;
-                if (fn->uses_new_abi()) {
-                  fn->execute(this);
-                } else {
-                  execution_stack_.push(sentinel);
-                  fn->execute(this);
-                }
-                current_op_ = nullptr;
-                if (execution_stack_.top().tag() == sli3::irepeattype) {
-                  proc = execution_stack_.pick(2).data_.array_val;
-                  pos_p = &execution_stack_.pick(1).data_.long_val;
-                  goto start_repeat;
-                }
-                break;
+        body_exhausted:
+          // Body has no more tokens. Dispatch the iter-type-
+          // specific exhaust handler by reading the marker tag
+          // at pick(0).
+          switch (execution_stack_.pick(0).tag()) {
+            case sli3::iiteratetype:
+              execution_stack_.pop(3);
+              break;
+            case sli3::irepeattype: {
+              long &lc = execution_stack_.pick(3).data_.long_val;
+              if (lc > 0) {
+                *pos_p = 0;
+                --lc;
+              } else {
+                execution_stack_.pop(5);
               }
-              if (t.tag() == sli3::nametype) {
-                const Token &resolved = lookup(t.data_.long_val);
-                if (resolved.tag() == sli3::functiontype) {
-                  SLIFunction* fn = resolved.data_.func_val;
-                  if (__builtin_expect(count_calls_, 0))
-                    ++call_counts_[fn];
-                  current_op_ = fn;
-                  if (fn->uses_new_abi()) {
-                    fn->execute(this);
-                  } else {
-                    execution_stack_.push(sentinel);
-                    fn->execute(this);
-                  }
-                  current_op_ = nullptr;
-                  if (execution_stack_.top().tag() == sli3::irepeattype) {
-                    proc = execution_stack_.pick(2).data_.array_val;
-                    pos_p = &execution_stack_.pick(1).data_.long_val;
-                    goto start_repeat;
-                  }
-                  break;
-                }
-                if (resolved.is_executable()) {
-                  execution_stack_.push(resolved);
-                  break;
-                }
-                operand_stack_.push(resolved);
-                goto start_repeat;
-              }
-              execution_stack_.push(t);
               break;
             }
-            operand_stack_.push(t);
-            goto start_repeat;
-          }
-
-          long &lc = execution_stack_.pick(3).data_.long_val;
-          if (lc > 0) {
-            *pos_p = 0;
-            --lc;
-          } else {
-            execution_stack_.pop(5);
-          }
-          break;
-        }
-
-        case sli3::ifortype: {
-          TokenArray *proc = execution_stack_.pick(2).data_.array_val;
-          long *pos_p = &execution_stack_.pick(1).data_.long_val;
-        start_for:
-          if (proc->index_is_valid(*pos_p)) {
-            const Token &t = proc->get(*pos_p);
-            ++*pos_p;
-            if (t.is_executable()) {
-              if (t.tag() == sli3::functiontype) {
-                SLIFunction* fn = t.data_.func_val;
-                if (__builtin_expect(count_calls_, 0))
-                  ++call_counts_[fn];
-                current_op_ = fn;
-                if (fn->uses_new_abi()) {
-                  fn->execute(this);
-                } else {
-                  execution_stack_.push(sentinel);
-                  fn->execute(this);
-                }
-                current_op_ = nullptr;
-                if (execution_stack_.top().tag() == sli3::ifortype) {
-                  proc = execution_stack_.pick(2).data_.array_val;
-                  pos_p = &execution_stack_.pick(1).data_.long_val;
-                  goto start_for;
-                }
-                break;
+            case sli3::ifortype: {
+              long &counter = execution_stack_.pick(3).data_.long_val;
+              long &lim     = execution_stack_.pick(4).data_.long_val;
+              long &inc     = execution_stack_.pick(5).data_.long_val;
+              if (((inc > 0) && (counter <= lim))
+               || ((inc < 0) && (counter >= lim))) {
+                *pos_p = 0;
+                operand_stack_.push(execution_stack_.pick(3));
+                counter += inc;
+              } else {
+                execution_stack_.pop(7);
               }
-              if (t.tag() == sli3::nametype) {
-                const Token &resolved = lookup(t.data_.long_val);
-                if (resolved.tag() == sli3::functiontype) {
-                  SLIFunction* fn = resolved.data_.func_val;
-                  if (__builtin_expect(count_calls_, 0))
-                    ++call_counts_[fn];
-                  current_op_ = fn;
-                  if (fn->uses_new_abi()) {
-                    fn->execute(this);
-                  } else {
-                    execution_stack_.push(sentinel);
-                    fn->execute(this);
-                  }
-                  current_op_ = nullptr;
-                  if (execution_stack_.top().tag() == sli3::ifortype) {
-                    proc = execution_stack_.pick(2).data_.array_val;
-                    pos_p = &execution_stack_.pick(1).data_.long_val;
-                    goto start_for;
-                  }
-                  break;
-                }
-                if (resolved.is_executable()) {
-                  execution_stack_.push(resolved);
-                  break;
-                }
-                operand_stack_.push(resolved);
-                goto start_for;
-              }
-              execution_stack_.push(t);
               break;
             }
-            operand_stack_.push(t);
-            goto start_for;
-          }
-
-          long &count = execution_stack_.pick(3).data_.long_val;
-          long &lim = execution_stack_.pick(4).data_.long_val;
-          long &inc = execution_stack_.pick(5).data_.long_val;
-
-          if (((inc > 0) && (count <= lim)) || ((inc < 0) && (count >= lim))) {
-            *pos_p = 0;
-            operand_stack_.push(execution_stack_.pick(3));
-            count += inc;
-            break;
-          } else
-            execution_stack_.pop(7);
-          break;
-        }
-        case sli3::iforalltype: {
-          TokenArray *proc = execution_stack_.pick(2).data_.array_val;
-          long *pos_p = &execution_stack_.pick(1).data_.long_val;
-        start_forall:
-          if (proc->index_is_valid(*pos_p)) {
-            const Token &t = proc->get(*pos_p);
-            ++*pos_p;
-            if (t.is_executable()) {
-              if (t.tag() == sli3::functiontype) {
-                SLIFunction* fn = t.data_.func_val;
-                if (__builtin_expect(count_calls_, 0))
-                  ++call_counts_[fn];
-                current_op_ = fn;
-                if (fn->uses_new_abi()) {
-                  fn->execute(this);
-                } else {
-                  execution_stack_.push(sentinel);
-                  fn->execute(this);
-                }
-                current_op_ = nullptr;
-                if (execution_stack_.top().tag() == sli3::iforalltype) {
-                  proc = execution_stack_.pick(2).data_.array_val;
-                  pos_p = &execution_stack_.pick(1).data_.long_val;
-                  goto start_forall;
-                }
-                break;
+            case sli3::iforalltype: {
+              TokenArray *ad = execution_stack_.pick(4).data_.array_val;
+              long &idx      = execution_stack_.pick(3).data_.long_val;
+              if (ad->index_is_valid(idx)) {
+                *pos_p = 0;
+                operand_stack_.push(ad->get(idx));
+                ++idx;
+              } else {
+                execution_stack_.pop(6);
               }
-              if (t.tag() == sli3::nametype) {
-                const Token &resolved = lookup(t.data_.long_val);
-                if (resolved.tag() == sli3::functiontype) {
-                  SLIFunction* fn = resolved.data_.func_val;
-                  if (__builtin_expect(count_calls_, 0))
-                    ++call_counts_[fn];
-                  current_op_ = fn;
-                  if (fn->uses_new_abi()) {
-                    fn->execute(this);
-                  } else {
-                    execution_stack_.push(sentinel);
-                    fn->execute(this);
-                  }
-                  current_op_ = nullptr;
-                  if (execution_stack_.top().tag() == sli3::iforalltype) {
-                    proc = execution_stack_.pick(2).data_.array_val;
-                    pos_p = &execution_stack_.pick(1).data_.long_val;
-                    goto start_forall;
-                  }
-                  break;
-                }
-                if (resolved.is_executable()) {
-                  execution_stack_.push(resolved);
-                  break;
-                }
-                operand_stack_.push(resolved);
-                goto start_forall;
-              }
-              execution_stack_.push(t);
               break;
             }
-            operand_stack_.push(t);
-            goto start_forall;
+            default: __builtin_unreachable();
           }
+          // Fall through to resume_iter. The exhaust handler may
+          // have:
+          //   (a) popped the frame fully -- new top might be
+          //       another iter frame (cascade), or anything else;
+          //   (b) reset pos for next iteration -- top is the same
+          //       iter marker; the cascade re-loads proc/pos_p
+          //       to the same values and goto body_walk continues.
 
-          TokenArray *ad = execution_stack_.pick(4).data_.array_val;
-          long &idx = execution_stack_.pick(3).data_.long_val;
-
-          if (ad->index_is_valid(idx)) {
-            *pos_p = 0;
-            operand_stack_.push(ad->get(idx));
-            ++idx;
-          } else {
-            execution_stack_.pop(6);
+        resume_iter:
+          // D1 cascade. After fn->execute or body-exhaust, the
+          // new top might be any iter marker (same as we were,
+          // or different). Re-load proc/pos_p and continue
+          // walking. The switch is the only iter-type check;
+          // matching any of the four jumps directly to body_walk
+          // without an outer-switch round-trip.
+          switch (execution_stack_.top().tag()) {
+            case sli3::iiteratetype:
+            case sli3::irepeattype:
+            case sli3::ifortype:
+            case sli3::iforalltype:
+              proc  = execution_stack_.pick(2).data_.array_val;
+              pos_p = &execution_stack_.pick(1).data_.long_val;
+              goto body_walk;
+            default:
+              break;
           }
           break;
         }
