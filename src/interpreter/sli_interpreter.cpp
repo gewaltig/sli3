@@ -879,7 +879,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           // alone" from "raiseerror or other mutation".
           current_op_ = fn;
           fn->execute(this);
-          if (fn->uses_new_abi())
+          if (fn->uses_new_abi() && execution_stack_.load() > 0)
           {
             Token const& post_top = execution_stack_.top();
             if (post_top.tag() == sli3::functiontype &&

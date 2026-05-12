@@ -371,6 +371,27 @@ void  init_slistack(SLIInterpreter *i)
     i->createcommand("restoreostack",&restoreostackfunction);
     i->createcommand("operandstack",&operandstackfunction);
 
+    // Axis I bundle step 3: ops in sli_stack.cpp converted to new ABI.
+    // RestoreestackFunction stays old-ABI -- it replaces the entire
+    // e-stack via i->EStack() = *array_val, so the dispatcher post-
+    // check (compares fn pointer identity) must not run.
+    clearfunction.set_new_abi();
+    copyfunction.set_new_abi();
+    countfunction.set_new_abi();
+    dupfunction.set_new_abi();
+    exchfunction.set_new_abi();
+    execstackfunction.set_new_abi();
+    indexfunction.set_new_abi();
+    npopfunction.set_new_abi();
+    operandstackfunction.set_new_abi();
+    overfunction.set_new_abi();
+    popfunction.set_new_abi();
+    restoreostackfunction.set_new_abi();
+    rolldfunction.set_new_abi();
+    rollfunction.set_new_abi();
+    rollufunction.set_new_abi();
+    rotfunction.set_new_abi();
+
     // Axis I bundle step 3: ops in sli_stack.cpp converted to the
     // new ABI -- the dispatcher pops the fn slot after execute()
     // (when the slot is still on top; raiseerror's pop+push-/stop

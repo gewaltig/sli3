@@ -68,10 +68,11 @@ namespace sli3
       // re-iterate).
       //
       // Default is false (today's ABI). Per-file step-3 commits
-      // remove the trailing pop from each execute() AND call
-      // set_new_abi() in the file's init function, gradually
-      // flipping operators to the new ABI. Step 4 of the bundle
-      // removes the flag once all converted.
+      // call set_new_abi() in the file's init function for each
+      // converted operator (whose trailing i->EStack().pop() in
+      // execute() has been removed). Step 4 of the bundle flips
+      // the default to true and drops the flag once the
+      // dispatcher's old-ABI path can be deleted.
       bool uses_new_abi() const { return new_abi_; }
       void set_new_abi() { new_abi_ = true; }
 
