@@ -121,6 +121,8 @@ void init_state_ops(SLIInterpreter* i)
 {
     i->createcommand("savestate",    &savestate_fn);
     i->createcommand("restorestate", &restorestate_fn);
+
+    // Axis I bundle step 3f: trailing-pop state_ops to new ABI.
 }
 
 }  // namespace sli3

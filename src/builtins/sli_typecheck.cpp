@@ -49,7 +49,6 @@ void TrieFunction::execute(SLIInterpreter *i) const
     Token tmp(i->get_type(sli3::trietype));
     tmp.data_.trie_val=trie;
     i->push(tmp);
-    i->EStack().pop();
 }
 
 
@@ -121,7 +120,6 @@ void AddtotrieFunction::execute(SLIInterpreter *i) const
     // it was leftover debug output that fired on every successful
     // addtotrie -- spamming stderr during bootstrap.)
     i->pop(2);
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -179,7 +177,6 @@ void Cva_tFunction::execute(SLIInterpreter *i) const
     trie->toTokenArray(*array);
     i->top()=i->new_token<sli3::literaltype>(trie->get_name());
     i->push(i->new_token<sli3::arraytype>(array));
-    i->EStack().pop();
 }
 
 void TrieInfoFunction::execute(SLIInterpreter *i) const
@@ -193,7 +190,6 @@ void TrieInfoFunction::execute(SLIInterpreter *i) const
     TypeNode *trie= i->top().data_.trie_val;
     trie->info(*out);
     i->pop(2);
-    i->EStack().pop();
 }
 
 /* BeginDocumentation
@@ -270,7 +266,6 @@ void Cvt_aFunction::execute(SLIInterpreter *i) const
     i->top().clear(); // Clear token before explicit assignment.
     i->top().type_=i->get_type(sli3::trietype);
     i->top().data_.trie_val=trie;
-    i->EStack().pop();
 }
 
 /*BeginDocumentation
@@ -289,7 +284,6 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::arraytype);
         i->top().type_ = i->get_type(sli3::proceduretype);
-        i->EStack().pop();
     }
 };
 
@@ -318,7 +312,6 @@ void TypeFunction::execute(SLIInterpreter *i) const
     // truncates on platforms where size_t is wider. Use the
     // explicit handle accessor.
     top.data_.name_val = tmp.type_->get_typename().toIndex();
-    i->EStack().pop();
 }
 
 
@@ -333,7 +326,6 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::nametype);
         i->top().type_ = i->get_type(sli3::literaltype);
-        i->EStack().pop();
     }
 };
 
@@ -345,7 +337,6 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::literaltype);
         i->top().type_ = i->get_type(sli3::nametype);
-        i->EStack().pop();
     }
 };
 
@@ -358,7 +349,6 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::proceduretype);
         i->top().type_ = i->get_type(sli3::litproceduretype);
-        i->EStack().pop();
     }
 };
 
@@ -370,7 +360,6 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::litproceduretype);
         i->top().type_ = i->get_type(sli3::proceduretype);
-        i->EStack().pop();
     }
 };
 
@@ -598,6 +587,29 @@ void init_slitypecheck(SLIInterpreter *i)
     i->createcommand("cvd",       &cvdfunction);
     i->createcommand("cvlit",     &cvlitfunction);
     i->createcommand("cvn",       &cvnfunction);
+
+    // Axis I bundle step 3f: typecheck trailing ops new ABI.
+    addtotriefunction.set_new_abi();
+    cva_tfunction.set_new_abi();
+    cvlit_nfunction.set_new_abi();
+    cvlit_pfunction.set_new_abi();
+    cvn_lfunction.set_new_abi();
+    cvt_afunction.set_new_abi();
+    cvx_a_fn.set_new_abi();
+    cvx_lpfunction.set_new_abi();
+    triefunction.set_new_abi();
+    trieinfofunction.set_new_abi();
+    typefunction.set_new_abi();
+    // Stage 9 cv* dispatchers also convert: their arms call new-ABI
+    // leaves directly (cvx_a_fn / integerfunction / doublefunction /
+    // cvlit_nfunction / cvlit_pfunction / cvn_lfunction) which no
+    // longer self-pop, and the baselookup-push arms work under new
+    // ABI via the dispatcher post-check.
+    cvxfunction.set_new_abi();
+    cvifunction.set_new_abi();
+    cvdfunction.set_new_abi();
+    cvlitfunction.set_new_abi();
+    cvnfunction.set_new_abi();
 }
 
 }

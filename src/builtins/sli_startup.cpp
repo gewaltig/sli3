@@ -113,7 +113,6 @@ public:
         {
             i->push<bool>(false);
         }
-        i->EStack().pop();
     }
 };
 
@@ -214,7 +213,6 @@ public:
         if (pprint_) i->top().pprint(*os);
         else         i->top().print(*os);
         i->pop();  // drop the value, leave the stream on top
-        i->EStack().pop();
     }
 };
 
@@ -235,7 +233,6 @@ public:
         *os << '\n';
         os->flush();
         // Leave the stream on top.
-        i->EStack().pop();
     }
 };
 
@@ -254,7 +251,6 @@ public:
             return;
         }
         os->flush();
-        i->EStack().pop();
     }
 };
 
@@ -279,7 +275,6 @@ public:
         // DictionaryStack::push(Token) copies the Token; nothing to free.
         i->DStack().push(i->top());
         i->pop();
-        i->EStack().pop();
     }
 };
 
@@ -297,7 +292,6 @@ public:
             return;
         }
         i->DStack().pop();
-        i->EStack().pop();
     }
 };
 
@@ -315,7 +309,6 @@ public:
         t.data_.dict_val = d;
         i->pop();
         i->push(t);
-        i->EStack().pop();
     }
 };
 
@@ -328,7 +321,6 @@ public:
         Token t(i->get_type(sli3::dictionarytype));
         t.data_.dict_val = d;
         i->push(t);
-        i->EStack().pop();
     }
 };
 
@@ -340,7 +332,6 @@ public:
     void execute(SLIInterpreter* i) const override
     {
         i->push(static_cast<long>(i->DStack().size()));
-        i->EStack().pop();
     }
 };
 
@@ -358,7 +349,6 @@ public:
         Token t(i->get_type(sli3::arraytype));
         t.data_.array_val = arr;
         i->push(t);
-        i->EStack().pop();
     }
 };
 
@@ -371,7 +361,6 @@ public:
     {
         while (i->DStack().size() > 2)
             i->DStack().pop();
-        i->EStack().pop();
     }
 };
 
@@ -498,6 +487,19 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     i->createcommand("countdictstack", &countdictstack_fn);
     i->createcommand("dictstack",      &dictstack_fn);
     i->createcommand("cleardictstack", &cleardictstack_fn);
+
+    // Axis I bundle step 3f: startup trailing ops new ABI.
+    begin_fn.set_new_abi();
+    cleardictstack_fn.set_new_abi();
+    countdictstack_fn.set_new_abi();
+    currentdict_fn.set_new_abi();
+    dict_fn.set_new_abi();
+    dictstack_fn.set_new_abi();
+    end_fn.set_new_abi();
+    getenv_fn.set_new_abi();
+    endl_fn.set_new_abi();
+    flush_fn.set_new_abi();
+    write_fn.set_new_abi();
 
     // 2b. Stubs for unimplemented operators that typeinit.sli /
     //     mathematica.sli / etc. reference via `<X> load addtotrie`.

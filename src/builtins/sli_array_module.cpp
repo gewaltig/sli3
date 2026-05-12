@@ -137,7 +137,6 @@ public:
         }
 
         i->top() = i->new_token<sli3::arraytype>(out);
-        i->EStack().pop();
     }
 };
 
@@ -155,7 +154,6 @@ public:
         TokenArray* result = new TokenArray(*src);
         std::reverse(result->begin(), result->end());
         i->top() = i->new_token<sli3::arraytype>(result);
-        i->EStack().pop();
     }
 };
 
@@ -188,7 +186,6 @@ public:
         }
         i->pop();
         i->top() = i->new_token<sli3::arraytype>(result);
-        i->EStack().pop();
     }
 };
 
@@ -222,7 +219,6 @@ public:
             }
         }
         i->top() = i->new_token<sli3::arraytype>(result);
-        i->EStack().pop();
     }
 };
 
@@ -278,7 +274,6 @@ public:
             return;
         }
         i->top() = i->new_token<sli3::arraytype>(result);
-        i->EStack().pop();
     }
 };
 
@@ -336,7 +331,6 @@ public:
         }
 
         i->top() = i->new_token<sli3::arraytype>(result);
-        i->EStack().pop();
     }
 };
 
@@ -379,7 +373,6 @@ public:
         }
         i->pop(2);
         i->top() = i->new_token<sli3::arraytype>(result);
-        i->EStack().pop();
     }
 };
 
@@ -438,7 +431,6 @@ public:
             result->push_back(i->pick(static_cast<size_t>(l)));
         i->pop(static_cast<size_t>(n));
         i->push(i->new_token<sli3::arraytype>(result));
-        i->EStack().pop();
     }
 };
 
@@ -497,7 +489,6 @@ public:
             i->raiseerror(i->ArgumentTypeError);
             return;
         }
-        i->EStack().pop();
     }
 };
 
@@ -514,7 +505,6 @@ public:
         bool v = i->top().data_.array_val != nullptr;
         i->pop();
         i->push(v);
-        i->EStack().pop();
     }
 };
 
@@ -531,7 +521,6 @@ public:
         double x = i->top().data_.double_val;
         i->pop();
         i->push(std::isfinite(x));
-        i->EStack().pop();
     }
 };
 
@@ -858,6 +847,20 @@ void init_sliarray(SLIInterpreter* i)
     i->createcommand("::Map",            &imap_fn);
     i->createcommand("::MapIndexed",     &imap_indexed_fn);
     i->createcommand("::MapThread",      &imap_thread_fn);
+
+    // Axis I bundle step 3f: array_module trailing ops new ABI.
+
+    // Axis I bundle step 3f: trailing-pop array_module ops to new ABI. Map / MapIndexed / MapThread setups stay old (iter frame push).
+    arraystore_fn.set_new_abi();
+    finiteq_d_fn.set_new_abi();
+    flatten_fn.set_new_abi();
+    partition_fn.set_new_abi();
+    range_fn.set_new_abi();
+    reverse_fn.set_new_abi();
+    rotate_fn.set_new_abi();
+    sort_fn.set_new_abi();
+    transpose_fn.set_new_abi();
+    valid_fn.set_new_abi();
 }
 
 }  // namespace sli3

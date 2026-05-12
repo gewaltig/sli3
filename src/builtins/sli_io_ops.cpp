@@ -62,7 +62,6 @@ public:
             i->push(t);
             i->push<bool>(true);
         }
-        i->EStack().pop();
     }
 };
 
@@ -91,7 +90,6 @@ public:
             i->push(t);
             i->push<bool>(true);
         }
-        i->EStack().pop();
     }
 };
 
@@ -117,7 +115,6 @@ public:
             i->raiseerror(i->ArgumentTypeError);
             return;
         }
-        i->EStack().pop();
     }
 };
 
@@ -171,7 +168,6 @@ public:
         }
         i->pop();
         i->push<bool>(eof);
-        i->EStack().pop();
     }
 };
 
@@ -207,7 +203,6 @@ public:
             i->push(i->new_token<sli3::stringtype, std::string>(std::move(line)));
             i->push<bool>(true);
         }
-        i->EStack().pop();
     }
 };
 
@@ -227,7 +222,6 @@ public:
         t.data_.ostream_val = wrap;
         i->push(t);
         i->push<bool>(true);
-        i->EStack().pop();
     }
 };
 
@@ -273,7 +267,6 @@ public:
             i->raiseerror(i->BadIOError);
             return;
         }
-        i->EStack().pop();
     }
 };
 
@@ -297,7 +290,6 @@ public:
         }
         i->pop();
         i->push(i->new_token<sli3::stringtype, std::string>(std::move(out)));
-        i->EStack().pop();
     }
 };
 
@@ -324,6 +316,16 @@ void init_io_ops(SLIInterpreter* i)
     i->createcommand("ostrstream", &ostrstream_fn);
     i->createcommand("str",        &str_fn);
     i->createcommand("CopyFile",   &copyfile_fn);
+
+    // Axis I bundle step 3f: io_ops trailing ops new ABI.
+    copyfile_fn.set_new_abi();
+    cvx_f_fn.set_new_abi();
+    eof_fn.set_new_abi();
+    getline_is_fn.set_new_abi();
+    ifstream_fn.set_new_abi();
+    ofstream_fn.set_new_abi();
+    ostrstream_fn.set_new_abi();
+    str_fn.set_new_abi();
 }
 
 }  // namespace sli3
