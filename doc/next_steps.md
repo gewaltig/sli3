@@ -1,7 +1,7 @@
 # sli3 — consolidated next-step roadmap
 
-Revision date: 2026-05-12. Anchor: commit `31d6518` (B7-B10 benches
-landed; Slice 3 of Axis I done at `a9c3d25`).
+Revision date: 2026-05-12 (post-Slice-11). Anchor: commit
+`aa14150` (Slice 11 Name(long) bounds-check gate landed).
 
 > **2026-05-12 update**: the original Axis I/II/III ordering has
 > been **re-prioritised** after B7-B10 organic-workload data and
@@ -9,15 +9,46 @@ landed; Slice 3 of Axis I done at `a9c3d25`).
 > `doc/dispatch_restructure_plan.md` "Re-costing (2026-05-12)"
 > for the analysis. Key changes from the 2026-05-11 draft:
 >
-> - **Slice 11 (P1 pvalue cache) is now the highest-priority
->   next step.** Targets the 10-15 % `DictionaryStack::lookup`
->   cost on B5/B7/B9/B10 that the original plan didn't see.
+> - **Slice 11 (Name(long) bounds-check gate) shipped**
+>   (commit `aa14150`). Net effect: clean −8 to −12 % on B1,
+>   B2, B3, B5, B7, B8, B10 (every bench that does any name
+>   dispatch); B2b and B9 see smaller wins. After Slice 3
+>   + 11, sli3 wins against gs on 5 of 9 benches; B1/B2/B3/B5
+>   are now significant wins (−21 to −40 %).
 > - **Axes I slices 4-7 collapse into one "Axis I bundle"**
 >   that ships as a unit. The per-slice bench gates are
 >   unmet in isolation (each slice pays a setup cost; only
 >   the combined net is favorable).
-> - **Axis I Slice 3 already shipped** (commit `a9c3d25`):
->   −15.6 % B1, −6.9 % B2b, −9.0 % B3.
+> - **Bench-measurement hygiene**: any `echo ... | ./build/sli3`
+>   pipeline without a trailing `quit` in the input hangs in
+>   REPL at 100 % CPU. The first ~12 hours of Slice 3 /
+>   Slice 11 measurements were contaminated by two such
+>   orphans (one from each of two early sanity-check `Bash`
+>   commands that used `run_in_background` and never returned).
+>   Clean numbers below replace the orphan-contaminated ones
+>   in the Slice 3 + Slice 11 commit messages.
+
+## Clean bench standing (post-Slice-11, no orphan contamination)
+
+Best-of-five wall-time (`/usr/bin/time -p`, real), Apple Silicon,
+AC power, no background load:
+
+| Bench | sli3 | gs 10.07 | sli3 vs gs |
+|-------|-----:|---------:|-----------:|
+| B1  1 pop                     | 1.03 | 1.31 | **−21 %** (sli3 wins) |
+| B2  1 1 add pop               | 1.99 | 2.69 | **−26 %** (sli3 wins) |
+| B2b bound proc                | 1.79 | 1.22 | +47 % (sli3 trails) |
+| B3  nested for                | 1.74 | 2.57 | **−32 %** (sli3 wins) |
+| B5  dict alloc + lookup       | 1.50 | 2.49 | **−40 %** (sli3 wins) |
+| B7  bubble sort               | 2.19 | 1.99 | +10 % (sli3 trails) |
+| B8  insertion sort            | 1.53 | 1.01 | +51 % (sli3 trails) |
+| B9  recursive fib(28)         | 2.19 | 1.71 | +28 % (sli3 trails) |
+| B10 matmul 50x50              | 1.82 | 1.89 | **−4 %** (sli3 wins, narrowly) |
+
+5 wins, 4 trails. The remaining gaps (B2b, B7, B8, B9, B7 +10 %)
+trace to the same dispatcher overhead: per-operator push + self-pop
++ name handle traffic. The Axis I bundle (drop fn-Token push +
+drop 316-site self-pop) is the next target.
 
 Revision date (original): 2026-05-11. Anchor: tag `stage9-complete`.
 
