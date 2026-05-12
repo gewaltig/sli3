@@ -44,7 +44,24 @@ Work is on the `revive` branch.
   - **Slice 5c (done):** `1 1 add ==` smoke test passes. The full sli-init.sli + typeinit.sli + library.sli + ps-lib.sli + debug.sli chain runs to the REPL prompt; integer / double / bool / name / string / array / dict round-trip cleanly through `=` and `==`.
 - **Stage 4 (tests):** ongoing. 20 ctest binaries: scalar/name/string/array round-trips, intrusive refcount, shared-pointer aliasing through serialization, basic container API, array stdlib (direct execute() + dispatcher-driven Map/MapIndexed/MapThread), dispatcher parity, error dispatch attribution, state-ops round-trip, new-ABI dispatch contract (`test_dispatch_abi.cpp` — see Axis I bundle below).
 - **Runtime is functional.** Full bootstrap + REPL. The dispatcher loop, error machinery (raiseerror / stop / stopped / handleerror), and the standard operator surface (math, container, type, I/O, dict, control) all work end-to-end.
-- **Axis I bundle (done, commit `151e5e5`).** Dispatcher-restructure axis I: per-operator `EStack().pop()` ABI replaced by a dispatcher pre-pop contract. ~250 of ~316 operator sites converted to new ABI; the rest (`StopFunction`, `CloseinputFunction`, `Map_fn` / iter family, `ExecFunction`, `ExitFunction`, parser ops) stay old-ABI by design — they manage their own frame in non-trivial ways. Bench delta from this axis: B1 −8 %, B3 −13 %, B7 −4 %, B10 −5 % vs `stage9-complete`. See `doc/dispatch_restructure_plan.md` "Axis I bundle".
+- **Axis I bundle (done, commit `151e5e5`).** Dispatcher-restructure axis I: per-operator `EStack().pop()` ABI replaced by a dispatcher pre-pop contract. ~250 of ~316 operator sites converted to new ABI; the rest (`StopFunction`, `CloseinputFunction`, `Map_fn` / iter family, `ExecFunction`, `ExitFunction`, parser ops) stay old-ABI by design — they manage their own frame in non-trivial ways. See `doc/dispatch_restructure_plan.md` "Axis I bundle".
+- **Axis I slice 8 — unified body-walk loop** (steps 1+2, commits `470da6d` + `8e39906`). Replaces the four separate iter cases (iiterate / irepeat / ifor / iforall) with one unified case. D1 cross-iter-type resume + multi-level body-exit cascade per `doc/control_flow_spec.md`. Behind CMake flag `-DSLI3_INLINE_BODY_WALK=ON` (default OFF; gate stays until step 4 flips the default). All step-2 bench gates met.
+- **Axis II — hot-op inlining** (steps 1+2, commits `9f471d2` + `deaaf8c`). Dispatcher's body-walk fast path switches on `fn->hot_op()` and inlines the body for tagged ops. Currently tagged: `pop`, `dup`, `exch`, `add_ii`, `add`, `sub`, `if`, `def`. Single source of truth via `src/builtins/sli_op_bodies.h`. Lives inside the ON path of slice 8. Adding hot ops is mechanical: tag the instance with `set_hot_op(...)` and add an arm to the dispatcher switch. See `doc/compact_procedure_spec.md` §Axis II.
+- **Bench standing** (best-of-five, sli3 ON vs gs 10.07 vs nest 2.20):
+
+| Bench | sli3 | gs | nest | sli3 vs gs |
+|---|---:|---:|---:|---:|
+| B1   `1 pop`           | **0.85** | 1.32 | 2.01 | **−36 %** ⬇ |
+| B2   `1 1 add pop`     | **1.81** | 2.69 | 4.34 | **−33 %** ⬇ |
+| B2b  bound `{...}`     | 1.54 | **1.22** | 3.39 | +26 % ⬆ |
+| B3   nested for        | **1.53** | 2.58 | 4.30 | **−41 %** ⬇ |
+| B5   dict alloc+lookup | **1.49** | 2.49 | 4.32 | **−40 %** ⬇ |
+| B7   bubble sort       | 2.15 | **1.99** |  —  | +8 % ⬆ |
+| B8   insertion sort    | 1.47 | **1.01** |  —  | +46 % ⬆ |
+| B9   recursive fib(28) | 2.11 | **1.71** | 4.27 | +23 % ⬆ |
+| B10  matmul 50×50      | **1.79** | 1.90 |  —  | **−6 %** ⬇ |
+
+  Score vs gs: **5 wins, 4 losses**. sli3 beats nest 2.2–2.9× across the board. The remaining gs losses (B2b/B7/B8/B9) are the workloads where gs's threaded-code + packed-ref design has an intrinsic edge.
 - Full plan in `implementation_spec.md`.
 
 ## Build

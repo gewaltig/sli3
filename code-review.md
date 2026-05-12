@@ -128,15 +128,29 @@ partial.
   remaining structural win on B2b is **Axis I slice 8** (inline
   procedure-body walk into the dispatcher), still open.
 
-- **Axis I slice 8 — inline body walk.** Open. The dispatcher's
-  `iiterate` / `irepeat` / `ifor` / `iforall` cases collapse into
-  one body-walk loop (gs's `bot:`/`out:`/`up:` topology).
-  Predicted: B2b 1.79 s → ~1.50 s. Side effect: multi-level
-  TCO falls out for free (see `doc/tail_recursion.md`).
-- **Axis II — hot-op inlining**
-  (`doc/compact_procedure_spec.md`). Depends on Axis I slice 8.
+- **Axis I slice 8 — unified body-walk loop** ✅ **steps 1+2
+  done** (commits `470da6d`, `8e39906`, 2026-05-12). The four
+  iter cases (iiterate / irepeat / ifor / iforall) collapse into
+  one body-walk loop with D1 cross-iter-type resume +
+  multi-level body-exit cascade per `doc/control_flow_spec.md`.
+  Behind CMake flag `SLI3_INLINE_BODY_WALK=ON` (OFF default).
+  Step 3 (inline nested-proc entry) optional; step 4 (flip
+  default + delete OFF path) pending.
+
+- **Axis II — hot-op inlining** ✅ **steps 1+2 done** (commits
+  `9f471d2`, `deaaf8c`). The dispatcher's body-walk fast path
+  switches on `fn->hot_op()` and inlines tagged ops. Currently
+  tagged: pop / dup / exch / add_ii / add / sub / if / def.
+  Single source of truth in `src/builtins/sli_op_bodies.h`.
+  Lives inside the ON path of slice 8. Adding more ops is
+  mechanical (tag the instance + add a dispatcher arm).
+  Bench delta on B2b: 1.79 s → 1.54 s. Step 3 candidates:
+  HOP_GT, HOP_GET_A, HOP_PUT_A — high call counts on B7/B8.
+
 - **Axis III — compact procedure storage** (`CompactProc`).
-  Lowest-priority of the three axes; depends on I + II.
+  Open. Lowest-priority of the three axes; depends on I + II.
+  Predicted B2b gain ~0.5-1 ns/iter on top of I + II. Spec at
+  `doc/compact_procedure_spec.md` §Axis III.
 
 ### Open — Stage 6 (serialization) gaps
 

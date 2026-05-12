@@ -24,6 +24,8 @@ Throughout: **tests before fixes**. CLAUDE.md's `TDD-first when bootstrap blocks
 | 9 | Compact hot operators (10 batches) | ✅ done (tag `stage9-complete`) |
 | 10 | savestate / restorestate | ✅ done (commit `3a7edec`) — dict-stack snapshot still pending Stage 6 closure on `DictionaryType` |
 | 11 | Axis I bundle (dispatcher pre-pop ABI) | ✅ done (commit `151e5e5`) — pre-pop contract live; ~250 of ~316 operator sites converted; new-ABI is the default for converted ops with `set_new_abi()` opt-in. See `tests/test_dispatch_abi.cpp` for the regression test. |
+| 12 | Axis I slice 8 (unified body-walk loop) | ✅ steps 1+2 done (commits `470da6d`, `8e39906`) — behind CMake flag `SLI3_INLINE_BODY_WALK=ON`. Step 3 (inline nested-proc entry) optional; step 4 (flip default + delete OFF path) pending. |
+| 13 | Axis II (hot-op inlining) | ✅ steps 1+2 done (commits `9f471d2`, `deaaf8c`) — pop / dup / exch / add_ii / add / sub / if / def tagged. Inline helpers in `src/builtins/sli_op_bodies.h` are the single source of truth. Adding more ops (e.g. gt / put / get) is mechanical. |
 
 **Next phase: continued performance work on top of the Axis I
 bundle.** The dispatcher ABI is now restructured. Remaining wins
@@ -71,10 +73,40 @@ Bench standing at `stage9-complete` (2026-05-11, for reference):
 
 The Axis I bundle (Slice 11 + axis-1 steps 1–4) brought B1, B3, B5
 into the **−25 % to −40 % range vs gs**; sli3 is now consistently
-2–3× faster than NEST 2.20 across the board. B2b still trails gs
-by 47 % — that's Axis I slice 8 (inline body walk) territory.
-B7/B8/B9 trail gs because gs's threaded-code dispatch is intrinsic;
-Axis II / Axis III target the remaining gap.
+2–3× faster than NEST 2.20 across the board. B2b still trailed gs
+by 47 % after Axis I — that's Axis I slice 8 (inline body walk) +
+Axis II (hot-op inlining) territory.
+
+**Post-Axis-II-step-2 (2026-05-12, commit `deaaf8c`, ON mode)**:
+
+| Bench | sli3 | nest 2.20 | gs 10.07 | sli3 vs nest | sli3 vs gs |
+|---|---|---|---|---|---|
+| B1   | **0.85** | 2.01 | 1.32 | 2.4× | **−36 %** |
+| B2   | **1.81** | 4.34 | 2.69 | 2.4× | **−33 %** |
+| B2b  | 1.54 | 3.39 | **1.22** | 2.2× | +26 % |
+| B3   | **1.53** | 4.30 | 2.58 | 2.8× | **−41 %** |
+| B4   | 1.73 | 3.73 |  —   | 2.2× |   —    |
+| B5   | **1.49** | 4.32 | 2.49 | 2.9× | **−40 %** |
+| B6   | 2.96 | 4.00 |  —   | 1.4× |   —    |
+| B7   | 2.15 |  —   | **1.99** |   —  | +8 % |
+| B8   | 1.47 |  —   | **1.01** |   —  | +46 % |
+| B9   | 2.11 | 4.27 | **1.71** | 2.0× | +23 % |
+| B10  | **1.79** |  —   | 1.90 |   —  | **−6 %** |
+
+**Score vs gs: 5 wins (B1/B2/B3/B5/B10), 4 losses (B2b/B7/B8/B9).**
+
+The headline change since the post-Axis-I-bundle measurement is
+B2b: dropped from 1.79 s (+47 % over gs) to 1.54 s (+26 %) by
+inlining `add` (the dispatcher) and `pop` in the body-walk hot
+path. Slice 8's body-walk unification + Axis II step 2 together
+closed roughly half the gap to gs.
+
+The four remaining gs losses (B2b / B7 / B8 / B9) all hit
+workloads where gs's threaded-code dispatch + 2-byte packed
+procedure slots are intrinsically tighter. Closing further:
+Axis II step 3 (add `HOP_GT` / `HOP_GET` / `HOP_PUT` —
+relevant for B7/B8) and/or Axis III (compact procedure storage —
+relevant for B2b/B9).
 
 ---
 

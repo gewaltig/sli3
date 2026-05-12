@@ -207,7 +207,7 @@ must remain parity-clean. Add coverage for:
 This step has no production-code changes; only the test grows.
 Acceptance: existing `test_dispatch_parity` plus new cases pass.
 
-### Step 1 — Add build flag, no behavioural change
+### Step 1 — Add build flag, no behavioural change ✅ DONE (commit `470da6d`)
 
 Add `cmake -DSLI3_INLINE_BODY_WALK=ON|OFF` flag in CMakeLists.txt
 that defines `SLI3_INLINE_BODY_WALK_ENABLED` macro (default OFF).
@@ -232,7 +232,7 @@ Acceptance:
 - `cmake -DSLI3_INLINE_BODY_WALK=ON` builds and `ctest` green
   (using the duplicate, behaviour-identical code).
 
-### Step 2 — Unify the four iter cases under the flag
+### Step 2 — Unify the four iter cases under the flag ✅ DONE (commit `8e39906`)
 
 In `execute_dispatch_inline_` only: collapse the four cases per
 the structure above. Add the multi-level body-exit cascade. Add

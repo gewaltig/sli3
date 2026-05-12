@@ -965,3 +965,55 @@ it's discoverable later without scrolling:
   wrong stack shape. Audit script: any class with
   `void execute` whose body has no `EStack().pop()` must
   appear in some init's `set_new_abi()` call list.
+
+- 2026-05-12: **Axis I slice 8 step 1+2 + Axis II step 1+2
+  landed** (commits `470da6d`..`deaaf8c`).
+
+  **Slice 8** collapses the four iter cases (iiterate / irepeat
+  / ifor / iforall) of `execute_dispatch_` into one unified
+  body-walk loop with `proc / pos_p` case-local (avoiding the
+  slice 8.1 register-allocation regression). Implements D1
+  from `doc/control_flow_spec.md`: cross-iter-type resume after
+  `fn->execute` + multi-level body-exit cascade. Behind CMake
+  flag `SLI3_INLINE_BODY_WALK=ON`. Step 3 (inline nested-proc
+  entry) optional; step 4 (flip default + delete OFF path)
+  pending until Axis II step 3 lands.
+
+  **Axis II step 1+2** introduces the hot-op inlining mechanism:
+  `enum HotOpId` + `hot_op_id_` field on `SLIFunction`, helpers
+  in `src/builtins/sli_op_bodies.h` as the single source of
+  truth (standalone `execute()` methods delegate to the same
+  helper), dispatcher switch in the body-walk fast path that
+  inlines tagged ops before the virtual-call fallback.
+  Currently tagged: pop / dup / exch / add_ii / add / sub / if
+  / def. Lives inside slice 8's ON path.
+
+  **Bench (B2b headline)**: 1.79 s post-Axis-I-bundle → 1.54 s
+  now. Gap to gs closed from +47 % to +26 %. Other wins:
+  B1 −36 % vs gs (was −27 %), B2 −33 % (was −26 %).
+  sli3 vs gs score: 5 wins (B1/B2/B3/B5/B10), 4 losses
+  (B2b/B7/B8/B9). vs nest 2.20: dominates 2.2–2.9× across the
+  board.
+
+  **Adding more hot ops is mechanical**: tag the instance with
+  `set_hot_op(HOP_X)` in its file's init function, add a
+  helper to `sli_op_bodies.h`, add a switch arm in the
+  dispatcher's body-walk fn-dispatch sites
+  (`src/interpreter/sli_interpreter.cpp` —
+  `execute_dispatch_inline_`). The risk is the switch becoming
+  large enough that the jump table or chained compares hurt
+  the hot path; profile after each addition.
+
+  **Next step (Axis II step 3)**: HOP_GT / HOP_GET_A /
+  HOP_PUT_A target the high-call-count ops on B7/B8 (30M `get`,
+  10M `put`, 10M `gt`). After that, Axis I slice 8 step 4
+  flips the build flag default and deletes the OFF dispatcher
+  body.
+
+  **Tests / parity**: ctest 20/20 green in both OFF and ON
+  modes after each commit. Cross-iter smoke tests (`{ for {
+  repeat { ... } } }`, `{ stop } stopped`, nested procs) pass
+  in ON mode. The duplicate-method approach for slice 8 step 1
+  is temporary; reviewers should diff `execute_dispatch_inline_`
+  against `execute_dispatch_` between steps 1 and 2 to confirm
+  the divergence is exactly the iter-case unification.

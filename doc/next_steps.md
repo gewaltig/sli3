@@ -26,28 +26,33 @@ contract + new-ABI audit fixes).
 >   pipeline without a trailing `quit` in the input hangs in
 >   REPL at 100 % CPU. Always include `quit` in piped input.
 
-## Clean bench standing (post-Axis-I-bundle)
+## Clean bench standing (post-Axis-II step 2)
 
 Best-of-five wall-time (`/usr/bin/time -p`, real), Apple Silicon,
-AC power, no background load. Anchor: commit `151e5e5`.
+AC power, no background load. Anchor: commit `deaaf8c`. Mode:
+`-DSLI3_INLINE_BODY_WALK=ON`.
 
 | Bench | sli3 | gs 10.07 | sli3 vs gs |
 |-------|-----:|---------:|-----------:|
-| B1  1 pop                     | 0.95 | 1.31 | **−27 %** (sli3 wins) |
-| B2  1 1 add pop               | 1.98 | 2.68 | **−26 %** (sli3 wins) |
-| B2b bound proc                | 1.79 | 1.22 | +47 % (sli3 trails) |
-| B3  nested for                | 1.52 | 2.57 | **−41 %** (sli3 wins) |
-| B5  dict alloc + lookup       | 1.51 | 2.47 | **−39 %** (sli3 wins) |
-| B7  bubble sort               | 2.10 | 1.99 | +6 %  (sli3 trails) |
+| B1  1 pop                     | 0.85 | 1.32 | **−36 %** (sli3 wins) |
+| B2  1 1 add pop               | 1.81 | 2.69 | **−33 %** (sli3 wins) |
+| B2b bound proc                | 1.54 | 1.22 | +26 % (sli3 trails) |
+| B3  nested for                | 1.53 | 2.58 | **−41 %** (sli3 wins) |
+| B5  dict alloc + lookup       | 1.49 | 2.49 | **−40 %** (sli3 wins) |
+| B7  bubble sort               | 2.15 | 1.99 | +8 %  (sli3 trails) |
 | B8  insertion sort            | 1.47 | 1.01 | +46 % (sli3 trails) |
-| B9  recursive fib(28)         | 2.08 | 1.70 | +22 % (sli3 trails) |
-| B10 matmul 50x50              | 1.80 | 1.89 | **−5 %** (sli3 wins) |
+| B9  recursive fib(28)         | 2.11 | 1.71 | +23 % (sli3 trails) |
+| B10 matmul 50x50              | 1.79 | 1.90 | **−6 %** (sli3 wins) |
 
-5 wins, 4 trails (same shape as post-Slice-11, with extra B3
-−9 pp and B7 −4 pp from step 4). The remaining gaps (B2b, B7,
-B8, B9) are now structural: **the inline body walk (Axis I
-slice 8)** is the right target for B2b; gs's threaded-code
-dispatch is intrinsic for the rest.
+5 wins, 4 trails. The headline change vs the post-Axis-I-bundle
+standing is **B2b: 1.79 → 1.54 s**, gap to gs went from +47 % to
++26 %. Slice 8's body-walk unification + Axis II's `add` / `pop`
+inlining together closed roughly half the gap. The remaining
+gs losses (B2b / B7 / B8 / B9) all hit workloads where gs's
+threaded-code dispatch + 2-byte packed slots are intrinsically
+tighter; addressing them requires step 3 of Axis II
+(`HOP_GT / HOP_GET / HOP_PUT` for B7/B8) and/or Axis III
+(compact procedure storage for B2b / B9).
 
 Also vs NEST 2.20:
 
@@ -458,30 +463,34 @@ Done (Axis I bundle, 2026-05-12):
   Axis I Slice 11 (Name(long) bounds-check gate)               (commit aa14150)
   Axis I bundle steps 1-4 (current_op_ + ABI conversion)       (commits 27d5380..151e5e5)
 
+Done (Axis I slice 8 + Axis II, 2026-05-12):
+  Axis I Slice 8 step 1 (build-flag scaffold)                  (commit 470da6d)
+  Axis I Slice 8 step 2 (unified body-walk loop)               (commit 8e39906)
+  Axis II step 1 (HotOpId + pop/dup/exch/add_ii)               (commit 9f471d2)
+  Axis II step 2 (add/sub/if/def)                              (commit deaaf8c)
+
 Next:
 
-  1. Axis I Slice 8 (inline body walk).
-     Adopt gs's bot:/out:/up: topology. Collapses iter cases into
-     one body-walk loop; multi-level TCO falls out for free.
-     Biggest structural win on B2b (~−15-20 % expected — 1.79 →
-     ~1.50 s). The single most impactful remaining structural
-     change.
+  1. Axis II step 3 (hot-op inlining for B7/B8/B9 hot paths).
+     Candidates from SLI3_STATS profile: HOP_GT (B7: 10M calls,
+     5-arm dispatcher, int-int fast path), HOP_GET_A (B7/B8:
+     30M calls), HOP_PUT_A (B7/B8: 10M calls). Each adds one
+     arm to the dispatcher switch + one helper in sli_op_bodies.h.
 
-  2. Flip new_abi_ default to true; drop the dual-ABI flag.
-     Each remaining old-ABI op gets an explicit decision
-     (rewrite vs. keep). Cleanup, no bench impact.
+  2. Axis I Slice 8 step 4 (flip default + delete OFF path).
+     Once Axis II step 3 lands and stabilises, flip
+     SLI3_INLINE_BODY_WALK default to ON, then delete the
+     duplicate execute_dispatch_ body. Cleanup; no bench impact.
 
   3. Axis I Slice 9 (continuation ops).
      Optional cosmetic cleanup. Remove iiteratetype / irepeattype /
      ifortype / iforalltype enum slots in favour of regular
      continuation operators. 0 perf, simpler dispatcher.
 
-  4. Axis II (hot-op inlining, per doc/compact_procedure_spec.md).
-     ~3-5 % B9 from inlining lt/dup/sub/add/exch/ifelse.
-
-  5. Axis III (compact procedure storage, per doc/compact_procedure_spec.md).
-     Last and smallest. Only if B2b after Axes I + II still > 10 %
-     above gs.
+  4. Axis III (compact procedure storage, per doc/compact_procedure_spec.md).
+     Last and smallest. Predicted B2b/B9 gain ~3-5 % on top of
+     I + II step 3. Only start if Axis II step 3 hasn't closed
+     the B2b gap to within 15 % of gs.
 
 Correctness backlog (parallel track):
   Stage 6 — close serialization gaps (DictionaryType, TrieType,
