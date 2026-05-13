@@ -20,7 +20,7 @@ Original work: Marc-Oliver Gewaltig, 2014–2015. Paused June 2015. Revived May 
 - **License:** GPL.
 - **Tests:** bare CTest, assert-based. No external test framework.
 - **`sli_processes`:** deferred (will move to `unported/`).
-- **`iteratortype` / `forall_iter`:** to bec removed. The iterator protocol
+- **`iteratortype` / `forall_iter`:** to be removed. The iterator protocol
   (a polymorphic cursor over arbitrary container types — used in NEST
   2.x for `forall_iter`, `size_iter`, `Map_iter`, the
   `[/iteratortype] { {} Map }` branch of `cva`) is beyond the core
