@@ -622,7 +622,24 @@ public:
     {
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::dictionarytype);
-        i->top().data_.dict_val->clear();
+        Dictionary *dict = i->top().data_.dict_val;
+        // If this dict is on the dictstack, the dictstack's name
+        // cache (and basecache, if dict is the base) holds raw
+        // Token* pointers into the dict's TokenMap nodes. clearing
+        // the dict will erase those nodes and leave the cache
+        // entries dangling — the next lookup hits UAF. Invalidate
+        // first.
+        if (dict->is_on_dictstack())
+        {
+            i->DStack().clear_dict_from_cache(dict);
+            // Also drop any matching basecache entries; the helper
+            // is bounds-checked and a no-op for keys that aren't
+            // in basecache, so we don't need to know whether dict
+            // is actually the base dict.
+            for (auto it = dict->begin(); it != dict->end(); ++it)
+                i->DStack().clear_token_from_basecache(it->first);
+        }
+        dict->clear();
         i->pop();
     }
 };
@@ -1456,17 +1473,18 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::literaltype);
         Name n(i->top().data_.name_val);
-        Token t;
-        bool found = i->lookup(n, t);
         i->pop();
-        if (found)
+        // Walk the dictstack top-down to find the dict that actually
+        // holds the binding (PostScript / NEST 2.x semantics). The
+        // previous implementation pushed DStack().top() regardless of
+        // which dict held the name -- only correct when the binding
+        // happened to be in the topmost dict.
+        Dictionary *holder = i->DStack().where(n);
+        if (holder)
         {
-            // Push the dictionary that contains the key. We don't have
-            // a "which dict" API, so push the topmost dict where the
-            // name resolves; for diagnostic purposes that's good enough
-            // (the legacy NEST behaviour returns *some* containing dict).
             Token d(i->get_type(sli3::dictionarytype));
-            d.data_.dict_val = i->DStack().top();
+            d.data_.dict_val = holder;
+            d.add_reference();  // raw-assigned payload, bump refcount
             i->push(d);
             i->push<bool>(true);
         }

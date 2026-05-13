@@ -25,8 +25,8 @@ Severity:
 
 | Tier | Count | Direction |
 |---|---|---|
-| CRITICAL open | 1 | new (`Cvt_aFunction`); historical CRITICALs retired |
-| HIGH open | ~10 | carryover + new container / restore-stack issues |
+| CRITICAL open | 0 | the lone `Cvt_aFunction` CRITICAL closed in the 2026-05-13 follow-up pass |
+| HIGH open | ~3 | dispatcher-magic-constants / sli_main / SLIModule link gap |
 | MEDIUM open | ~25 | cleanup, Stage 6 closure, style |
 
 The 2026-05-13 first-pass cleanup closed: `RestoreostackFunction`
@@ -35,42 +35,22 @@ inline-name hot-op switch, `TypeNode::toTokenArray` static
 interpreter cache, `UndefFunction` catch-all, plus the comment
 and dead-code items listed in "Just-fixed" below.
 
----
-
-## CRITICAL — open
-
-### `Cvt_aFunction` is broken
-- `src/builtins/sli_typecheck.cpp:258-269` — Docstring promises
-  `/name [array] cvt_a -> trie`. The body overwrites `top()`
-  (the array) with a fresh trie token, leaving the literal name
-  at `pick(1)`; the constructor `new TypeNode(name)` never walks
-  the array, so the resulting trie is empty regardless. NEST
-  2.20.2's `Cvt_aFunction` consumes both args, walks the array
-  to populate the trie body, and pushes one result. Niche feature;
-  if ever invoked from user code, silently corrupts state.
+The 2026-05-13 follow-up pass closed the lone CRITICAL
+(`Cvt_aFunction`) plus 9 HIGH items: `RestoreStateFunction`
+atomic restore, `CleardictFunction` dictstack-cache invalidation,
+`WhereFunction` returns the actual containing dict (via new
+`DictionaryStack::where(Name)`), typed math leaves got
+`require_stack_type` guards, `execute(string)` routes through
+dispatch mode, `execute_debug_` calls `raiseerror(exc)` + guards
+exitcode lookup, `startup()` flips the flag unconditionally,
+`terminate()` no longer self-deletes, and both dispatcher outer
+switches gained a `case sli3::nulltype: pop; break;` guard.
 
 ---
 
 ## HIGH — open
 
 ### Dispatcher / interpreter core
-- `src/interpreter/sli_interpreter.cpp:619-626` — `execute(const std::string&)`
-  (the C++-API string entry-point) routes through `execute_()`
-  (plain mode), not the dispatch mode `sli_main` uses. C++-API
-  consumers get different semantics from the REPL (no TCO,
-  fallback iter cases).
-- `src/interpreter/sli_interpreter.cpp:696-748` — `execute_debug_`
-  swallows exceptions instead of calling `raiseerror` (line 723
-  is commented out) and reads `status_dict_->lookup(Name("exitcode"))`
-  unprotected at `:740` — guaranteed `UndefinedName` if exitcode
-  is never set.
-- `src/interpreter/sli_interpreter.cpp:284-292` — `startup()`
-  only flips `is_initialized_` when the e-stack is non-empty at
-  entry. A no-op startup (e.g. sli-init.sli not found) leaves
-  `is_initialized() == false` forever.
-- `src/interpreter/sli_interpreter.cpp:1705-1713` — `terminate()`
-  does `delete this; std::exit(...)`. Static dtors that touch the
-  interpreter run after free.
 - `src/interpreter/sli_interpreter.cpp:233-239` — `init_dictionaries`
   inserts type-name entries for `t_id < sli3::symboltype`. The
   threshold is a load-bearing magic constant; reordering
@@ -83,50 +63,6 @@ and dead-code items listed in "Just-fixed" below.
   — `SLIModule::commandstring` / `install` and `addmodule<T>` are
   declared but defined only in `unported/sli_module.cpp` (not
   built). Any concrete `SLIModule` subclass triggers a link error.
-
-### Stack / restore-state UAFs
-- `src/builtins/sli_state_ops.cpp:96-108` — `RestoreStateFunction`
-  reads directly into the live OStack / EStack. If the second
-  `read_token_stack` throws (truncated / corrupt snapshot), the
-  operand stack is already overwritten and the e-stack is empty.
-  Non-atomic. Buffer into local `TokenStack`s, swap on success.
-
-### Dictionary stack / dictionary lifetime
-- `src/builtins/sli_container_ops.cpp:625` + `src/containers/sli_dictionary.cpp:45`
-  — `CleardictFunction` invokes `Dictionary::clear()` on a dict
-  that may still be on the dictstack. The class even has
-  `is_on_dictstack()` for exactly this case but it isn't consulted;
-  cache / basecache pointers into the erased `TokenMap` nodes
-  dangle. UAF the first time a cached name is re-looked-up.
-
-### Operator surface (callable-by-name without type check)
-- `src/builtins/sli_container_ops.cpp:1468-1469` — `WhereFunction`
-  pushes `DStack().top()` (the topmost dict), not the dict that
-  actually holds the name; the comment admits this.
-  `DictionaryStack::where(Name, Token&)` is declared at
-  `sli_dictstack.h:248` but **never defined** — dead declaration.
-- `src/builtins/sli_math.cpp:1154-1165` + `:2004` — `Inv_dFunction`
-  registered as bare `/inv` with no poly wrapper and no trie
-  (grep `lib/sli/typeinit.sli` confirms). Reads `data_.double_val`
-  unconditionally — `2 inv` reinterprets `long_val=2` as a
-  double. Same exposure on every typed leaf registered at
-  `:1980-1997` (`sin_d`, `cos_d`, …, `pow_dd`, `pow_di`): low
-  risk because users call the trie-bound names, but the typed
-  leaves are callable.
-
-### Body-walk inline (Axis I slice 8) — soft footguns
-- `src/interpreter/sli_interpreter.cpp:1498-1505, 1522-1529` —
-  under `HOP_NONE && !uses_new_abi()`, the dispatcher pushes a
-  `nulltype` sentinel and `goto resume_iter`. Today's surviving
-  old-ABI ops all clean the sentinel as a side-effect of wholesale
-  `EStack().pop(n)` or `EStack().swap`. A future old-ABI op that
-  only pops its own self-slot would leak the sentinel; the outer
-  switch's `default: top().execute()` then runs `SLIType::execute`
-  on the nulltype, which `push(t); EStack().pop()` — depositing
-  a nulltype Token on the operand stack. Add either
-  `case sli3::nulltype: execution_stack_.pop(); break;` in the
-  outer switch or an `assert(execution_stack_.top().tag() !=
-  sli3::nulltype)` at the resume_iter default arm.
 
 ### Stage 6 (serialization) gaps
 - `src/types/sli_dicttype.cpp` — no `serialize`/`deserialize`
@@ -428,3 +364,76 @@ MEDIUM-tier:
   `dround`, `dtruncate`, and `numerics::expm1` (including the
   `#if 0` Taylor-series fallback). Kept `numerics::e`,
   `numerics::pi`.
+
+---
+
+## Just-fixed (2026-05-13 follow-up pass)
+
+Closed the lone CRITICAL plus the remaining HIGH dispatcher /
+runtime items from the prior pass. All 20 ctest targets green
+on AppleClang 21 / C++17 (both `SLI3_INLINE_BODY_WALK` modes).
+
+CRITICAL:
+- `Cvt_aFunction` (`sli_typecheck.cpp:258-280`) — pops the
+  literal name AND the array, walks the array body via new
+  `TypeNode::from_token_array` (mirroring NEST 2.20.2's
+  `newnode`), produces a fully-formed trie. Operator-authoring
+  contract preserved: the array is walked into a fresh
+  `TypeNode*` before either stack slot is mutated, so a
+  malformed input throws cleanly.
+
+HIGH:
+- `RestoreStateFunction` (`sli_state_ops.cpp:92-114`) — reads
+  both snapshots into local `TokenStack`s first; only assigns
+  to live `OStack`/`EStack` after both succeed.
+- `CleardictFunction` (`sli_container_ops.cpp:617-643`) —
+  consults `is_on_dictstack()`; invalidates the dictstack's
+  cache AND basecache entries for the dict's keys before
+  calling `dict->clear()`.
+- `WhereFunction` (`sli_container_ops.cpp:1456-1478`) — walks
+  the dictstack top-down via new `DictionaryStack::where(Name)`
+  (returns `Dictionary*` or nullptr); returns the dict that
+  actually holds the binding, not always `DStack().top()`.
+- Typed math leaves
+  (`sli_math.cpp:734,755,777,798,816,832,854,873,889,911,926,954,986,1012,1033,1063,1094,1115,1141,1154`)
+  — added `require_stack_type` to every typed leaf (`sin_d`,
+  `asin_d`, `cos_d`, `acos_d`, `exp_d`, `log_d`, `ln_d`,
+  `sqr_d`, `sqrt_d`, `pow_dd`, `pow_di`, `modf_d`, `frexp_d`,
+  `ldexp_di`, `dexp_i`, `abs_i`, `abs_d`, `neg_i`, `neg_d`,
+  `inv_d`). Bare-name invocation on the wrong type now raises
+  `TypeMismatch` instead of misinterpreting the union slot.
+- `execute(const std::string&)` (`sli_interpreter.cpp:622-636`)
+  — routes through `execute_dispatch_()` instead of `execute_()`
+  so C++-API consumers see the same TCO / hot-op-inlining /
+  body-walk semantics as the REPL.
+- `execute_debug_` (`sli_interpreter.cpp:717-758`) — calls
+  `raiseerror(exc)` (previously commented out) so debug-mode
+  exceptions reach `stopped` / `handleerror`; exitcode lookup
+  guarded the same way as the main dispatcher.
+- `startup()` (`sli_interpreter.cpp:281-300`) — always sets
+  `is_initialized_ = true`; a no-op startup (e.g. sli-init.sli
+  not found) is still "initialized" for `is_initialized()`.
+- `terminate()` (`sli_interpreter.cpp:1741-1755`) — no longer
+  does `delete this` before `std::exit`. Static destructors
+  that touch the interpreter no longer chase a freed pointer.
+- Nulltype sentinel guard
+  (`sli_interpreter.cpp` outer switches in both `execute_dispatch_`
+  and `execute_dispatch_inline_`) — `case sli3::nulltype:
+  execution_stack_.pop(); break;` cleanly absorbs any stray
+  sentinel leaked by a future old-ABI op that only pops its
+  own self-slot.
+
+New regression test:
+- `tests/test_sli_eval.cpp` — trie round-trip
+  (`/foo trie [/integertype] {1 add_ii} addtotrie cva_t cvt_a
+   def 5 foo` → 6); polymorphic two-arm trie round-trips through
+  cva_t/cvt_a and still dispatches both arms.
+
+New API:
+- `DictionaryStack::where(Name) → Dictionary*` (header inline).
+  Replaces the dead `bool where(Name, Token&)` declaration that
+  existed since the 2014 import.
+- `TypeNode::from_token_array(SLIInterpreter*, Name, TokenArray)`
+  (static factory) plus a private `build_node` recursive helper.
+  Inverse of `toTokenArray`; throws `ArgumentType` on malformed
+  input.

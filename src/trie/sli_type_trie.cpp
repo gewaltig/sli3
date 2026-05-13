@@ -84,6 +84,55 @@ namespace sli3
           a.push_back(sli->new_token<sli3::arraytype>(a_alt_));
       }
   }
+
+  TypeNode *TypeNode::build_node(SLIInterpreter *sli,
+                                 TokenArray const &a)
+  {
+      const size_t n = a.size();
+      if (n == 1)
+      {
+          TypeNode *node = new TypeNode(Name());
+          node->func_ = a[0];
+          return node;
+      }
+      if (n != 2 && n != 3)
+          throw ArgumentType(0);
+
+      // Branch: [/typename [next]] or [/typename [next] [alt]].
+      Token const &type_tok = a[0];
+      Token const &next_tok = a[1];
+      if (!type_tok.is_of_type(sli3::literaltype)
+          || !next_tok.is_of_type(sli3::arraytype))
+          throw ArgumentType(0);
+
+      // Resolve literal to SLIType*. Mirror AddtotrieFunction.
+      long type_val = sli->baselookup(type_tok.data_.name_val);
+      SLIType *type = sli->get_type(type_val);
+
+      TypeNode *node = new TypeNode(Name());
+      node->type_ = type;
+      node->next_ = build_node(sli, *next_tok.data_.array_val);
+      if (n == 3)
+      {
+          Token const &alt_tok = a[2];
+          if (!alt_tok.is_of_type(sli3::arraytype))
+          {
+              delete node;
+              throw ArgumentType(0);
+          }
+          node->alt_ = build_node(sli, *alt_tok.data_.array_val);
+      }
+      return node;
+  }
+
+  TypeNode *TypeNode::from_token_array(SLIInterpreter *sli,
+                                       Name const &name,
+                                       TokenArray const &a)
+  {
+      TypeNode *root = build_node(sli, a);
+      root->name_ = name;
+      return root;
+  }
     
   void TypeNode::info(std::ostream &out, std::deque<TypeNode const *> &tl) const
   {

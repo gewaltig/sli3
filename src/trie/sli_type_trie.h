@@ -69,17 +69,27 @@ namespace sli3
 	
     public:
 	TypeNode(Name const &n);
-	
+
 	~TypeNode();
-	
+
 	void  insert(const TypeArray& , Token const &);
 	Token& lookup(TokenStack &st);
-	
+
 	bool operator == (const TypeNode &) const;
 	bool equals(unsigned int , unsigned int) const;
-	
+
 	void toTokenArray(TokenArray &) const;
 	void info(std::ostream &) const;
+
+	// Inverse of toTokenArray: reconstruct a trie from the
+	// array form emitted by cva_t. The root carries `name`;
+	// inner nodes carry an empty name. Leaf nodes are encoded as
+	// `[obj]`; branch nodes as `[/type [next]]` or
+	// `[/type [next] [alt]]`. Throws ArgumentType on malformed
+	// input.
+	static TypeNode *from_token_array(SLIInterpreter *sli,
+					  Name const &name,
+					  TokenArray const &a);
 	
 	
 	refcount_t add_reference(void);
@@ -91,7 +101,12 @@ namespace sli3
     private:
 	TypeNode(SLIType *);
 	TypeNode(const TypeNode &);
-	
+
+	// Recursive helper for from_token_array; builds an inner node
+	// (no name on the constructed node).
+	static TypeNode *build_node(SLIInterpreter *sli,
+				    TokenArray const &a);
+
 	//    TypeNode operator=(const TypeNode &){}; // disable this operator
 	TypeNode * get_alternative(TypeNode *, SLIType *);
 	void info( std::ostream &, std::deque<TypeNode const *> &) const;

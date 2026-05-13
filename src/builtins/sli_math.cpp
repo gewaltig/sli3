@@ -734,7 +734,7 @@ void Mod_iiFunction::execute(SLIInterpreter *i) const
 void Sin_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    
+    i->require_stack_type(0, sli3::doubletype);
     i->top().data_.double_val= std::sin(i->top().data_.double_val);
 }
 
@@ -755,7 +755,7 @@ void Sin_dFunction::execute(SLIInterpreter *i) const
 void Asin_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    
+    i->require_stack_type(0, sli3::doubletype);
     i->top().data_.double_val= std::asin(i->top().data_.double_val);
 }
 
@@ -777,7 +777,7 @@ void Asin_dFunction::execute(SLIInterpreter *i) const
 void Cos_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    
+    i->require_stack_type(0, sli3::doubletype);
     i->top().data_.double_val= std::cos(i->top().data_.double_val);
 }
 
@@ -798,7 +798,7 @@ void Cos_dFunction::execute(SLIInterpreter *i) const
 void Acos_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    
+    i->require_stack_type(0, sli3::doubletype);
     i->top().data_.double_val= std::acos(i->top().data_.double_val);
 }
 
@@ -816,7 +816,7 @@ void Acos_dFunction::execute(SLIInterpreter *i) const
 void Exp_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-    
+    i->require_stack_type(0, sli3::doubletype);
     i->top().data_.double_val= std::exp(i->top().data_.double_val);
 }
 
@@ -832,6 +832,7 @@ void Exp_dFunction::execute(SLIInterpreter *i) const
 void Log_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::doubletype);
     double &val=i->top().data_.double_val;
     
     if(val>0.0)
@@ -854,6 +855,7 @@ void Log_dFunction::execute(SLIInterpreter *i) const
 void Ln_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::doubletype);
     double &val=i->top().data_.double_val;
     
     if(val>0.0)
@@ -873,6 +875,7 @@ SeeAlso: sqrt
 void Sqr_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::doubletype);
     double &val=i->top().data_.double_val;
 
     val *=val;
@@ -889,6 +892,7 @@ SeeAlso: sqr
 void Sqrt_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::doubletype);
     double &val=i->top().data_.double_val;
     
     if(val>=0.0)
@@ -911,6 +915,8 @@ SeeAlso: exp, log
 void Pow_ddFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
+    i->require_stack_type(1, sli3::doubletype);
+    i->require_stack_type(0, sli3::doubletype);
     double &op1=i->pick(1).data_.double_val;
     double &op2=i->top().data_.double_val;
     
@@ -926,6 +932,8 @@ void Pow_ddFunction::execute(SLIInterpreter *i) const
 void Pow_diFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
+    i->require_stack_type(1, sli3::doubletype);
+    i->require_stack_type(0, sli3::integertype);
     double &op1=i->pick(1).data_.double_val;
     long &op2=i->top().data_.long_val;
     
@@ -954,6 +962,7 @@ void Pow_diFunction::execute(SLIInterpreter *i) const
 void Modf_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::doubletype);
     // Stage 5.2: capture op1 BY VALUE before pushing. push(0.0) may
     // reallocate the operand stack, dangling any reference into it.
     // The previous code held `double& op1 = top().data_.double_val`
@@ -986,6 +995,7 @@ void Modf_dFunction::execute(SLIInterpreter *i) const
 void Frexp_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::doubletype);
     int val;
     i->top().data_.double_val = std::frexp(i->top().data_.double_val, &val);
     i->push<long>(val);  // push exponent as integer on top
@@ -1012,7 +1022,8 @@ void Frexp_dFunction::execute(SLIInterpreter *i) const
 void Ldexp_diFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(2);
-    
+    i->require_stack_type(1, sli3::doubletype);
+    i->require_stack_type(0, sli3::integertype);
     i->pick(1).data_.double_val= std::ldexp( i->pick(1).data_.double_val,i->pick(0).data_.long_val);
 
     i->pop();
@@ -1033,11 +1044,12 @@ void Ldexp_diFunction::execute(SLIInterpreter *i) const
 void Dexp_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::integertype);
     SLIType *double_tid=i->get_type(sli3::doubletype);
 
     i->top().data_.double_val= std::ldexp(1.0, i->top().data_.long_val );
     i->top().type_=double_tid;
- 
+
 }
 
 
@@ -1063,6 +1075,7 @@ If e.g. abs_d gets an integer as argument, NEST will exit throwing an assertion.
 void Abs_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::integertype);
     long out;
     if (checked_abs(i->top().data_.long_val, &out))
     {
@@ -1092,9 +1105,9 @@ void Abs_iFunction::execute(SLIInterpreter *i) const
  SeeAlso: abs
 */ 
 void Abs_dFunction::execute(SLIInterpreter *i) const
-{ 
+{
     i->require_stack_load(1);
-
+    i->require_stack_type(0, sli3::doubletype);
     i->top().data_.double_val=std::fabs(i->top().data_.double_val);
 }
 
@@ -1115,6 +1128,7 @@ void Abs_dFunction::execute(SLIInterpreter *i) const
 void Neg_iFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
+    i->require_stack_type(0, sli3::integertype);
     long out;
     if (checked_neg(i->top().data_.long_val, &out))
     {
@@ -1141,7 +1155,7 @@ void Neg_iFunction::execute(SLIInterpreter *i) const
 void Neg_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-
+    i->require_stack_type(0, sli3::doubletype);
     i->top().data_.double_val= - i->top().data_.double_val;
 }
 
@@ -1154,7 +1168,7 @@ void Neg_dFunction::execute(SLIInterpreter *i) const
 void Inv_dFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
-
+    i->require_stack_type(0, sli3::doubletype);
     double &val=i->top().data_.double_val;
     if(val !=0.0)
     {

@@ -281,12 +281,18 @@ void SLIInterpreter::init_internal_functions(void) {
 int SLIInterpreter::startup() {
   int exitcode = EXIT_SUCCESS;
 
-  if (!is_initialized_ and execution_stack_.load() > 0) {
-    // Use the same dispatcher as the main run so trie / for /
-    // forall / iiterate / etc. dispatch correctly during the
-    // sli-init.sli bootstrap. exitlevel=0 → run until the
-    // execution stack drains.
-    exitcode = execute_dispatch_(0);
+  if (!is_initialized_) {
+    if (execution_stack_.load() > 0) {
+      // Use the same dispatcher as the main run so trie / for /
+      // forall / iiterate / etc. dispatch correctly during the
+      // sli-init.sli bootstrap. exitlevel=0 → run until the
+      // execution stack drains.
+      exitcode = execute_dispatch_(0);
+    }
+    // Always flip the flag — a no-op startup (e.g. sli-init.sli
+    // not found, so init_slistartup pushed nothing onto the
+    // e-stack) still counts as initialized; otherwise
+    // is_initialized() would lie about the interpreter state.
     is_initialized_ = true;
   }
   return exitcode;
@@ -620,7 +626,12 @@ int SLIInterpreter::execute(const std::string &cmdline) {
 
   operand_stack_.push(new_token<sli3::stringtype>(cmdline));
   execution_stack_.push(new_token<sli3::nametype>(Name("evalstring")));
-  return execute_(); // run the interpreter
+  // Route through the dispatch-mode driver to match sli_main's
+  // semantics (TCO, hot-op inlining, unified body-walk). The
+  // plain `execute_()` loop diverges on trie / for / forall /
+  // iiterate handling, which surfaces as different behaviour
+  // for C++-API consumers vs the REPL.
+  return execute_dispatch_();
 }
 
 int SLIInterpreter::execute(int v) {
@@ -709,8 +720,12 @@ int SLIInterpreter::execute_debug_(size_t exitlevel) {
         operand_stack_.dump(std::cerr);
         execution_stack_.dump(std::cerr);
         message(M_ERROR, "SLIInterpreter", exc.what());
-        // raiseerror(exc);
-        execution_stack_.pop();
+        // Funnel through raiseerror so a surrounding stopped /
+        // handleerror context can react, matching the dispatch
+        // loop's behaviour. Without this the debug loop silently
+        // swallows exceptions and the surrounding script can't
+        // tell anything went wrong.
+        raiseerror(exc);
       }
     } while (execution_stack_.load() > exitlevel);
   } catch (std::exception &e) {
@@ -726,11 +741,17 @@ int SLIInterpreter::execute_debug_(size_t exitlevel) {
     terminate(sli3::exception);
   }
 
-  Token &exit_tk = status_dict_->lookup(
-      Name("exitcode")); // This throws an exception if the entry is not found.
-  exitcode = exit_tk.data_.long_val;
+  // statusdict may not have "exitcode" yet during very-early
+  // bootstrap (before sli-init.sli has run). Default to 0.
+  exitcode = 0;
+  if (status_dict_) {
+    static const Name exitcode_name("exitcode");
+    Token exit_tk = (*status_dict_)[exitcode_name];
+    if (exit_tk.is_of_type(sli3::integertype))
+      exitcode = exit_tk.data_.long_val;
+  }
 
-  if (exitcode != 0)
+  if (exitcode != 0 && error_dict_)
     error_dict_->insert(quitbyerror_name, new_token<sli3::booltype>(true));
 
   return exitcode;
@@ -1253,6 +1274,16 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         }
         case sli3::quittype:
           goto exit_interpreter;
+        case sli3::nulltype:
+          // Defensive guard. The dispatcher pushes a nulltype
+          // sentinel before invoking an old-ABI fn at the four
+          // fn-dispatch sites above. An old-ABI op is supposed
+          // to pop it as part of its own e-stack cleanup; if a
+          // future op forgets, the sentinel surfaces here. Eat
+          // it cleanly rather than letting SLIType::execute
+          // deposit a nulltype Token on the operand stack.
+          execution_stack_.pop();
+          break;
         default:
           execution_stack_.top().execute();
         }
@@ -1616,6 +1647,18 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
         }
         case sli3::quittype:
           goto exit_interpreter;
+        case sli3::nulltype:
+          // Defensive guard. The dispatcher pushes a nulltype
+          // sentinel before invoking an old-ABI fn (see the
+          // body-walk fn arms above and the legacy fn-dispatch
+          // sites in execute_dispatch_). An old-ABI op is
+          // supposed to pop the sentinel as part of its own
+          // e-stack cleanup; if a future op forgets, the
+          // sentinel surfaces here. Eat it cleanly rather than
+          // letting SLIType::execute deposit a nulltype Token
+          // on the operand stack.
+          execution_stack_.pop();
+          break;
         default:
           execution_stack_.top().execute();
         }
@@ -1701,7 +1744,11 @@ void SLIInterpreter::terminate(int returnvalue) {
   }
 
   message(sli3::M_FATAL, "SLIInterpreter", "Exiting.");
-  delete this;
+  // Do NOT `delete this` before std::exit. The process is about
+  // to die anyway; the OS reclaims memory. Self-deleting here
+  // leaves any static destructor that touches the interpreter
+  // (or the Meyers singletons in sli_name.h that the destructor
+  // chain unwinds) chasing a freed pointer.
   std::exit(returnvalue);
 }
 

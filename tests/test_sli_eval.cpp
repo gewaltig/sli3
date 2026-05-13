@@ -509,6 +509,31 @@ int main()
     // Match at end (post empty).
     EVAL_INT(i,    "[1 2 3] [3] search_a pop pop pop length_a",     0);
 
+    // -------- trie round-trip (cva_t / cvt_a) --------------------
+    // Build a trie, serialize to array, rebuild, bind, execute.
+    // Verifies Cvt_aFunction actually walks the array and rebuilds
+    // the trie body (the previous implementation produced an empty
+    // root with no entries — calling the rebuilt trie raised
+    // StackUnderflow / ArgumentType).
+    EVAL_INT(i,
+             "/trie_rt_int trie [/integertype] { 1 add_ii } addtotrie "
+             "cva_t cvt_a def "
+             "5 trie_rt_int",
+             6);
+
+    // Two arms: integer maps via add_ii, double via add_dd. Trip
+    // through cva_t/cvt_a and check both arms still dispatch.
+    EVAL_INT(i,
+             "/trie_rt_poly trie "
+             "[/integertype] { 1 add_ii } addtotrie "
+             "[/doubletype]  { 1.5 add_dd } addtotrie "
+             "cva_t cvt_a def "
+             "10 trie_rt_poly",
+             11);
+    EVAL_DOUBLE(i,
+                "2.5 trie_rt_poly",
+                4.0, 1e-12);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }

@@ -89,22 +89,27 @@ public:
             return;
         }
 
+        // Read into local stacks first; only commit to the live
+        // stacks once both snapshots are fully decoded. Without
+        // this two-phase commit, a truncated/corrupt snapshot
+        // would leave the operand stack replaced and the e-stack
+        // empty after the second read_token_stack throws.
+        TokenStack temp_ostack(0);
+        TokenStack temp_estack(0);
         try
         {
             BinaryReader r(in);
             r.read_header();
-            // Read into the live stacks. read_token_stack clears
-            // each stack before populating. If the second read
-            // throws, the operand stack is already replaced and
-            // the e-stack is empty — recoverable but lossy.
-            read_token_stack(i->OStack(), r, *i);
-            read_token_stack(i->EStack(), r, *i);
+            read_token_stack(temp_ostack, r, *i);
+            read_token_stack(temp_estack, r, *i);
         }
         catch (std::exception&)
         {
             i->raiseerror(i->BadIOError);
             return;
         }
+        i->OStack() = temp_ostack;
+        i->EStack() = temp_estack;
     }
 };
 

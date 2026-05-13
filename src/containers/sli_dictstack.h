@@ -251,8 +251,24 @@ public:
   void set_basedict();
 
 
-  bool where(Name const &, Token&);
-    
+  /** Find the dictionary on the stack that holds the given Name.
+   *  Returns the containing Dictionary* on success (top-down so
+   *  the first shadowing binding wins, matching PostScript
+   *  `where` semantics) or nullptr if not found. Bypasses the
+   *  lookup cache — the cache stores the Token slot but not
+   *  which dict owns it. Caller wraps the result in a Token.
+   */
+  Dictionary * where(Name const & n) const
+  {
+    for (std::list<Dictionary *>::const_iterator it = d.begin();
+         it != d.end(); ++it)
+    {
+      if ((*it)->known(n))
+        return *it;
+    }
+    return nullptr;
+  }
+
   void pop(void);
 
 

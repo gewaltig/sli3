@@ -25,6 +25,7 @@ see `doc/next_steps.md`, `doc/compact_procedure_spec.md`, and
 | Stage 12 / Axis I slice 8 (unified body-walk loop) | ▶ steps 1+2 done (commits `470da6d` + `8e39906`); step 3 optional; step 4 (flip default + delete OFF path) pending |
 | Stage 13 / Axis II step 2 (hot-op inlining) | ▶ 8 ops tagged (pop/dup/exch/add_ii/add/sub/if/def). Symmetric in both functiontype and name-resolved hot-op switches as of 2026-05-13 |
 | Axis III (compact procedure storage) | ⏳ not started; depends on Axis I+II being stable |
+| 2026-05-13 follow-up pass | ✅ closed — CRITICAL `Cvt_aFunction` + 9 HIGH items (restorestate atomic, cleardict cache, where, typed-leaf type checks, execute(string), execute_debug_, startup(), terminate(), nulltype guard) |
 
 Build clean on AppleClang 21 / C++17 (both OFF and ON modes);
 **20 / 20 tests passing**; zero CRITICAL regressions in this
@@ -58,54 +59,39 @@ intrinsic edge — Axis II step 3 and Axis III territory.
 Severity tags match `code-review.md`. Each item is a one-line fix
 hint; the diagnostic detail lives in `code-review.md`.
 
-### CRITICAL (1)
+### CRITICAL — closed in 2026-05-13 follow-up pass
 
-- **`Cvt_aFunction`** — `src/builtins/sli_typecheck.cpp:258-269`.
-  Pop the literal name as well; walk the array and build the trie
-  body (`addtotrie` over each entry). Mirror NEST 2.20.2's
-  `Cvt_aFunction::execute` semantics. Add a `tests/test_sli_eval`
-  snippet that round-trips `/foo [[/integertype /integertype] /add_ii load] cvt_a cva_t`.
+All historical CRITICAL items are now closed; `Cvt_aFunction`
+walks the array via `TypeNode::from_token_array` (commit pending).
 
-### HIGH — dispatcher / runtime
-1. `RestoreStateFunction` non-atomic restore —
-   `src/builtins/sli_state_ops.cpp:96-108`. Buffer into local
-   `TokenStack`s; swap on success.
-2. `CleardictFunction` on a dictstack-resident dict —
-   `src/builtins/sli_container_ops.cpp:625`. Consult
-   `is_on_dictstack()`; invalidate the dictstack's cache /
-   basecache entries belonging to this dict before erasing
-   `TokenMap` nodes.
-3. `WhereFunction` returns wrong dict —
-   `src/builtins/sli_container_ops.cpp:1468-1469`. Either define
-   `DictionaryStack::where(Name, Token&)` (declared at
-   `sli_dictstack.h:248` but never implemented) and route through
-   it, or walk the dictstack inline. Match PostScript / NEST 2.x
-   semantics: return the dict that actually holds the name.
-4. `Inv_dFunction` (and other typed leaves) bare-name without
-   type check — `src/builtins/sli_math.cpp:1154-1165`, `:1980-1997`.
-   Either wrap in a poly dispatcher or add `require_stack_type`
-   to each leaf so direct bare-name invocation rejects wrong
-   types.
-5. C++-API `execute(const std::string&)` runs plain mode —
-   `src/interpreter/sli_interpreter.cpp:619-626`. Route through
-   `execute_dispatch_()` to match `sli_main`'s semantics.
-6. `execute_debug_` swallows exceptions and reads exitcode
-   unprotected — `src/interpreter/sli_interpreter.cpp:696-748`.
-   Uncomment the `raiseerror(exc)` line; guard the exitcode lookup.
-7. `startup()` sets `is_initialized_` only on non-empty estack —
-   `src/interpreter/sli_interpreter.cpp:284-292`. Always set.
-8. `terminate()` does `delete this; std::exit(...)` —
-   `src/interpreter/sli_interpreter.cpp:1705-1713`. Either stop
-   self-deleting or stop calling exit; static dtors then have
-   nothing to dangle on.
+### HIGH — dispatcher / runtime — closed in 2026-05-13 follow-up pass
 
-### HIGH — body-walk inline (Axis I slice 8) hardening
-9. Nulltype sentinel guard —
-   `src/interpreter/sli_interpreter.cpp:1498-1505, 1522-1529`.
-   Add `case sli3::nulltype: execution_stack_.pop(); break;`
-   in the outer switch (or an assert at the `resume_iter`
-   default arm). Prevents a future old-ABI op from leaking the
-   sentinel onto the operand stack.
+All eight HIGH dispatcher/runtime items from the prior pass are
+now closed:
+- `RestoreStateFunction` buffers into local `TokenStack`s before
+  swap (`sli_state_ops.cpp`).
+- `CleardictFunction` invalidates dictstack cache / basecache
+  before erasing on-stack dicts (`sli_container_ops.cpp`).
+- `WhereFunction` walks the dictstack top-down via new
+  `DictionaryStack::where(Name)` returning `Dictionary*`.
+- `Inv_dFunction` and the rest of the typed math leaves
+  (`sin_d`/`cos_d`/`asin_d`/`acos_d`/`exp_d`/`log_d`/`ln_d`/
+  `sqr_d`/`sqrt_d`/`pow_dd`/`pow_di`/`modf_d`/`frexp_d`/
+  `ldexp_di`/`dexp_i`/`abs_i`/`abs_d`/`neg_i`/`neg_d`) gained
+  `require_stack_type` guards.
+- `execute(const std::string&)` now routes through
+  `execute_dispatch_()`.
+- `execute_debug_` calls `raiseerror(exc)` instead of swallowing;
+  exitcode lookup guarded the same way as the main dispatcher.
+- `startup()` flips `is_initialized_` unconditionally.
+- `terminate()` no longer self-deletes; std::exit alone suffices.
+
+### HIGH — body-walk inline (Axis I slice 8) hardening — closed
+
+`case sli3::nulltype: execution_stack_.pop(); break;` added to
+both dispatchers' outer switches as a defensive guard against a
+future old-ABI op leaking the sentinel onto the e-stack
+(`sli_interpreter.cpp`).
 
 ### HIGH — Stage 6 closure (serialization)
 10. `DictionaryType::serialize` / `deserialize` —

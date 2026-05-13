@@ -261,11 +261,19 @@ void Cvt_aFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(1,sli3::literaltype);
     i->require_stack_type(0,sli3::arraytype);
 
-    Name name(i->pick(1).data_.name_val); 
-    TypeNode *trie= new TypeNode(name);
-    i->top().clear(); // Clear token before explicit assignment.
-    i->top().type_=i->get_type(sli3::trietype);
-    i->top().data_.trie_val=trie;
+    Name name(i->pick(1).data_.name_val);
+    TokenArray const *array = i->top().data_.array_val;
+
+    // Walk the array body and rebuild the trie. Constructed on the
+    // side so a malformed input throws before either stack slot is
+    // mutated (operator-authoring contract).
+    TypeNode *trie = TypeNode::from_token_array(i, name, *array);
+
+    Token result(i->get_type(sli3::trietype));
+    result.data_.trie_val = trie;
+
+    i->pop();                // discard the array
+    i->top() = result;       // replace the literal with the trie
 }
 
 /*BeginDocumentation
