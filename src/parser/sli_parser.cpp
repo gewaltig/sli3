@@ -52,11 +52,16 @@ Parser::Parser(std::istream &is)
 Parser::Parser(void)
   :s(NULL), stack_(128),
    open_array_("["),
-   close_array_("]")   
+   close_array_("]")
 {
     init(std::cin);
     assert(s !=NULL);
-    
+
+}
+
+Parser::~Parser()
+{
+    delete s;
 }
 
 inline

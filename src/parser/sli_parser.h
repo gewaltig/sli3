@@ -51,10 +51,11 @@ namespace sli3
       
       void init(std::istream &);
       
-  public:    
+  public:
       Parser(void);
       Parser(std::istream &);
-      
+      ~Parser();
+
       bool operator()(SLIInterpreter &, Token&);
       bool readToken(SLIInterpreter &sli, std::istream &is, Token &t)
 	  {

@@ -1488,7 +1488,7 @@ public:
         i->require_stack_type(0, sli3::literaltype);
         Name n(i->top().data_.name_val);
         i->pop();
-        try { i->undef(n); } catch (...) { /* tolerate missing */ }
+        try { i->undef(n); } catch (UndefinedName&) { /* silent no-op */ }
     }
 };
 

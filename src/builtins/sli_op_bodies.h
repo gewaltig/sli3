@@ -10,8 +10,10 @@
 // Each helper has the same contract as the SLIFunction's
 // execute(): pre: ostack precondition met; post: result on
 // ostack; on type/range error: i->raiseerror(...) and return.
-// The helpers do NOT touch the e-stack (that's the dispatcher's
-// job under the post-Axis-I ABI).
+// Helpers don't pop their own e-stack slot (the dispatcher
+// pre-pops under the post-Axis-I ABI). Control-flow ops like
+// `if` and `def` still push/consume e-stack frames as part of
+// their semantics -- see hot_op_if.
 
 #ifndef SLI_OP_BODIES_H
 #define SLI_OP_BODIES_H

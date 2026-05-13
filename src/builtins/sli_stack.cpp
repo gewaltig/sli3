@@ -312,7 +312,12 @@ void RestoreostackFunction::execute(SLIInterpreter *i) const
 {
     i->require_stack_load(1);
     i->require_stack_type(0,sli3::arraytype);
-    i->OStack()=*(i->top().data_.array_val);
+    // Copy the source array into a local before overwriting OStack:
+    // if the /array Token is the sole reference to the source, the
+    // assignment loop would destroy it mid-read while replacing the
+    // OStack slot. Matches NEST 2.20.2 slistack.cc:267.
+    TokenArray ta = *(i->top().data_.array_val);
+    i->OStack() = ta;
 }
 
 /*BeginDocumentation
@@ -398,28 +403,5 @@ void  init_slistack(SLIInterpreter *i)
     popfunction.set_hot_op(HOP_POP);
     dupfunction.set_hot_op(HOP_DUP);
     exchfunction.set_hot_op(HOP_EXCH);
-
-    // Axis I bundle step 3: ops in sli_stack.cpp converted to the
-    // new ABI -- the dispatcher pops the fn slot after execute()
-    // (when the slot is still on top; raiseerror's pop+push-/stop
-    // is handled separately). RestoreestackFunction stays old-ABI
-    // because it replaces the entire e-stack and the post-execute
-    // top is not its fn slot.
-    popfunction.set_new_abi();
-    npopfunction.set_new_abi();
-    dupfunction.set_new_abi();
-    exchfunction.set_new_abi();
-    indexfunction.set_new_abi();
-    copyfunction.set_new_abi();
-    rollfunction.set_new_abi();
-    countfunction.set_new_abi();
-    clearfunction.set_new_abi();
-    rollufunction.set_new_abi();
-    rolldfunction.set_new_abi();
-    rotfunction.set_new_abi();
-    overfunction.set_new_abi();
-    execstackfunction.set_new_abi();
-    restoreostackfunction.set_new_abi();
-    operandstackfunction.set_new_abi();
 }
 }

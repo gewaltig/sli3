@@ -167,7 +167,7 @@ void DictionaryStack::toArray(SLIInterpreter &sli, TokenArray &ta) const
   }
 }
 
-void DictionaryStack::push(Token dicttoken)
+void DictionaryStack::push(Token const & dicttoken)
 {
   assert(dicttoken.is_of_type(sli3::dictionarytype));
   Dictionary *dict=dicttoken.data_.dict_val;
@@ -201,6 +201,7 @@ void DictionaryStack::push(Token dicttoken)
 
 void DictionaryStack::set_basedict()
 {
+    assert(!d.empty());
     base_= *(--d.end()); // Cache base dictionary
 }
 

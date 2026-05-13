@@ -685,6 +685,7 @@ namespace sli3
 	  assert(sgc=='+' || sgc=='-');
 	  s.append(1,sgc);
 	  state=alphast;
+	  [[fallthrough]];
       case literalst  :
       case stringst   :
       case alphast    :                    // let's optimize this at some point
@@ -710,8 +711,9 @@ namespace sli3
 	  s.append(")");
 	  state=stringst;
 	  break;
-      case aheadsgst  : 
-	  s.append(1,sgc);                  
+      case aheadsgst  :
+	  s.append(1,sgc);
+	  [[fallthrough]];
       case aheadalphst:
       {
 	  if(c != endoln && c != endof)

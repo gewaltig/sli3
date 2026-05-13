@@ -791,8 +791,8 @@ public:
         }
         if (proc->size() == 0 || n == 0)
         {
-            // Result is an array of length n filled with empty entries.
-            // For consistency with NEST 2.x, use an empty array.
+            // Empty proc or zero-length inner: return an empty
+            // array (matches NEST 2.x MapThread on this edge case).
             i->EStack().pop();
             i->pop();  // proc
             TokenArray* empty = new TokenArray();

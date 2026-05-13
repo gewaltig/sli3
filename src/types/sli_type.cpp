@@ -1,6 +1,7 @@
 #include "sli_type.h"
 #include "sli_token.h"
 #include "sli_interpreter.h"
+#include <cstring>
 namespace sli3
 {
     SLIType::SLIType(SLIInterpreter *sli, char const name[], sli_typeid id, bool exec)
@@ -13,12 +14,20 @@ namespace sli3
   void SLIType::clear(Token& t) const
     {
       t.type_=0;
-      t.data_ = Token::value(); //This clears all fields to 0
+      // Token::value{} value-inits only the first union member;
+      // memset the whole payload so every member reads as 0 (matches
+      // the null-payload contract documented at sli_type.h:106-115).
+      std::memset(&t.data_, 0, sizeof(t.data_));
     }
 
     void SLIType::deserialize(Reader&, Token& t) const
     {
         t.type_ = Token::pack_type(const_cast<SLIType*>(this));
+        // Subclasses with payload override this method. The base
+        // default applies only to marker types (mark, iiterate,
+        // ifor, etc.) whose payload is unused; force the union to
+        // zero so callers see a defined null payload.
+        std::memset(&t.data_, 0, sizeof(t.data_));
     }
  
     void SLIType::raise_type_mismatch_(unsigned int id) const

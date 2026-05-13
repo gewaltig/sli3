@@ -1455,10 +1455,6 @@ void AndFunction::execute(SLIInterpreter *i) const
     i->pop();
 }
 
-// Stage 4.2: the previous anonymous OrFunction lacked
-// require_stack_load(2) and corrupted memory on under-arity
-// calls. `or` is now registered to or_bbfunction below.
-
 void And_iiFunction::execute(SLIInterpreter *i) const
 {
      i->require_stack_load(2);

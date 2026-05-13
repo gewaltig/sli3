@@ -128,6 +128,12 @@ public:
 
     for(size_t i=0; i< cache_size; ++i)
       cache_[i]=0;
+
+    // basecache_ holds raw Token* into base_'s map; once we clear
+    // the dictstack (or change base_), those pointers dangle.
+    const size_t basecache_size=basecache_.size();
+    for(size_t i=0; i< basecache_size; ++i)
+      basecache_[i]=0;
   }
 
   bool lookup(Name const & n, Token &result)
@@ -251,7 +257,7 @@ public:
 
 
   Dictionary * top() const; 
-  void push(Token);
+  void push(Token const &);
    
   void clear(void);
   void toArray(SLIInterpreter &, TokenArray &) const;

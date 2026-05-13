@@ -89,8 +89,7 @@ constexpr Case cases[] = {
     // Stage 6 gaps — silent data loss today
     { sli3::dictionarytype, "dictionary",    true,
       "DictionaryType has no serialize override (Stage 6)" },
-    { sli3::functiontype,   "function",      true,
-      "FunctionType has no serialize override (Stage 6)" },
+    { sli3::functiontype,   "function",      false, nullptr },
     { sli3::proceduretype,  "procedure",     true,
       "ProcedureType has no serialize override (Stage 6)" },
     { sli3::litproceduretype,"litprocedure", true,

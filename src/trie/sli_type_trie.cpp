@@ -67,7 +67,10 @@ namespace sli3
 	  return;
       }
 
-      static SLIInterpreter *sli=type_->get_interpreter();
+      // The interpreter pointer is read from the type slot each call:
+      // a static cache would bind to the first interpreter that ever
+      // called this and dangle after that interpreter is destroyed.
+      SLIInterpreter *sli=type_->get_interpreter();
 
       assert(a.size()==0);
       a.push_back(sli->new_token<sli3::literaltype>(type_->get_typename()));

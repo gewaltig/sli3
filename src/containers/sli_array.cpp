@@ -93,16 +93,33 @@ void TokenArray::insert(size_t i, size_t n, Token const& t)
 
 void TokenArray::insert(size_t i, TokenArray const& a)
 {
+    // Self-insert would alias `a.data_` to `data_`; std::vector::insert
+    // may reallocate mid-copy, invalidating the source iterators.
+    if (&a == this) {
+        std::vector<Token> copy = data_;
+        data_.insert(data_.begin() + i, copy.begin(), copy.end());
+        return;
+    }
     data_.insert(data_.begin() + i, a.data_.begin(), a.data_.end());
 }
 
 void TokenArray::assign(TokenArray const& a, size_t i, size_t n)
 {
+    if (&a == this) {
+        std::vector<Token> copy = data_;
+        data_.assign(copy.begin() + i, copy.begin() + i + n);
+        return;
+    }
     data_.assign(a.data_.begin() + i, a.data_.begin() + i + n);
 }
 
 void TokenArray::append(TokenArray const& a)
 {
+    if (&a == this) {
+        std::vector<Token> copy = data_;
+        data_.insert(data_.end(), copy.begin(), copy.end());
+        return;
+    }
     data_.insert(data_.end(), a.data_.begin(), a.data_.end());
 }
 

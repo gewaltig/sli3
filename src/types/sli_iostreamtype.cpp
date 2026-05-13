@@ -1,4 +1,3 @@
-#include "sli_functiontype.h"
 #include "sli_interpreter.h"
 #include "sli_exceptions.h"
 #include "sli_iostreamtype.h"

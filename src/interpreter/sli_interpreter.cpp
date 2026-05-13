@@ -116,8 +116,8 @@ SLIInterpreter::SLIInterpreter()
       cycle_restriction_(0), verbosity_level_(M_INFO), system_dict_(0),
       user_dict_(0), status_dict_(0), error_dict_(0), parser_(0),
       operand_stack_(1000), execution_stack_(1000), types_() {
-  init();
   parser_ = new Parser();
+  init();
   // Operator-usage statistics: SLI3_STATS=1 (or any non-empty,
   // non-"0" value) toggles per-call counting at construction.
   // The dump is invoked from sli_main when the program exits.
@@ -376,9 +376,6 @@ Name SLIInterpreter::get_current_name(void) const {
     return current_op_->get_name();
   if (execution_stack_.top().is_of_type(sli3::functiontype))
     return execution_stack_.top().data_.func_val->get_name();
-  //	TrieDatum *trie=dynamic_cast<TrieDatum *>(EStack.top().datum());
-  //	if (trie !=NULL)
-  //	    return(trie->getname());
   return interpreter_name;
 }
 
@@ -666,8 +663,6 @@ int SLIInterpreter::execute_(size_t exitlevel) {
           execution_stack_.top().execute();
         }
       } catch (std::exception &exc) {
-        // message(M_FATAL, "SLIInterpreter","A C++ library exception was
-        // caught.");
         raiseerror(exc);
       }
     } while (execution_stack_.load() > exitlevel);
@@ -683,12 +678,6 @@ int SLIInterpreter::execute_(size_t exitlevel) {
     execution_stack_.dump(std::cerr);
     terminate(sli3::exception);
   }
-
-  // Token &exit_tk=	status_dict_->lookup(Name("exitcode")); // This throws
-  // an exception if the entry is not found. exitcode = exit_tk.data_.long_val;
-
-  // if (exitcode != 0)
-  //   error_dict_->insert(quitbyerror_name,new_token<sli3::booltype>(true));
 
   return exitcode;
 }
@@ -757,7 +746,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   return execute_dispatch_inline_(exitlevel);
 #endif
   int exitcode = 0;
-  const Name exitcode_name("exitcode");
+  static const Name exitcode_name("exitcode");
   const Token null_val = new_token<sli3::integertype>(0);
   // Locals must hold the *tagged* SLIType*, not raw types_[i],
   // because they are written into Token::type_ later. With pointer
@@ -1333,7 +1322,7 @@ exit_interpreter:
 // =====================================================================
 int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
   int exitcode = 0;
-  const Name exitcode_name("exitcode");
+  static const Name exitcode_name("exitcode");
   const Token null_val = new_token<sli3::integertype>(0);
   SLIType *iiterate_t = get_type(sli3::iiteratetype);
   SLIType *proc_type  = get_type(sli3::proceduretype);
@@ -1519,6 +1508,10 @@ int SLIInterpreter::execute_dispatch_inline_(size_t exitlevel) {
                   case HOP_DUP:    hot_op_dup(this);    break;
                   case HOP_EXCH:   hot_op_exch(this);   break;
                   case HOP_ADD_II: hot_op_add_ii(this); break;
+                  case HOP_ADD:    hot_op_add(this);    break;
+                  case HOP_SUB:    hot_op_sub(this);    break;
+                  case HOP_IF:     hot_op_if(this);     break;
+                  case HOP_DEF:    hot_op_def(this);    break;
                   default:
                     if (fn->uses_new_abi()) {
                       fn->execute(this);
