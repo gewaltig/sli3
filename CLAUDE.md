@@ -4,7 +4,10 @@ Context for working in this repo. Read this before making changes.
 
 ## What this is
 
-`sli3` is a from-scratch C++ rewrite of NEST's SLI interpreter (a PostScript-style stack language used to script the NEST neural simulator). The goal is a **faster, more memory-efficient** standalone SLI interpreter with language semantics compatible with NEST 2.x — the neural-simulation surface is out of scope.
+`sli3` is a from-scratch C++ rewrite of NEST's SLI interpreter (a PostScript-style stack language used to script the NEST neural simulator). The goal is a **faster, more memory-efficient** standalone SLI interpreter with language semantics compatible with NEST 2.x, but without the neural-simulation part.
+
+SLI was first written in 1996 — much of the existing scaffolding only
+existed because pre-C++98 stdlib was unreliable. We don't need it now.
 
 Original work: Marc-Oliver Gewaltig, 2014–2015. Paused June 2015. Revived May 2026.
 
@@ -17,7 +20,7 @@ Original work: Marc-Oliver Gewaltig, 2014–2015. Paused June 2015. Revived May 
 - **License:** GPL.
 - **Tests:** bare CTest, assert-based. No external test framework.
 - **`sli_processes`:** deferred (will move to `unported/`).
-- **`iteratortype` / `forall_iter`:** out of scope. The iterator protocol
+- **`iteratortype` / `forall_iter`:** to bec removed. The iterator protocol
   (a polymorphic cursor over arbitrary container types — used in NEST
   2.x for `forall_iter`, `size_iter`, `Map_iter`, the
   `[/iteratortype] { {} Map }` branch of `cva`) is beyond the core
@@ -30,23 +33,8 @@ Original work: Marc-Oliver Gewaltig, 2014–2015. Paused June 2015. Revived May 
 ## Status
 
 Work is on the `revive` branch.
+Previously done work is described in ChangeLog.md
 
-- **Stage 1 (build cleanup):** done. Builds clean on AppleClang 21 / C++17, zero errors.
-- **Stage 2 (strip non-core deps):** done. All `HAVE_PTHREADS` / `HAVE_MPI` / `HAVE_GSL` / `HAVE_MUSIC` / `HAVE_SSTREAM` / `HAVE_EXPM1` / `HAVE_M_E` / `HAVE_M_PI` / `HAVE_CMATH_MAKROS_IGNORED` paths gone. `sli_processes.{h,cpp}` moved to `unported/`. Build clean, only 4 pre-existing unused-variable warnings.
-- **Stage 3 (modern-C++ rewrite of containers + stdlib):** in progress.
-  - **Slice 1:** `sli_allocator.{h,cpp}` deleted; default heap. Sizes unchanged.
-  - **Slice 1.5:** Serialization protocol scaffolded — `Writer` / `Reader` abstract + `BinaryWriter` / `BinaryReader` with object table for shared-pointer de-duplication. `serialize` / `deserialize` virtuals on `SLIType`. Per-type implementations for scalars (Integer, Double, Bool) and Name/Literal/Symbol/Mark.
-  - **Slice 2:** `TokenArray` rewritten over `std::vector<Token>` + intrusive `uint32_t refs_`. Token gained proper noexcept move ctor / move-assign. `ArrayType::serialize` / `deserialize` use the object table for de-duplication; round-tripped aliasing preserved. Bug fix: `ArrayType::references()` was decrementing.
-  - **Slice 3:** `SLIString` no longer inherits `std::string` (composes); `SLIistream` / `SLIostream` rewritten as plain intrusive-refcount wrappers. `sli_lockptr.h` and `sli_lockobj.h` deleted. `IstreamType` / `OstreamType` got missing refcount overrides (silent leaks fixed). String type serializes via the object table; stream types emit a stderr warning and produce closed-stream Tokens on load.
-  - **Slice 4:** Fresh `sli_array_module.{h,cpp}` (replaces the legacy 2288-line file). Registers Range / Reverse / Rotate / Flatten / Sort / Transpose / Partition_a_i_i / arrayload / arraystore / GetMin / GetMax / valid_a / finite_q_d, plus Map / MapIndexed_a / MapThread_a (with internal `::Map` / `::MapIndexed` / `::MapThread` iterator functions). Module exposes only `init_sliarray(SLIInterpreter*)`; operator function objects are anonymous-namespace statics. The Map family uses an iterator-on-EStack pattern: the entry function builds a frame `[mark, result, proc, pos, ::Iter]` (plus source for MapThread) and exits; the dispatcher re-invokes the iterator between user-procedure executions. Each iteration collects the prior call's result into the output slot, pushes the next argument(s), and pushes the procedure for the dispatcher.
-  - **Slice 5a (in progress):** bootstrap scaffolding. `config.h` is now generated via `configure_file` (template `config.h.in`); only `SLI3_VERSION_*` and `SLI3_DATADIR` are defined. NEST 2.20.2 `lib/sli/*.sli` (sli-init, typeinit, misc_helpers, library, ps-lib, FormattedIO, debug, helpinit, mathematica, oosupport, regexp, arraylib) are vendored under `lib/sli/`. Fresh `sli_startup.{h,cpp}` exposes `init_slistartup(SLIInterpreter*, int, char**)`: builds statusdict, binds `cin`/`cout`/`cerr` to `std::cin`/`std::cout`/`std::cerr` (borrow mode), opens `$SLIDATADIR/sli-init.sli` (or compile-time `SLI3_DATADIR`), and pushes an XIstream onto the execution stack so the dispatcher reads and executes it. Companion `sli_container_ops.{h,cpp}` adds `length_*`, `get_*`, `put_*`, `put_a_a_t`. Slice 5a also fixed several pre-existing bugs that prevented any file bootstrap: `XIstreamType::execute` infinite re-parse loop; `IparseFunction::execute` reading the wrong estack slot; `raiseerror` infinite recursion; `TrieType` missing `execute()` override (only inlined dispatcher case worked); commented-out `raiseerror(exc)` in the dispatcher's catch handler; the type-name mismatch `litproceduretype` vs `literalproceduretype`; `startup()` using the slow `execute_` loop instead of `execute_dispatch_`. Bootstrap now reaches ~line 309 of `sli-init.sli` (the recursive `bind` of bind itself succeeds) and stops at the first unregistered operator (`join_s`).
-  - **Slice 5b (done):** filled in the operator surface as `sli-init.sli` surfaced gaps. Added `join_s` / `search_s` / `cvi_s` / `cvd_s`, `append_*`, dictlookup helpers (`known` / `where` / `undef`), `xor`/`not` aliases, and a minimal file-I/O layer in `sli_io_ops.{h,cpp}` (`ifstream` / `ofstream` / `cvx_f` / `close` / `eof` / `getline_is`). Critical pre-existing bug fixes: `Token::operator==(bool)` and `operator==(double)` checked `integertype` instead of bool/double — every `bool == true` returned false, breaking every `if` test (always took the false branch). `IfelseFunction` checked the wrong stack slot for the bool. `TypeNode::lookup` had no real wildcard handling for `anytype`. Bootstrap got past sli-init.sli + bind-self into `(typeinit.sli) run` and through the full startup chain.
-  - **Slice 5c (done):** `1 1 add ==` smoke test passes. The full sli-init.sli + typeinit.sli + library.sli + ps-lib.sli + debug.sli chain runs to the REPL prompt; integer / double / bool / name / string / array / dict round-trip cleanly through `=` and `==`.
-- **Stage 4 (tests):** ongoing. 20 ctest binaries: scalar/name/string/array round-trips, intrusive refcount, shared-pointer aliasing through serialization, basic container API, array stdlib (direct execute() + dispatcher-driven Map/MapIndexed/MapThread), dispatcher parity, error dispatch attribution, state-ops round-trip, new-ABI dispatch contract (`test_dispatch_abi.cpp` — see Axis I bundle below).
-- **Runtime is functional.** Full bootstrap + REPL. The dispatcher loop, error machinery (raiseerror / stop / stopped / handleerror), and the standard operator surface (math, container, type, I/O, dict, control) all work end-to-end.
-- **Axis I bundle (done, commit `151e5e5`).** Dispatcher-restructure axis I: per-operator `EStack().pop()` ABI replaced by a dispatcher pre-pop contract. ~250 of ~316 operator sites converted to new ABI; the rest (`StopFunction`, `CloseinputFunction`, `Map_fn` / iter family, `ExecFunction`, `ExitFunction`, parser ops) stay old-ABI by design — they manage their own frame in non-trivial ways. See `doc/dispatch_restructure_plan.md` "Axis I bundle".
-- **Axis I slice 8 — unified body-walk loop** (steps 1+2, commits `470da6d` + `8e39906`). Replaces the four separate iter cases (iiterate / irepeat / ifor / iforall) with one unified case. D1 cross-iter-type resume + multi-level body-exit cascade per `doc/control_flow_spec.md`. Behind CMake flag `-DSLI3_INLINE_BODY_WALK=ON` (default OFF; gate stays until step 4 flips the default). All step-2 bench gates met.
-- **Axis II — hot-op inlining** (steps 1+2, commits `9f471d2` + `deaaf8c`). Dispatcher's body-walk fast path switches on `fn->hot_op()` and inlines the body for tagged ops. Currently tagged: `pop`, `dup`, `exch`, `add_ii`, `add`, `sub`, `if`, `def`. Single source of truth via `src/builtins/sli_op_bodies.h`. Lives inside the ON path of slice 8. Adding hot ops is mechanical: tag the instance with `set_hot_op(...)` and add an arm to the dispatcher switch. See `doc/compact_procedure_spec.md` §Axis II.
 - **Bench standing** (best-of-five, sli3 ON vs gs 10.07 vs nest 2.20):
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
@@ -179,8 +167,6 @@ exist**, not implementation to translate.
 - The custom `sli_allocator` pool is **gone (Slice 1)**; default heap
   for everything. Reintroduce `std::pmr` only if profiling justifies.
 
-SLI was first written in 1996 — much of the existing scaffolding only
-existed because pre-C++98 stdlib was unreliable. We don't need it now.
 
 ## Stack-handling discipline (operator authoring contract)
 
