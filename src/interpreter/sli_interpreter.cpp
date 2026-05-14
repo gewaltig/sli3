@@ -918,6 +918,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                 case HOP_SUB:    hot_op_sub(this);    break;
                 case HOP_IF:     hot_op_if(this);     break;
                 case HOP_DEF:    hot_op_def(this);    break;
+                case HOP_GT:     hot_op_gt(this);     break;
+                case HOP_LT:     hot_op_lt(this);     break;
+                case HOP_GEQ:    hot_op_geq(this);    break;
+                case HOP_LEQ:    hot_op_leq(this);    break;
+                case HOP_EQ:     hot_op_eq(this);     break;
+                case HOP_NEQ:    hot_op_neq(this);    break;
+                case HOP_GET:    hot_op_get(this);    break;
+                case HOP_PUT:    hot_op_put(this);    break;
                 default:
                   if (fn->uses_new_abi()) {
                     fn->execute(this);
@@ -946,6 +954,14 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   case HOP_SUB:    hot_op_sub(this);    break;
                   case HOP_IF:     hot_op_if(this);     break;
                   case HOP_DEF:    hot_op_def(this);    break;
+                  case HOP_GT:     hot_op_gt(this);     break;
+                  case HOP_LT:     hot_op_lt(this);     break;
+                  case HOP_GEQ:    hot_op_geq(this);    break;
+                  case HOP_LEQ:    hot_op_leq(this);    break;
+                  case HOP_EQ:     hot_op_eq(this);     break;
+                  case HOP_NEQ:    hot_op_neq(this);    break;
+                  case HOP_GET:    hot_op_get(this);    break;
+                  case HOP_PUT:    hot_op_put(this);    break;
                   default:
                     if (fn->uses_new_abi()) {
                       fn->execute(this);

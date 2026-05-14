@@ -15,6 +15,7 @@
 #include "sli_function.h"
 #include "sli_interpreter.h"
 #include "sli_name.h"
+#include "sli_op_bodies.h"
 #include "sli_string.h"
 #include "sli_token.h"
 #include "sli_type.h"
@@ -1286,32 +1287,7 @@ void LengthFunction::execute(SLIInterpreter* i) const
 //   dict   array  -> sub-dict   (get_d_a)
 void GetFunction::execute(SLIInterpreter* i) const
 {
-    i->require_stack_load(2);
-    unsigned coll = i->pick(1).tag();
-    unsigned key  = i->pick(0).tag();
-    switch (coll) {
-      case sli3::arraytype:
-        if (key == sli3::integertype) { get_a_fn.execute(i); return; }
-        if (key == sli3::arraytype)   { get_a_a_fn.execute(i); return; }
-        break;
-      case sli3::proceduretype:
-        if (key == sli3::integertype) { get_p_fn.execute(i); return; }
-        break;
-      case sli3::litproceduretype:
-        if (key == sli3::integertype) { get_lp_fn.execute(i); return; }
-        break;
-      case sli3::stringtype:
-        if (key == sli3::integertype) { get_s_fn.execute(i); return; }
-        break;
-      case sli3::dictionarytype:
-        if (key == sli3::literaltype) { get_d_fn.execute(i); return; }
-        // get_d_a (dict + array of keys) -- not wired in current
-        // typeinit either; the trie used to dispatch to get_d_a
-        // for [dict, array] but that leaf isn't registered. Fall
-        // through to ArgumentType to match the trie's behaviour.
-        break;
-    }
-    i->raiseerror(i->ArgumentTypeError);
+    hot_op_get(i);  // shared with dispatcher's inline arm
 }
 
 // /put: container + index + element. Slot 2 collection, slot 1
@@ -1319,28 +1295,7 @@ void GetFunction::execute(SLIInterpreter* i) const
 // element type.
 void PutFunction::execute(SLIInterpreter* i) const
 {
-    i->require_stack_load(3);
-    unsigned coll = i->pick(2).tag();
-    unsigned idx  = i->pick(1).tag();
-    switch (coll) {
-      case sli3::arraytype:
-        if (idx == sli3::integertype) { put_a_fn.execute(i); return; }
-        if (idx == sli3::arraytype)   { put_a_a_t_fn.execute(i); return; }
-        break;
-      case sli3::proceduretype:
-        if (idx == sli3::integertype) { put_p_fn.execute(i); return; }
-        break;
-      case sli3::litproceduretype:
-        if (idx == sli3::integertype) { put_lp_fn.execute(i); return; }
-        break;
-      case sli3::stringtype:
-        if (idx == sli3::integertype) { put_s_fn.execute(i); return; }
-        break;
-      case sli3::dictionarytype:
-        if (idx == sli3::literaltype) { put_d_fn.execute(i); return; }
-        break;
-    }
-    i->raiseerror(i->ArgumentTypeError);
+    hot_op_put(i);  // shared with dispatcher's inline arm
 }
 
 // ------------------------------------------------------------------------
@@ -1737,6 +1692,7 @@ void init_container_ops(SLIInterpreter* i)
     get_a_fn.set_new_abi();
     get_d_fn.set_new_abi();
     get_fn.set_new_abi();
+    get_fn.set_hot_op(HOP_GET);
     get_lp_fn.set_new_abi();
     get_p_fn.set_new_abi();
     get_s_fn.set_new_abi();
@@ -1770,6 +1726,7 @@ void init_container_ops(SLIInterpreter* i)
     put_a_fn.set_new_abi();
     put_d_fn.set_new_abi();
     put_fn.set_new_abi();
+    put_fn.set_hot_op(HOP_PUT);
     put_lp_fn.set_new_abi();
     put_p_fn.set_new_abi();
     put_s_fn.set_new_abi();

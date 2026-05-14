@@ -297,47 +297,6 @@ inline void minmax_dispatch(SLIInterpreter *i, Op op)
     i->raiseerror(i->ArgumentTypeError);
 }
 
-// Compare-dispatch: 4 numeric arms + ssarm. Pushes a bool result
-// in slot 1 (consuming both operands).
-template <typename CmpNum, typename CmpStr>
-inline void compare_dispatch(SLIInterpreter *i, CmpNum cn, CmpStr cs)
-{
-    i->require_stack_load(2);
-    Token &a = i->pick(1);
-    Token &b = i->pick(0);
-    unsigned ta = a.tag();
-    unsigned tb = b.tag();
-    SLIType *bool_tid = i->get_type(sli3::booltype);
-
-    bool result;
-    if (ta == sli3::integertype && tb == sli3::integertype)
-        result = cn(a.data_.long_val, b.data_.long_val);
-    else if (ta == sli3::doubletype && tb == sli3::doubletype)
-        result = cn(a.data_.double_val, b.data_.double_val);
-    else if (ta == sli3::doubletype && tb == sli3::integertype)
-        result = cn(a.data_.double_val, static_cast<double>(b.data_.long_val));
-    else if (ta == sli3::integertype && tb == sli3::doubletype)
-        result = cn(static_cast<double>(a.data_.long_val), b.data_.double_val);
-    else if (ta == sli3::stringtype && tb == sli3::stringtype)
-    {
-        if (a.data_.string_val == nullptr || b.data_.string_val == nullptr)
-        {
-            i->raiseerror(i->ArgumentTypeError);
-            return;
-        }
-        result = cs(a.data_.string_val->str(), b.data_.string_val->str());
-    }
-    else
-    {
-        i->raiseerror(i->ArgumentTypeError);
-        return;
-    }
-    // Overwrite slot 1 with the bool result; pop slot 0.
-    a.type_ = bool_tid;
-    a.data_.bool_val = result;
-    i->pop();
-}
-
 }  // namespace
 
 void MaxFunction::execute(SLIInterpreter *i) const
@@ -352,30 +311,22 @@ void MinFunction::execute(SLIInterpreter *i) const
 
 void GtFunction::execute(SLIInterpreter *i) const
 {
-    compare_dispatch(i,
-        [](auto x, auto y) { return x > y; },
-        [](auto const& x, auto const& y) { return x > y; });
+    hot_op_gt(i);  // shared with dispatcher's inline arm
 }
 
 void LtFunction::execute(SLIInterpreter *i) const
 {
-    compare_dispatch(i,
-        [](auto x, auto y) { return x < y; },
-        [](auto const& x, auto const& y) { return x < y; });
+    hot_op_lt(i);  // shared with dispatcher's inline arm
 }
 
 void GeqFunction::execute(SLIInterpreter *i) const
 {
-    compare_dispatch(i,
-        [](auto x, auto y) { return x >= y; },
-        [](auto const& x, auto const& y) { return x >= y; });
+    hot_op_geq(i);  // shared with dispatcher's inline arm
 }
 
 void LeqFunction::execute(SLIInterpreter *i) const
 {
-    compare_dispatch(i,
-        [](auto x, auto y) { return x <= y; },
-        [](auto const& x, auto const& y) { return x <= y; });
+    hot_op_leq(i);  // shared with dispatcher's inline arm
 }
 
 // Compact bool ops -- bool/int operands handled inline.
@@ -1195,14 +1146,7 @@ SeeAlso: neq, gt, lt, leq, geq
 
 void EqFunction::execute(SLIInterpreter *i) const
 {
-    SLIType *bool_tid=i->get_type(sli3::booltype);
-
-    i->require_stack_load(2);
-    
-    bool result = i->pick(1)== i->pick(0);
-    i->pop();
-    i->top().data_.bool_val=result;
-    i->top().type_=bool_tid;
+    hot_op_eq(i);  // shared with dispatcher's inline arm
 }
 
 /*BeginDocumentation:
@@ -1220,15 +1164,8 @@ SeeAlso: eq, gt, lt, leq, geq
 */
 void NeqFunction::execute(SLIInterpreter *i) const
 {
-    SLIType *bool_tid=i->get_type(sli3::booltype);
-
-    i->require_stack_load(2);
-    
-    bool result = not (i->pick(1) == i->pick(0));
-    i->pop();
-    i->top().data_.bool_val=result;
-    i->top().type_=bool_tid;
-   }
+    hot_op_neq(i);  // shared with dispatcher's inline arm
+}
 
 /*BeginDocumentation:
 Name: geq - Test if one object is greater or equal than another object
@@ -2104,6 +2041,7 @@ void init_slimath(SLIInterpreter *i)
     divfunction.set_new_abi();
     doublefunction.set_new_abi();
     eqfunction.set_new_abi();
+    eqfunction.set_hot_op(HOP_EQ);
     exp_dfunction.set_new_abi();
     expfunction.set_new_abi();
     floor_dfunction.set_new_abi();
@@ -2113,12 +2051,14 @@ void init_slimath(SLIInterpreter *i)
     geq_idfunction.set_new_abi();
     geq_iifunction.set_new_abi();
     geqfunction.set_new_abi();
+    geqfunction.set_hot_op(HOP_GEQ);
     gt_ddfunction.set_new_abi();
     gt_difunction.set_new_abi();
     gt_idfunction.set_new_abi();
     gt_iifunction.set_new_abi();
     gt_ssfunction.set_new_abi();
     gtfunction.set_new_abi();
+    gtfunction.set_hot_op(HOP_GT);
     integerfunction.set_new_abi();
     inv_dfunction.set_new_abi();
     ldexp_difunction.set_new_abi();
@@ -2127,6 +2067,7 @@ void init_slimath(SLIInterpreter *i)
     leq_idfunction.set_new_abi();
     leq_iifunction.set_new_abi();
     leqfunction.set_new_abi();
+    leqfunction.set_hot_op(HOP_LEQ);
     ln_dfunction.set_new_abi();
     lnfunction.set_new_abi();
     log_dfunction.set_new_abi();
@@ -2137,6 +2078,7 @@ void init_slimath(SLIInterpreter *i)
     lt_iifunction.set_new_abi();
     lt_ssfunction.set_new_abi();
     ltfunction.set_new_abi();
+    ltfunction.set_hot_op(HOP_LT);
     max_d_dfunction.set_new_abi();
     max_d_ifunction.set_new_abi();
     max_i_dfunction.set_new_abi();
@@ -2157,6 +2099,7 @@ void init_slimath(SLIInterpreter *i)
     neg_dfunction.set_new_abi();
     neg_ifunction.set_new_abi();
     neqfunction.set_new_abi();
+    neqfunction.set_hot_op(HOP_NEQ);
     not_bfunction.set_new_abi();
     not_ifunction.set_new_abi();
     notpolyfunction.set_new_abi();

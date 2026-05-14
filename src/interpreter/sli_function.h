@@ -56,6 +56,14 @@ namespace sli3
       HOP_SUB,      // step 2: poly-sub dispatcher
       HOP_IF,       // step 2: bool proc -> push proc if true
       HOP_DEF,      // step 2: /lit obj -> def in current dict
+      HOP_GT,       // step 3: poly-gt dispatcher (numeric + string)
+      HOP_LT,       // step 3: poly-lt dispatcher
+      HOP_GEQ,      // step 3: poly-geq dispatcher
+      HOP_LEQ,      // step 3: poly-leq dispatcher
+      HOP_EQ,       // step 3: any/any equality via Token::operator==
+      HOP_NEQ,      // step 3: any/any inequality
+      HOP_GET,      // step 3: container key -> elem (multi-arm)
+      HOP_PUT,      // step 3: container key value -> [container]
       HOP_count
   };
 

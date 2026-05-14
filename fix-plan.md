@@ -23,7 +23,7 @@ see `doc/next_steps.md`, `doc/compact_procedure_spec.md`, and
 | Stage 10 (savestate/restorestate) | ✅ closed (commit `3a7edec`) — dict-stack snapshot blocked on Stage 6 closure |
 | Stage 11 / Axis I bundle (dispatcher pre-pop ABI) | ✅ closed (commit `151e5e5`) |
 | Stage 12 / Axis I slice 8 (unified body-walk loop) | ✅ closed — steps 1+2 (commits `470da6d` + `8e39906`); step 4 (flip default + delete OFF path) landed 2026-05-14; step 3 (optional inline-nested-proc) deferred |
-| Stage 13 / Axis II step 2 (hot-op inlining) | ▶ 8 ops tagged (pop/dup/exch/add_ii/add/sub/if/def). Symmetric in both functiontype and name-resolved hot-op switches as of 2026-05-13 |
+| Stage 13 / Axis II (hot-op inlining) | ▶ step 2 + step 3 done — 16 ops tagged (pop/dup/exch/add_ii/add/sub/if/def/gt/lt/geq/leq/eq/neq/get/put). Symmetric in both functiontype and name-resolved hot-op switches |
 | Axis III (compact procedure storage) | ⏳ not started; depends on Axis I+II being stable |
 | 2026-05-13 follow-up pass | ✅ closed — CRITICAL `Cvt_aFunction` + 9 HIGH items (restorestate atomic, cleardict cache, where, typed-leaf type checks, execute(string), execute_debug_, startup(), terminate(), nulltype guard) |
 
@@ -185,11 +185,15 @@ are blocking, but they make the next round of changes easier.
 The Axis I + II axes are partially deployed; remaining wins map to
 the three options below.
 
-### Axis II step 3 — tag more hot ops
-Mechanical: tag `gt` (B7/B8), `get` (B7/B8), `put` (B7/B8) with
-`set_hot_op(...)` and add the matching arms to both dispatcher
-hot-op switches (and remember to add to the inline-name switch
-too — see CRITICAL #14). Expected B7 / B8 closure: −5 to −10 %.
+### Axis II step 3 — tag more hot ops ✅ landed 2026-05-14
+8 new ops tagged: `gt`, `lt`, `geq`, `leq`, `eq`, `neq`, `get`,
+`put`. Bodies live in `src/builtins/sli_op_bodies.h`; the
+standalone `*Function::execute()` methods delegate. Both
+dispatcher hot-op switches (functiontype + name-resolved) got
+arms. Incidental: fixed two latent refcount leaks in eq/neq and
+the string-compare arm of compare (slot-1 type was being
+overwritten as booltype without releasing the refcounted
+payload).
 
 ### Axis III — compact procedure storage
 Spec at `doc/compact_procedure_spec.md` §Axis III. Predicted B2b
