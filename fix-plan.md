@@ -211,26 +211,56 @@ to 16 cases is the likely cause — B2b is the most dispatch-dense
 bench (tight `{1 1 add pop} bind repeat`, no name lookups) and
 absorbs every per-dispatch nanosecond. See follow-up below.
 
-### B2b regression follow-up (Axis II step 3)
-The +12 % regression on B2b after step 3 needs an investigation
-before declaring Axis II finished. Hypotheses worth testing:
+### B2b regression follow-up — investigated 2026-05-14
+Root cause **identified** but **not fully resolved**. Both the
+`6208141` review-pass +5 % regression and the `90b129c` step-3
++4 % regression are pure **code-layout / I-cache effects** from
+growing the dispatcher's hot-op switches.
 
-1. **Wider jump table I-cache pressure.** Re-order the case arms
-   so the most-frequently-hit hot ops (POP / DUP / ADD / SUB) sit
-   first; or split the switch into two — a small "very hot" set
-   first, fall through to a wider one. Measure with `perf stat`
-   on B2b: i-cache misses and branch mispredicts.
-2. **Code layout drift.** The op_bodies.h bodies are larger now;
-   the compiler may have shifted alignment of the body-walk loop.
-   Mitigation: `__attribute__((hot))` on the dispatcher, or PGO.
-3. **`hot_op_get` / `hot_op_put` bodies bloat the dispatcher TU.**
-   Move them out of op_bodies.h into a separate .cpp behind a
-   function pointer dispatched from the switch. Costs one
-   indirect call for get/put (a worthwhile trade-off if the
-   inline cases hurt B2b more than they help B8/B10).
+Reproducible: applying just the 4 new name-resolved-switch arms
+from `6208141` to baseline `80d5695` source pushes B2b from 1.55
+to 1.66, even though B2b's bound procedure uses the *functiontype*
+switch, not the name-resolved one. Removing them at `6208141`
+fully recovers baseline (1.53). Removing all 16 step-3 arms at
+`90b129c` also fully recovers baseline (1.54) but loses every
+B8/B9/B10 win.
 
-Bench gate before declaring this follow-up done: B2b ≤ 1.60 s
-(baseline + 4 %) with no regression on B8/B9/B10.
+Variants measured at `90b129c`:
+
+| Variant | B2b | B7 | B8 | B9 | B10 |
+|---|---:|---:|---:|---:|---:|
+| baseline (`80d5695`) | 1.55 | 2.15 | 1.47 | 2.11 | 1.79 |
+| HEAD (`90b129c`) | 1.74 | 2.20 | 1.41 | 2.03 | 1.75 |
+| fix-e (warm out-of-line) | 1.67 | 2.14 | 1.41 | 2.06 | 1.81 |
+| fix-f (drop name-res sw) | 1.73 | 2.20 | 1.44 | 2.06 | 1.72 |
+
+Fix-e: keep the 8 pre-step-3 arms inline in the functiontype
+switch; push GT/LT/GEQ/LEQ/EQ/NEQ/GET/PUT and the warm fallback
+into an out-of-line `dispatch_warm_or_virtual_` helper. Trade-off:
+recovers half of the B2b regression and improves B7, but gives
+back B10's step-3 improvement (B10 returns to baseline).
+
+**No "best of both worlds" found** — the dispatcher TU's total
+size is a hard constraint. The wider the inline switch, the more
+B2b suffers from code-layout drift; the narrower it is, the more
+warm ops pay an indirect-call cost in B10 / matmul-style loops.
+
+Recommended approaches for a future fix:
+1. **PGO build** (`-fprofile-generate` + B-suite run + `-fprofile-use`).
+   Lets the compiler lay out the hot path optimally rather than
+   relying on switch position.
+2. **Function-pointer dispatch table** indexed by `HotOpId`.
+   Replaces the switch entirely; eliminates the jump-table size
+   issue. Costs one indirect call per op; depends heavily on
+   indirect-branch prediction.
+3. **Split the dispatcher across TUs** so each hot-op cluster
+   lives in its own compilation unit and is reached via an
+   indirect call. Same shape as `dispatch_warm_or_virtual_` but
+   with a stricter cold/hot split.
+
+Bench gate before declaring done: B2b ≤ 1.60 s **and** B8 ≤ 1.45 s
+**and** B10 ≤ 1.80 s (i.e. recover B2b without giving back any of
+the B8/B10 wins).
 
 ### Axis III — compact procedure storage
 Spec at `doc/compact_procedure_spec.md` §Axis III. Predicted B2b
