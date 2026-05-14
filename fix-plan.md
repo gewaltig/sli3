@@ -22,7 +22,7 @@ see `doc/next_steps.md`, `doc/compact_procedure_spec.md`, and
 | Stage 9 (compact hot ops) | ✅ closed (tag `stage9-complete`) |
 | Stage 10 (savestate/restorestate) | ✅ closed (commit `3a7edec`) — dict-stack snapshot blocked on Stage 6 closure |
 | Stage 11 / Axis I bundle (dispatcher pre-pop ABI) | ✅ closed (commit `151e5e5`) |
-| Stage 12 / Axis I slice 8 (unified body-walk loop) | ▶ steps 1+2 done (commits `470da6d` + `8e39906`); step 3 optional; step 4 (flip default + delete OFF path) pending |
+| Stage 12 / Axis I slice 8 (unified body-walk loop) | ✅ closed — steps 1+2 (commits `470da6d` + `8e39906`); step 4 (flip default + delete OFF path) landed 2026-05-14; step 3 (optional inline-nested-proc) deferred |
 | Stage 13 / Axis II step 2 (hot-op inlining) | ▶ 8 ops tagged (pop/dup/exch/add_ii/add/sub/if/def). Symmetric in both functiontype and name-resolved hot-op switches as of 2026-05-13 |
 | Axis III (compact procedure storage) | ⏳ not started; depends on Axis I+II being stable |
 | 2026-05-13 follow-up pass | ✅ closed — CRITICAL `Cvt_aFunction` + 9 HIGH items (restorestate atomic, cleardict cache, where, typed-leaf type checks, execute(string), execute_debug_, startup(), terminate(), nulltype guard) |
@@ -127,14 +127,14 @@ Items the previous Stage 8 list flagged that are still open. None
 are blocking, but they make the next round of changes easier.
 
 ### Dispatcher / hot path
-- `SLI3_TRACE` block duplicated across both dispatchers — extract
-  to one helper.
+- `SLI3_TRACE` block duplication ✅ resolved by slice 8 step 4
+  (only one dispatcher remains).
 - `sli_op_bodies.h` — change `static inline` to `inline` to allow
   ODR merging across the 4 TUs that include it.
-- Slice 8 step 4 — flip `SLI3_INLINE_BODY_WALK` default to ON
-  and delete the OFF path (~330 lines of unreachable code in the
-  current ON build). Gate the bench gates listed in
-  `doc/axis1_slice8_plan.md` first.
+- Slice 8 step 4 ✅ landed 2026-05-14 — flipped to ON-only, OFF
+  body deleted (~575 lines of OFF-mode dispatcher gone), flag
+  removed from CMakeLists.txt, `execute_dispatch_inline_`
+  renamed back to `execute_dispatch_`.
 
 ### Container / parser
 - DFA `trans` is per-instance; move to `static const` —
@@ -185,15 +185,6 @@ are blocking, but they make the next round of changes easier.
 The Axis I + II axes are partially deployed; remaining wins map to
 the three options below.
 
-### Slice 8 step 4 — flip default + delete OFF path
-The body-walk loop already runs under `-DSLI3_INLINE_BODY_WALK=ON`
-in benches. The OFF code path is dead in that build, and the ON
-code path is dead in the default build. Flipping the default and
-deleting the OFF body (`execute_dispatch_` outer cases for
-`iiteratetype`/`irepeatetype`/`ifortype`/`iforalltype`) collapses
-~330 lines of dispatcher and removes the divergence risk. Gate
-behind the bench gates listed in `doc/axis1_slice8_plan.md`.
-
 ### Axis II step 3 — tag more hot ops
 Mechanical: tag `gt` (B7/B8), `get` (B7/B8), `put` (B7/B8) with
 `set_hot_op(...)` and add the matching arms to both dispatcher
@@ -202,8 +193,8 @@ too — see CRITICAL #14). Expected B7 / B8 closure: −5 to −10 %.
 
 ### Axis III — compact procedure storage
 Spec at `doc/compact_procedure_spec.md` §Axis III. Predicted B2b
-/ B9 gain ~0.5–1 ns/iter on top of Axis I+II. Depends on Axes I
-and II being stable (i.e. slice 8 step 4 flipped).
+/ B9 gain ~0.5–1 ns/iter on top of Axis I+II. Prerequisite (slice
+8 step 4) landed 2026-05-14; Axis III can start whenever.
 
 ### Beyond Axis III
 `doc/next_steps.md` lists the gs-derived proposals (pvalue cache,

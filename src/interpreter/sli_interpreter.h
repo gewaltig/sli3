@@ -125,12 +125,6 @@ namespace sli3
 	int execute_(size_t level=0);
 	int execute_debug_(size_t level=0);
 	int execute_dispatch_(size_t level=0);
-	// Axis I slice 8 (step 1: scaffold). Behaviour-identical
-	// duplicate of execute_dispatch_. When SLI3_INLINE_BODY_WALK
-	// is ON, execute_dispatch_ tail-calls this method. Step 2
-	// unifies the four iter cases here; step 4 deletes the old
-	// path and renames this back to execute_dispatch_.
-	int execute_dispatch_inline_(size_t level=0);
 
 	void createdouble(Name , double);
 	void createcommand(Name, SLIFunction *);

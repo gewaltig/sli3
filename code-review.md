@@ -8,8 +8,9 @@ and the git history (tag `stage9-complete` and beyond).
 Last full pass: **2026-05-13** (five parallel reviewers across
 interpreter / types+serialize / containers+parser / math+control+typecheck+stack /
 array+IO+startup+trie+tests). 20 / 20 tests passing, build clean
-on AppleClang 21 / C++17, under both `SLI3_INLINE_BODY_WALK` OFF
-(default) and ON.
+on AppleClang 21 / C++17. The `SLI3_INLINE_BODY_WALK` build flag
+and its OFF dispatcher were deleted by Axis I slice 8 step 4 on
+2026-05-14; a single dispatcher remains.
 
 A first-pass cleanup landed the same day; see the trailing
 "Just-fixed (2026-05-13 pass)" section.
@@ -101,15 +102,9 @@ switches gained a `case sli3::nulltype: pop; break;` guard.
 ## MEDIUM — open
 
 ### Dispatcher hot-path
-- `src/interpreter/sli_interpreter.cpp:750-758` vs
-  `:1336-1500` — when `SLI3_INLINE_BODY_WALK` is OFF, the inline
-  dispatcher (~330 lines) is dead. When ON, the OFF-path body is
-  dead. Half the dispatcher is unused in every build configuration
-  until Axis I slice 8 step 4 lands (flip default + delete OFF
-  path).
-- `src/interpreter/sli_interpreter.cpp:870-885, 1396-1412` — the
-  `SLI3_TRACE` env-var read + per-fn-call printout is duplicated
-  verbatim across both dispatcher loops. Two copies to maintain.
+- Half-dispatcher-dead and `SLI3_TRACE` duplication ✅ resolved
+  by Axis I slice 8 step 4 (2026-05-14): OFF body deleted, flag
+  removed, single dispatcher remains.
 - `src/builtins/sli_op_bodies.h` — `static inline` helpers in a
   header included from 4 TUs. Each TU gets its own copy. Use
   `inline` (no `static`) to allow ODR merging, or move bodies
@@ -307,8 +302,8 @@ verified fixed (lines verified at the noted file:line):
 ## Just-fixed (2026-05-13 cleanup pass)
 
 Closed in the same session as the deep review. All 20 ctest
-targets green under both `SLI3_INLINE_BODY_WALK` OFF (default) and
-ON.
+targets green (both `SLI3_INLINE_BODY_WALK` modes at the time;
+the flag has since been removed).
 
 HIGH-tier:
 - `RestoreostackFunction` UAF (`sli_stack.cpp:311-323`) — buffer
@@ -371,7 +366,8 @@ MEDIUM-tier:
 
 Closed the lone CRITICAL plus the remaining HIGH dispatcher /
 runtime items from the prior pass. All 20 ctest targets green
-on AppleClang 21 / C++17 (both `SLI3_INLINE_BODY_WALK` modes).
+on AppleClang 21 / C++17 (both `SLI3_INLINE_BODY_WALK` modes at
+the time; the flag has since been removed by slice 8 step 4).
 
 CRITICAL:
 - `Cvt_aFunction` (`sli_typecheck.cpp:258-280`) — pops the
