@@ -44,8 +44,10 @@ case "$cmd" in
             SELECT
                 COALESCE(cur.bench, base.bench)                AS bench,
                 COALESCE(cur.impl,  base.impl)                 AS impl,
-                printf('%6.2f', cur.best)                      AS now_best,
-                printf('%6.2f', base.best)                     AS base_best,
+                CASE WHEN cur.best IS NULL THEN ''
+                     ELSE printf('%6.2f', cur.best)  END       AS now_best,
+                CASE WHEN base.best IS NULL THEN ''
+                     ELSE printf('%6.2f', base.best) END       AS base_best,
                 CASE
                     WHEN cur.best IS NULL OR base.best IS NULL THEN ''
                     ELSE printf('%+5.1f %%',
