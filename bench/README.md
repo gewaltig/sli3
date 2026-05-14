@@ -42,6 +42,11 @@ DB on first run, writes one `runs` row per invocation, and one
 ### Queries
 
 ```sh
+bench/summary.sh                   # latest run, sli3 / gs / nest + vs-gs
+bench/summary.sh --diff            # also show Δ vs baseline
+bench/summary.sh --md              # markdown, paste into fix-plan.md
+bench/summary.sh 1                 # any specific run_id
+
 bench/history.sh                   # latest run vs baseline (default)
 bench/history.sh runs              # list all runs
 bench/history.sh bench B7          # full history for one bench
