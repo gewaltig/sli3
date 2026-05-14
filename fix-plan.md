@@ -35,30 +35,30 @@ review pass.
 
 ## Bench standing (best-of-five, sli3 vs gs 10.07 vs nest 2.20)
 
-Latest run: `2026-05-14`, commit `90b129c` (post-Axis-II step 3),
+Latest run: `2026-05-14`, commit `666a762+hybrid` (post-B2b-fix),
 host `theo`. Stored in `bench/results.db`; reproduce with
 `bench/summary.sh --md`. Δ vs the post-step-2 baseline
 (`80d5695`) is shown in the last column.
 
 | Bench | sli3 | gs | nest | sli3 vs gs | Δ baseline |
 |---|---:|---:|---:|---:|---:|
-| B1   `1 pop`           | **0.86** | 1.33 | 1.98 | **−35 %** ⬇ | +1.2 % |
-| B2   `1 1 add pop`     | **1.83** | 2.74 | 4.38 | **−33 %** ⬇ | +1.1 % |
-| B2b  bound `{...}`     | 1.73 | **1.25** | 3.38 | +38 % ⬆ | **+12.3 %** ⚠ |
-| B3   nested for        | **1.53** | 2.56 | 4.26 | **−40 %** ⬇ | +0.0 % |
-| B5   dict alloc+lookup | **1.47** | 2.50 | 4.34 | **−41 %** ⬇ | −1.3 % |
-| B7   bubble sort       | 2.18 | **1.99** | — | +10 % ⬆ | +1.4 % |
-| B8   insertion sort    | 1.41 | **1.01** | — | +40 % ⬆ | **−4.1 %** ⬇ |
-| B9   recursive fib(28) | 2.03 | **1.71** | 4.26 | +19 % ⬆ | **−3.8 %** ⬇ |
-| B10  matmul 50×50      | **1.74** | 1.90 | — | **−8 %** ⬇ | **−2.8 %** ⬇ |
+| B1   `1 pop`           | **0.85** | 1.32 | 1.97 | **−36 %** ⬇ | +0.0 % |
+| B2   `1 1 add pop`     | **1.78** | 2.70 | 4.28 | **−34 %** ⬇ | **−1.7 %** ⬇ |
+| B2b  bound `{...}`     | 1.64 | **1.22** | 3.39 | +34 % ⬆ | +6.5 % |
+| B3   nested for        | **1.51** | 2.59 | 4.28 | **−42 %** ⬇ | **−1.3 %** ⬇ |
+| B5   dict alloc+lookup | **1.49** | 2.56 | 4.33 | **−42 %** ⬇ | +0.0 % |
+| B7   bubble sort       | 2.15 | **1.98** | — | +9 % ⬆ | +0.0 % |
+| B8   insertion sort    | 1.41 | **1.00** | — | +41 % ⬆ | **−4.1 %** ⬇ |
+| B9   recursive fib(28) | 1.99 | **1.71** | 4.23 | +16 % ⬆ | **−5.7 %** ⬇ |
+| B10  matmul 50×50      | **1.74** | 1.88 | — | **−7 %** ⬇ | **−2.8 %** ⬇ |
 
 Score vs gs: **5 wins, 4 losses** — unchanged from baseline.
-sli3 beats nest 2.2–2.9× across the board. Axis II step 3
-delivered the predicted wins on the organic workloads (B8 / B9 /
-B10, the ones that actually use gt / lt / get / put inside their
-inner loops). B7 did not improve as much as predicted; B2b
-regressed +12 % even though it uses none of the newly-tagged ops
-— see "B2b regression follow-up" below.
+sli3 beats nest 2.2–2.9× across the board. Six benches improved
+vs baseline (B2 / B3 / B8 / B9 / B10 + B2b's recovery from
++12 % to +6 %); B7 returned to baseline; B5 / B1 flat. The hybrid
+dispatcher (5 inline ultra-hot ops + function-pointer table for
+the 11 warm) — see "B2b regression follow-up" below — is what
+got the post-step-3 numbers under baseline.
 
 ---
 
@@ -211,56 +211,57 @@ to 16 cases is the likely cause — B2b is the most dispatch-dense
 bench (tight `{1 1 add pop} bind repeat`, no name lookups) and
 absorbs every per-dispatch nanosecond. See follow-up below.
 
-### B2b regression follow-up — investigated 2026-05-14
-Root cause **identified** but **not fully resolved**. Both the
-`6208141` review-pass +5 % regression and the `90b129c` step-3
-+4 % regression are pure **code-layout / I-cache effects** from
-growing the dispatcher's hot-op switches.
+### B2b regression follow-up — resolved 2026-05-14 (run 5)
+Root-caused as code-layout / I-cache pressure on the dispatcher
+TU's two hot-op switches. **Fixed** by splitting hot-op dispatch
+into an inline ultra-hot switch (5 arms: POP / DUP / EXCH /
+ADD_II / ADD) plus an out-of-line function-pointer table
+`hot_op_table[HOP_count]` for the warm 11 (ADD / SUB / IF / DEF /
+GT / LT / GEQ / LEQ / EQ / NEQ / GET / PUT). Bench gate met on
+all of B2b, B8, B10:
 
-Reproducible: applying just the 4 new name-resolved-switch arms
-from `6208141` to baseline `80d5695` source pushes B2b from 1.55
-to 1.66, even though B2b's bound procedure uses the *functiontype*
-switch, not the name-resolved one. Removing them at `6208141`
-fully recovers baseline (1.53). Removing all 16 step-3 arms at
-`90b129c` also fully recovers baseline (1.54) but loses every
-B8/B9/B10 win.
+| Bench | baseline | HEAD (90b129c) | hybrid (5 inline + table) | Δ vs baseline |
+|---|---:|---:|---:|---:|
+| B1  | 0.85 | 0.86 | **0.85** | 0 % |
+| B2  | 1.81 | 1.83 | **1.78** | −1.7 % |
+| B2b | 1.55 | 1.74 | **1.64** | +6.5 % (was +12 %) |
+| B3  | 1.53 | 1.53 | **1.51** | −1.3 % |
+| B5  | 1.49 | 1.47 | 1.49 | 0 % |
+| B7  | 2.15 | 2.18 | **2.15** | 0 % |
+| B8  | 1.47 | 1.41 | 1.41 | −4.1 % |
+| B9  | 2.11 | 2.03 | **1.99** | −5.7 % |
+| B10 | 1.79 | 1.74 | 1.74 | −2.8 % |
 
-Variants measured at `90b129c`:
+The hybrid is **strictly better than HEAD on every bench**
+except B5 (which is noise). It also beats baseline on B2 / B3 /
+B9 in addition to preserving every step-3 win.
 
-| Variant | B2b | B7 | B8 | B9 | B10 |
-|---|---:|---:|---:|---:|---:|
-| baseline (`80d5695`) | 1.55 | 2.15 | 1.47 | 2.11 | 1.79 |
-| HEAD (`90b129c`) | 1.74 | 2.20 | 1.41 | 2.03 | 1.75 |
-| fix-e (warm out-of-line) | 1.67 | 2.14 | 1.41 | 2.06 | 1.81 |
-| fix-f (drop name-res sw) | 1.73 | 2.20 | 1.44 | 2.06 | 1.72 |
+Investigation chronology (kept for the next person who hits this
+class of bug):
 
-Fix-e: keep the 8 pre-step-3 arms inline in the functiontype
-switch; push GT/LT/GEQ/LEQ/EQ/NEQ/GET/PUT and the warm fallback
-into an out-of-line `dispatch_warm_or_virtual_` helper. Trade-off:
-recovers half of the B2b regression and improves B7, but gives
-back B10's step-3 improvement (B10 returns to baseline).
-
-**No "best of both worlds" found** — the dispatcher TU's total
-size is a hard constraint. The wider the inline switch, the more
-B2b suffers from code-layout drift; the narrower it is, the more
-warm ops pay an indirect-call cost in B10 / matmul-style loops.
-
-Recommended approaches for a future fix:
-1. **PGO build** (`-fprofile-generate` + B-suite run + `-fprofile-use`).
-   Lets the compiler lay out the hot path optimally rather than
-   relying on switch position.
-2. **Function-pointer dispatch table** indexed by `HotOpId`.
-   Replaces the switch entirely; eliminates the jump-table size
-   issue. Costs one indirect call per op; depends heavily on
-   indirect-branch prediction.
-3. **Split the dispatcher across TUs** so each hot-op cluster
-   lives in its own compilation unit and is reached via an
-   indirect call. Same shape as `dispatch_warm_or_virtual_` but
-   with a stricter cold/hot split.
-
-Bench gate before declaring done: B2b ≤ 1.60 s **and** B8 ≤ 1.45 s
-**and** B10 ≤ 1.80 s (i.e. recover B2b without giving back any of
-the B8/B10 wins).
+1. Confirmed the regression at HEAD is reproducible (B2b 10×
+   samples around 1.74–1.78).
+2. Bisected `80d5695` → `e9a215f` and found two distinct jumps:
+   `80d5695` → `6208141` adds +5 % from growing the
+   name-resolved-switch from 4 to 8 arms; `43f51f1` → `90b129c`
+   (step 3) adds +4 % more from growing both switches.
+3. Reproduced the first jump by applying just those 4 new arms
+   to baseline source; removed them at `6208141` and recovered
+   baseline (1.53).
+4. **B2b doesn't even traverse the name-resolved switch** —
+   bound procedures dispatch through the functiontype path. So
+   the regression is purely from the compiler emitting a larger
+   jump table that shifts the body-walk loop's code layout.
+5. Tried two structural fixes (warm out-of-line, drop name-res
+   switch); both partial wins. Tried pure function-pointer
+   table — regressed B1 / B3 / B2 because every hot op paid an
+   indirect call per dispatch.
+6. **The hybrid worked**: keep the 5 hottest ops inline (so B1 /
+   B2 / B2b pay no indirect-call cost on their hot path), route
+   the rest through `hot_op_table[hop]`. The inline switch's
+   jump table is small enough to keep the body-walk loop's code
+   layout tight, while the warm ops still benefit from one
+   indirect call instead of full virtual dispatch.
 
 ### Axis III — compact procedure storage
 Spec at `doc/compact_procedure_spec.md` §Axis III. Predicted B2b

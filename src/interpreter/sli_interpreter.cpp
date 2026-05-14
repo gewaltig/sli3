@@ -82,6 +82,44 @@ namespace sli3 {
 
 int signalflag = 0;
 
+// Axis II step 3 follow-up (2026-05-14): split hot-op dispatch
+// into an inline ultra-hot switch and a function-pointer table
+// for the rest. The original 16-arm inline switch caused the
+// dispatcher's jump table to grow enough to regress B2b by +12 %
+// even though B2b only uses POP and ADD (see fix-plan.md
+// "B2b regression follow-up — investigated 2026-05-14"). This
+// split keeps the 5 most-hit ops as direct inlined cases and
+// pushes the warm 11 through one indirect call.
+//
+// Each hot_op_* helper is `static inline` in op_bodies.h; taking
+// its address in *this* TU forces the compiler to emit per-TU
+// out-of-line copies here. Other TUs (sli_math.cpp etc.) still
+// inline the bodies in their *Function::execute() methods.
+namespace {
+using HotOpFn = void(*)(SLIInterpreter*);
+constexpr HotOpFn hot_op_table[HOP_count] = {
+    nullptr,            // HOP_NONE
+    hot_op_pop,
+    hot_op_dup,
+    hot_op_exch,
+    hot_op_add_ii,
+    hot_op_add,
+    hot_op_sub,
+    hot_op_if,
+    hot_op_def,
+    hot_op_gt,
+    hot_op_lt,
+    hot_op_geq,
+    hot_op_leq,
+    hot_op_eq,
+    hot_op_neq,
+    hot_op_get,
+    hot_op_put,
+};
+static_assert(sizeof(hot_op_table) / sizeof(hot_op_table[0]) == HOP_count,
+              "hot_op_table out of sync with HotOpId");
+} // namespace
+
 SLIInterpreter::SLIInterpreter()
     : mark_name("mark"), iparse_name("::parse"),
       iparsestdin_name("::parsestdin"), ilookup_name("::lookup"),
@@ -904,35 +942,24 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               if (__builtin_expect(count_calls_, 0))
                 ++call_counts_[fn];
               current_op_ = fn;
-              // Axis II step 1: hot-op inline arms. Bodies live
-              // in src/builtins/sli_op_bodies.h; the standalone
-              // execute() methods delegate to the same helpers.
-              // HOP_NONE falls through to the virtual-call path
-              // (new-ABI vs old-ABI sentinel handling).
+              // Hybrid dispatch (see hot_op_table comment above):
+              //   - 5 ultra-hot ops handled inline (zero call cost)
+              //   - HOP_NONE falls through to virtual-call path
+              //   - everything else goes through hot_op_table[hop]
+              //     (one indirect call; keeps the inline switch's
+              //     jump table tight)
               switch (fn->hot_op()) {
                 case HOP_POP:    hot_op_pop(this);    break;
                 case HOP_DUP:    hot_op_dup(this);    break;
                 case HOP_EXCH:   hot_op_exch(this);   break;
                 case HOP_ADD_II: hot_op_add_ii(this); break;
                 case HOP_ADD:    hot_op_add(this);    break;
-                case HOP_SUB:    hot_op_sub(this);    break;
-                case HOP_IF:     hot_op_if(this);     break;
-                case HOP_DEF:    hot_op_def(this);    break;
-                case HOP_GT:     hot_op_gt(this);     break;
-                case HOP_LT:     hot_op_lt(this);     break;
-                case HOP_GEQ:    hot_op_geq(this);    break;
-                case HOP_LEQ:    hot_op_leq(this);    break;
-                case HOP_EQ:     hot_op_eq(this);     break;
-                case HOP_NEQ:    hot_op_neq(this);    break;
-                case HOP_GET:    hot_op_get(this);    break;
-                case HOP_PUT:    hot_op_put(this);    break;
+                case HOP_NONE:
+                  if (fn->uses_new_abi()) { fn->execute(this); }
+                  else { execution_stack_.push(sentinel); fn->execute(this); }
+                  break;
                 default:
-                  if (fn->uses_new_abi()) {
-                    fn->execute(this);
-                  } else {
-                    execution_stack_.push(sentinel);
-                    fn->execute(this);
-                  }
+                  hot_op_table[fn->hot_op()](this);
                   break;
               }
               current_op_ = nullptr;
@@ -951,24 +978,12 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   case HOP_EXCH:   hot_op_exch(this);   break;
                   case HOP_ADD_II: hot_op_add_ii(this); break;
                   case HOP_ADD:    hot_op_add(this);    break;
-                  case HOP_SUB:    hot_op_sub(this);    break;
-                  case HOP_IF:     hot_op_if(this);     break;
-                  case HOP_DEF:    hot_op_def(this);    break;
-                  case HOP_GT:     hot_op_gt(this);     break;
-                  case HOP_LT:     hot_op_lt(this);     break;
-                  case HOP_GEQ:    hot_op_geq(this);    break;
-                  case HOP_LEQ:    hot_op_leq(this);    break;
-                  case HOP_EQ:     hot_op_eq(this);     break;
-                  case HOP_NEQ:    hot_op_neq(this);    break;
-                  case HOP_GET:    hot_op_get(this);    break;
-                  case HOP_PUT:    hot_op_put(this);    break;
+                  case HOP_NONE:
+                    if (fn->uses_new_abi()) { fn->execute(this); }
+                    else { execution_stack_.push(sentinel); fn->execute(this); }
+                    break;
                   default:
-                    if (fn->uses_new_abi()) {
-                      fn->execute(this);
-                    } else {
-                      execution_stack_.push(sentinel);
-                      fn->execute(this);
-                    }
+                    hot_op_table[fn->hot_op()](this);
                     break;
                 }
                 current_op_ = nullptr;

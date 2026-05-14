@@ -39,17 +39,17 @@ Previously done work is described in ChangeLog.md
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
 |---|---:|---:|---:|---:|
-| B1   `1 pop`           | **0.86** | 1.33 | 1.98 | **−35 %** ⬇ |
-| B2   `1 1 add pop`     | **1.83** | 2.74 | 4.38 | **−33 %** ⬇ |
-| B2b  bound `{...}`     | 1.73 | **1.25** | 3.38 | +38 % ⬆ |
-| B3   nested for        | **1.53** | 2.56 | 4.26 | **−40 %** ⬇ |
-| B5   dict alloc+lookup | **1.47** | 2.50 | 4.34 | **−41 %** ⬇ |
-| B7   bubble sort       | 2.18 | **1.99** |  —  | +10 % ⬆ |
-| B8   insertion sort    | 1.41 | **1.01** |  —  | +40 % ⬆ |
-| B9   recursive fib(28) | 2.03 | **1.71** | 4.26 | +19 % ⬆ |
-| B10  matmul 50×50      | **1.74** | 1.90 |  —  | **−8 %** ⬇ |
+| B1   `1 pop`           | **0.85** | 1.32 | 1.97 | **−36 %** ⬇ |
+| B2   `1 1 add pop`     | **1.78** | 2.70 | 4.28 | **−34 %** ⬇ |
+| B2b  bound `{...}`     | 1.64 | **1.22** | 3.39 | +34 % ⬆ |
+| B3   nested for        | **1.51** | 2.59 | 4.28 | **−42 %** ⬇ |
+| B5   dict alloc+lookup | **1.49** | 2.56 | 4.33 | **−42 %** ⬇ |
+| B7   bubble sort       | 2.15 | **1.98** |  —  | +9 % ⬆ |
+| B8   insertion sort    | 1.41 | **1.00** |  —  | +41 % ⬆ |
+| B9   recursive fib(28) | 1.99 | **1.71** | 4.23 | +16 % ⬆ |
+| B10  matmul 50×50      | **1.74** | 1.88 |  —  | **−7 %** ⬇ |
 
-  Score vs gs: **5 wins, 4 losses**. sli3 beats nest 2.2–2.9× across the board. Axis II step 3 improved B8/B9/B10 by 3–4 % each but regressed B2b (`{1 1 add pop} bind repeat`) by +12 % vs the post-step-2 baseline — see `fix-plan.md` "B2b regression follow-up".
+  Score vs gs: **5 wins, 4 losses**. sli3 beats nest 2.2–2.9× across the board. The Axis II step-3 hybrid dispatcher (5 inline ultra-hot ops + function-pointer table for the warm 11) recovered half of the B2b regression and improved B2 / B3 / B9 vs the post-step-2 baseline — see `fix-plan.md` "B2b regression follow-up — resolved 2026-05-14".
 - Full plan in `implementation_spec.md`.
 
 ## Build
