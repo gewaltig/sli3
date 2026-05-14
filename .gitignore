@@ -22,3 +22,10 @@ cmake_install.cmake
 Makefile
 makefile
 compile_commands.json
+
+# Benchmark results DB (per-machine; regenerate baseline via
+# bench/init_db.sh)
+bench/results.db
+bench/results.db-journal
+bench/results.db-wal
+bench/results.db-shm

@@ -1,13 +1,40 @@
 #!/bin/bash
 # Runs the dispatcher microbenchmarks against sli3 (this build),
 # NEST 2.20.2's `sli` (sibling checkout), and Ghostscript.
-# Reports best-of-five wall time (real) per implementation.
+# Reports best-of-five wall time (real) per implementation, and
+# stores all 5 samples + the best into bench/results.db (a SQLite
+# file). Disable storage with --no-record or RECORD=0.
 #
-# Usage:  bench/run.sh [sli3-binary]
-#         default sli3-binary is ./build/sli3
+# Usage:
+#   bench/run.sh                    # default: ./build/sli3, recorded
+#   bench/run.sh build-asan/sli3    # alternate binary
+#   bench/run.sh --no-record        # skip DB write
+#   bench/run.sh --label "after X"  # tag this run with a label
+#   bench/run.sh --note "..."       # free-form note column on the run
 set -u
 
-SLI3=${1:-./build/sli3}
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+DB=$ROOT/bench/results.db
+
+# ----- args -----------------------------------------------------------
+SLI3=""
+RECORD=${RECORD:-1}
+LABEL=""
+NOTE=""
+while [ $# -gt 0 ]; do
+    case $1 in
+        --no-record) RECORD=0; shift ;;
+        --label)     LABEL=$2; shift 2 ;;
+        --note)      NOTE=$2;  shift 2 ;;
+        -h|--help)
+            sed -n '1,16p' "$0"; exit 0 ;;
+        *)
+            if [ -z "$SLI3" ]; then SLI3=$1; shift
+            else echo "Unknown arg: $1" >&2; exit 1
+            fi ;;
+    esac
+done
+SLI3=${SLI3:-./build/sli3}
 NEST=${NEST:-/Users/gewaltig/Code/nest-2.20.2/.local/bin/sli}
 GS=${GS:-gs}
 
@@ -16,12 +43,61 @@ if [ ! -x "$SLI3" ]; then
     exit 1
 fi
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SLI_DIR=$ROOT/bench/sli
 PS_DIR=$ROOT/bench/ps
 
+# ----- create run row in DB ------------------------------------------
+RUN_ID=""
+if [ "$RECORD" = 1 ]; then
+    if [ ! -f "$DB" ]; then
+        echo "results.db not found; initializing..." >&2
+        "$ROOT/bench/init_db.sh" >/dev/null
+    fi
+    COMMIT_SHA=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    DIRTY=0
+    if [ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]; then DIRTY=1; fi
+    HOST=$(hostname -s 2>/dev/null || echo "unknown")
+    # SQL-escape single quotes in LABEL / NOTE.
+    L=$(printf "%s" "$LABEL" | sed "s/'/''/g")
+    N=$(printf "%s" "$NOTE"  | sed "s/'/''/g")
+    RUN_ID=$(sqlite3 "$DB" "
+        INSERT INTO runs (commit_sha, dirty, label, host, note)
+        VALUES ('$COMMIT_SHA', $DIRTY, NULLIF('$L',''), '$HOST', NULLIF('$N',''));
+        SELECT last_insert_rowid();
+    ")
+    echo "Recording to $DB as run_id=$RUN_ID (commit=$COMMIT_SHA, dirty=$DIRTY)"
+fi
+
+# ----- helpers --------------------------------------------------------
+
+# bench_id_from_label "B2b  {1 1 add pop} bind ..." -> "B2b"
+bench_id_from_label() { echo "$1" | awk '{print $1}'; }
+
+# Append one INSERT for (bench, impl, t1..t5, best). $1=bench, $2=impl,
+# remaining args are the 5 sample times (whitespace-separated). Writes
+# into the global SQL_BATCH file via FD 3 (opened in main below).
+record_result() {
+    [ "$RECORD" = 1 ] || return 0
+    local bench=$1 impl=$2; shift 2
+    # Parse the 5 sample values; if any is missing or non-numeric,
+    # bail without recording (so partial / skipped impls don't get
+    # bad rows).
+    set -- $1   # the 5 samples were passed as a single space-string
+    local t1=${1:-} t2=${2:-} t3=${3:-} t4=${4:-} t5=${5:-}
+    # All five required; otherwise treat as no-record.
+    case "$t1$t2$t3$t4$t5" in
+        *[!0-9.]*|"") return 0 ;;
+    esac
+    local best=$(printf "%s\n%s\n%s\n%s\n%s\n" "$t1" "$t2" "$t3" "$t4" "$t5" \
+                   | sort -g | head -1)
+    printf "INSERT INTO results (run_id, bench, impl, t1, t2, t3, t4, t5, best) VALUES (%s, '%s', '%s', %s, %s, %s, %s, %s, %s);\n" \
+        "$RUN_ID" "$bench" "$impl" "$t1" "$t2" "$t3" "$t4" "$t5" "$best" >&3
+}
+
 run_one() {
     local label=$1 sli=$2 ps=$3 nest_note=${4:-}
+    local bench
+    bench=$(bench_id_from_label "$label")
     echo "=== $label ==="
     for impl in sli3 nest gs; do
         local cmd=""
@@ -41,8 +117,21 @@ run_one() {
             times="$times $t"
         done
         printf "%-5s:%s\n" "$impl" "$times"
+        record_result "$bench" "$impl" "$times"
     done
 }
+
+# ----- open SQL batch file (fd 3) if recording -----------------------
+SQL_BATCH=""
+if [ "$RECORD" = 1 ]; then
+    SQL_BATCH=$(mktemp -t sli3_bench.XXXXXX.sql)
+    trap 'rm -f "$SQL_BATCH"' EXIT
+    exec 3>"$SQL_BATCH"
+else
+    exec 3>/dev/null
+fi
+
+# ----- run the workloads ---------------------------------------------
 
 run_one "B1   1 pop                       x 100M" \
         "$SLI_DIR/B1_pop.sli"            "$PS_DIR/B1_pop.ps"
@@ -107,3 +196,11 @@ run_one "B10  matmul 50x50 x 100" \
         "$SLI_DIR/B10_matmul.sli" \
         "$PS_DIR/B10_matmul.ps" \
         "(skip: sli3-specific put semantics)"
+
+# ----- commit batched inserts ----------------------------------------
+exec 3>&-
+if [ "$RECORD" = 1 ] && [ -s "$SQL_BATCH" ]; then
+    sqlite3 "$DB" <"$SQL_BATCH"
+    echo
+    echo "Recorded run $RUN_ID. Query with: bench/history.sh latest"
+fi
