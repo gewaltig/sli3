@@ -33,24 +33,32 @@ review pass.
 
 ---
 
-## Bench standing (best-of-five, sli3 ON vs gs 10.07 vs nest 2.20)
+## Bench standing (best-of-five, sli3 vs gs 10.07 vs nest 2.20)
 
-| Bench | sli3 | gs | nest | sli3 vs gs |
-|---|---:|---:|---:|---:|
-| B1   `1 pop`           | **0.85** | 1.32 | 2.01 | **−36 %** ⬇ |
-| B2   `1 1 add pop`     | **1.81** | 2.69 | 4.34 | **−33 %** ⬇ |
-| B2b  bound `{...}`     | 1.54 | **1.22** | 3.39 | +26 % ⬆ |
-| B3   nested for        | **1.53** | 2.58 | 4.30 | **−41 %** ⬇ |
-| B5   dict alloc+lookup | **1.49** | 2.49 | 4.32 | **−40 %** ⬇ |
-| B7   bubble sort       | 2.15 | **1.99** | — | +8 % ⬆ |
-| B8   insertion sort    | 1.47 | **1.01** | — | +46 % ⬆ |
-| B9   recursive fib(28) | 2.11 | **1.71** | 4.27 | +23 % ⬆ |
-| B10  matmul 50×50      | **1.79** | 1.90 | — | **−6 %** ⬇ |
+Latest run: `2026-05-14`, commit `90b129c` (post-Axis-II step 3),
+host `theo`. Stored in `bench/results.db`; reproduce with
+`bench/summary.sh --md`. Δ vs the post-step-2 baseline
+(`80d5695`) is shown in the last column.
 
-Score vs gs: **5 wins, 4 losses**. sli3 beats nest 2.2–2.9× across
-the board. The 4 remaining gs losses (B2b/B7/B8/B9) are the
-workloads where gs's threaded-code + packed-ref design has an
-intrinsic edge — Axis II step 3 and Axis III territory.
+| Bench | sli3 | gs | nest | sli3 vs gs | Δ baseline |
+|---|---:|---:|---:|---:|---:|
+| B1   `1 pop`           | **0.86** | 1.33 | 1.98 | **−35 %** ⬇ | +1.2 % |
+| B2   `1 1 add pop`     | **1.83** | 2.74 | 4.38 | **−33 %** ⬇ | +1.1 % |
+| B2b  bound `{...}`     | 1.73 | **1.25** | 3.38 | +38 % ⬆ | **+12.3 %** ⚠ |
+| B3   nested for        | **1.53** | 2.56 | 4.26 | **−40 %** ⬇ | +0.0 % |
+| B5   dict alloc+lookup | **1.47** | 2.50 | 4.34 | **−41 %** ⬇ | −1.3 % |
+| B7   bubble sort       | 2.18 | **1.99** | — | +10 % ⬆ | +1.4 % |
+| B8   insertion sort    | 1.41 | **1.01** | — | +40 % ⬆ | **−4.1 %** ⬇ |
+| B9   recursive fib(28) | 2.03 | **1.71** | 4.26 | +19 % ⬆ | **−3.8 %** ⬇ |
+| B10  matmul 50×50      | **1.74** | 1.90 | — | **−8 %** ⬇ | **−2.8 %** ⬇ |
+
+Score vs gs: **5 wins, 4 losses** — unchanged from baseline.
+sli3 beats nest 2.2–2.9× across the board. Axis II step 3
+delivered the predicted wins on the organic workloads (B8 / B9 /
+B10, the ones that actually use gt / lt / get / put inside their
+inner loops). B7 did not improve as much as predicted; B2b
+regressed +12 % even though it uses none of the newly-tagged ops
+— see "B2b regression follow-up" below.
 
 ---
 
@@ -194,6 +202,35 @@ arms. Incidental: fixed two latent refcount leaks in eq/neq and
 the string-compare arm of compare (slot-1 type was being
 overwritten as booltype without releasing the refcounted
 payload).
+
+Bench result vs the seeded baseline: B8 / B9 / B10 closed −3 to
+−4 % (predicted −5 to −10 %, on the low side). **B2b regressed
++12 %** even though it uses only `add` / `pop` (both already hot
+ops before step 3). The dispatcher hot-op switch growing from 8
+to 16 cases is the likely cause — B2b is the most dispatch-dense
+bench (tight `{1 1 add pop} bind repeat`, no name lookups) and
+absorbs every per-dispatch nanosecond. See follow-up below.
+
+### B2b regression follow-up (Axis II step 3)
+The +12 % regression on B2b after step 3 needs an investigation
+before declaring Axis II finished. Hypotheses worth testing:
+
+1. **Wider jump table I-cache pressure.** Re-order the case arms
+   so the most-frequently-hit hot ops (POP / DUP / ADD / SUB) sit
+   first; or split the switch into two — a small "very hot" set
+   first, fall through to a wider one. Measure with `perf stat`
+   on B2b: i-cache misses and branch mispredicts.
+2. **Code layout drift.** The op_bodies.h bodies are larger now;
+   the compiler may have shifted alignment of the body-walk loop.
+   Mitigation: `__attribute__((hot))` on the dispatcher, or PGO.
+3. **`hot_op_get` / `hot_op_put` bodies bloat the dispatcher TU.**
+   Move them out of op_bodies.h into a separate .cpp behind a
+   function pointer dispatched from the switch. Costs one
+   indirect call for get/put (a worthwhile trade-off if the
+   inline cases hurt B2b more than they help B8/B10).
+
+Bench gate before declaring this follow-up done: B2b ≤ 1.60 s
+(baseline + 4 %) with no regression on B8/B9/B10.
 
 ### Axis III — compact procedure storage
 Spec at `doc/compact_procedure_spec.md` §Axis III. Predicted B2b
