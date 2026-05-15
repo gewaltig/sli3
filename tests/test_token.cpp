@@ -8,8 +8,7 @@
 // balanced.
 //
 // Some tests are deliberately commented out with XFAIL markers; they
-// will be enabled at the stage that fixes the underlying bug. The
-// staging is documented in fix-plan.md.
+// will be enabled when the underlying bug is fixed.
 
 #include "sli_array.h"
 #include "sli_dictionary.h"

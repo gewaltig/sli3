@@ -2,7 +2,7 @@
 # bench/summary.sh -- one-screen summary of a bench run.
 #
 # Renders a markdown-ish table aligned with the "Bench standing"
-# format in fix-plan.md / CLAUDE.md, plus a win-loss tally vs gs.
+# format in CLAUDE.md, plus a win-loss tally vs gs.
 # Default is the most recent run; pass a run_id to summarise an
 # older one. Use `bench/history.sh runs` to list run ids.
 #

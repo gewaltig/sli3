@@ -4,8 +4,7 @@
 // to BinaryWriter, read with BinaryReader, and assert identity. Most
 // typeids work today; the ones whose SLIType subclass lacks a
 // serialize/deserialize override (Dictionary, FunctionType,
-// ProcedureType, TrieType per code-review.md) are marked XFAIL
-// pending Stage 6.
+// ProcedureType, TrieType) are marked XFAIL.
 //
 // Also covers cycle / aliasing / wire-format error paths that
 // test_serialize.cpp does not exercise yet.

@@ -1,22 +1,23 @@
 # sli3 implementation spec
 
-Working document for reviving sli3. **Status as of 2026-05-12:**
-Stages 1–5 done; bootstrap functional; full fix-plan Stages 0–5,
-7, 9, 10 done; Stage 9 (trie compaction, 10 batches) complete at
-tag `stage9-complete`; **Axis I bundle** (dispatcher pre-pop ABI)
-complete at commit `151e5e5`. Work happens on the `revive`
+Working document for reviving sli3. **Status as of 2026-05-15:**
+The revival is functionally complete. Bootstrap loads, all
+ctests green, dispatcher cleanup (Phase 1..5: collapse exec
+modes, full new-ABI migration, iter helpers → TYPE markers,
+ABI-switch retirement, call_depth removal) landed; bench
+score vs gs is 7 wins / 2 losses. Work happens on the `revive`
 branch. See the Decisions log at the bottom for chronological
 entries.
 
 Open questions Q1–Q13 are answered (see Decisions). Companion
 documents:
 
-- `fix-plan.md` — staged correctness fix plan (Stages 0–9).
-- `doc/hot_ops.md` — operator catalog + current bench standing
+- `doc/hot_ops.md` — operator catalog + bench standing
   vs nest 2.20 and gs 10.07.
-- `doc/compact_procedure_spec.md` — design for the next
-  optimization (compact procedure storage, the only remaining
-  path to within 15 % of gs on B2b).
+- `doc/control_flow_spec.md` — dispatcher control-flow contract
+  (iter frame layouts, TCO, exit/stop semantics).
+- `doc/tail_recursion.md` — TCO comparison with gs.
+- `doc/gs_reference.md` — gs interpreter notes.
 - `bench/run.sh`, `bench/sli/*.sli`, `bench/ps/*.ps` —
   microbenchmark harness.
 
@@ -686,7 +687,7 @@ it's discoverable later without scrolling:
   recursion, IfelseFunction reading the wrong stack slot, dispatch
   mode wired into startup, anytype wildcard in TrieType::lookup,
   litproceduretype name mismatch, parser context, …). Recorded in
-  the git log; see also `fix-plan.md`. A REPL with line editing and
+  the git log. A REPL with line editing and
   history (`~/.sli3_history`) lives behind the interactive prompt.
 
 - 2026-05-08: **Fix-plan Stages 0–5 + 7 done.** Test infrastructure,
@@ -812,18 +813,18 @@ it's discoverable later without scrolling:
   compaction work and to guide future contributors to ops worth
   caring about.
 
-- 2026-05-11: **Next-step spec** at
-  `doc/compact_procedure_spec.md`. Handoff-ready design for
-  compact procedure body storage (gs's `ref_packed` idea
-  adapted to sli3): a `CompactProc` type with 4-byte slots
-  plus per-procedure spill pools, produced at `bind` time.
-  Targets B2b specifically; predicted gain takes B2b from
-  1.91 s to ~1.3 s (within 15 % of gs). Spec preserves
-  PostScript late-binding semantics — names without `bind`
-  stay as names and are re-resolved at execution time; only
-  the bound case gets the direct-dispatch win. Implementation
-  is 6–8 self-contained slices; spec lists files,
-  test strategy, risks, and bench expectations.
+- 2026-05-11: **Compact-procedure design** drafted (compact
+  procedure body storage, gs's `ref_packed` idea adapted to
+  sli3: a `CompactProc` type with 4-byte slots plus per-procedure
+  spill pools, produced at `bind` time). Not pursued; the
+  dispatcher cleanup arc (Phase 1..5, May 15) closed the
+  bench gap via a different route -- iter helpers became TYPE
+  markers, the ABI switch went away, B7/B8/B9 came to parity
+  with gs. B2b remains the lone significant gs loss (+30 %);
+  if it ever needs chasing further, the TBI-on-`func_val`
+  hot-op encoding (stash HotOpId in the top byte of the
+  function pointer so the dispatcher skips one load) is the
+  next natural move.
 
 - 2026-05-11: **Two raiseerror-path bugs fixed** (commits
   `22aab36`, `2531c8f`), found while investigating the cost of

@@ -34,8 +34,7 @@ results(run_id, bench, impl, t1..t5, best)
 ```
 
 `bench/init_db.sh` creates the schema and seeds a single
-`published baseline (post-Axis-II step 2)` run pulled from
-`fix-plan.md`'s standing table. `bench/run.sh` auto-creates the
+historical baseline run. `bench/run.sh` auto-creates the
 DB on first run, writes one `runs` row per invocation, and one
 `results` row per `(bench, impl)` pair.
 
@@ -44,7 +43,7 @@ DB on first run, writes one `runs` row per invocation, and one
 ```sh
 bench/summary.sh                   # latest run, sli3 / gs / nest + vs-gs
 bench/summary.sh --diff            # also show Δ vs baseline
-bench/summary.sh --md              # markdown, paste into fix-plan.md
+bench/summary.sh --md              # markdown, paste into CLAUDE.md
 bench/summary.sh 1                 # any specific run_id
 
 bench/history.sh                   # latest run vs baseline (default)
@@ -98,6 +97,6 @@ skipped for these — PostScript's `signalerror` dispatches through
 
 Run `bench/run.sh` before committing. The result is recorded
 automatically; check `bench/history.sh` to see the delta against
-the baseline. If a number on the table in `fix-plan.md` shifts by
-more than a couple percent, update the table — silent regressions
-are easier to ship than to find.
+the baseline. If a number on the "Bench standing" table in
+`CLAUDE.md` shifts by more than a couple percent, update the
+table — silent regressions are easier to ship than to find.

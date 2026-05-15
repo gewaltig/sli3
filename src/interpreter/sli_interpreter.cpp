@@ -82,14 +82,12 @@ namespace sli3 {
 
 int signalflag = 0;
 
-// Axis II step 3 follow-up (2026-05-14): split hot-op dispatch
-// into an inline ultra-hot switch and a function-pointer table
-// for the rest. The original 16-arm inline switch caused the
-// dispatcher's jump table to grow enough to regress B2b by +12 %
-// even though B2b only uses POP and ADD (see fix-plan.md
-// "B2b regression follow-up — investigated 2026-05-14"). This
-// split keeps the 5 most-hit ops as direct inlined cases and
-// pushes the warm 11 through one indirect call.
+// Hybrid hot-op dispatch (2026-05-14): split into an inline
+// ultra-hot switch and a function-pointer table for the rest. A
+// previous 16-arm inline switch caused the dispatcher's jump table
+// to grow enough to regress B2b by +12 % even though B2b only uses
+// POP and ADD. The split keeps the 5 most-hit ops as direct inlined
+// cases and pushes the warm 11 through one indirect call.
 //
 // Each hot_op_* helper is `static inline` in op_bodies.h; taking
 // its address in *this* TU forces the compiler to emit per-TU
@@ -764,7 +762,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         // Unified body-walk for all four iter types (iiterate /
         // irepeat / ifor / iforall). proc/pos_p are case-local so
         // the compiler register-allocates them across fn->execute
-        // calls (cf. doc/axis1_slice8_plan.md "Lessons").
+        // calls.
         //
         // Two design wins over the legacy four-case dispatcher
         // (deleted in slice 8 step 4):

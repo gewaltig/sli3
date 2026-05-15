@@ -207,9 +207,9 @@ Most relevant files:
 
 When the agent reviews caught "the C++ does X but typeinit wires
 the trie expecting Y", checking the upstream version is usually
-how to disambiguate. CLAUDE.md / fix-plan.md commits already
-record several of these (e.g. NEST 2.20.2's `::pop` also points
-to `ilookupfunction`; `case` also leaves the obj on the operand
+how to disambiguate. Several past divergences are documented in
+git history (e.g. NEST 2.20.2's `::pop` also points to
+`ilookupfunction`; `case` also leaves the obj on the operand
 stack rather than executing it; `cvi_s` / `cvd_s` are
 string-input ops, not string-output).
 

@@ -410,36 +410,20 @@ Where it matters:
   immediately at end-of-body). Not common on the benches,
   but matters for SLI scripts with many small helper procs.
 
-## Implications for the Axis I dispatch restructure
+## TCO contract today
 
-The dispatch-restructure plan (`doc/dispatch_restructure_plan.md`)
-needs to preserve TCO. Slice 8 (the structural rewrite) is
-where this lands. Two design choices:
+The body-walk arm in `execute_dispatch_` implements
+single-level TCO for `iiteratetype` only: at end-of-body,
+overwrite the proc slot with the last token and pop the
+counter + marker (`sli_interpreter.cpp:929-939`). The
+multi-level cascade gs gets via `up:` is not implemented;
+sli3 does N dispatcher cycles to unwind N frames.
 
-**(a)** Keep sli3's "overwrite frame, pop 2" mechanic in the
-new dispatcher. Cheap to port; only one body-end form to
-handle. Doesn't get gs's multi-level cascade.
-
-**(b)** Adopt gs's `out:`/`up:` topology. Initialize
-`icount = body_size - 1` on body entry; `next()` advances
-icount, falling to `out:` after the second-to-last dispatch;
-`out:` pops the frame and dispatches the last ref with the
-frame already popped; `up:` cascades further.
-
-Recommendation: **(b)**. It's the same code complexity but
-gives the multi-level cascade for free, and it matches the
-mental model of gs's interpreter so the rest of the slice 8
-work (proc-body walking, continuation-op handling) flows
-naturally. The cost is a slight change to how iter operators
-(`zrepeat`-equivalents) set up their continuation: they need
-to push a real continuation operator on top of the proc
-ref, not an iter-type marker.
-
-If we go with (b), this should be a separate sub-slice
-inside slice 8: first land the `next()`/`out:`/`up:` topology
-with one iter type still using the marker, verify the bench
-deltas, then convert iter operators to continuation operators
-in a follow-up.
+A previous attempt to adopt gs's continuation-op topology
+(planned as Phase 3) was implemented and reverted -- the
+per-iter outer-switch round-trip cost ~15 ns more than the
+inline `case irepeattype:` handler, fatal for tight loops
+like B2b. The current iter-type-special-case design stays.
 
 ## Reference
 

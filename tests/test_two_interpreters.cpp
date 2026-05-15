@@ -11,7 +11,7 @@
 // same op reads through a dangling pointer into the freed
 // interpreter's type table.
 //
-// Stage 7 of fix-plan.md retires those caches. Until then, the
+// A future cleanup retires those caches. Until then, the
 // xfail-marked subtest below is expected to crash. Run with
 // `--no-xfail` (default) to keep CI green; run with `--xfail` to
 // trigger the canary explicitly.

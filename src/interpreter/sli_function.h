@@ -28,7 +28,7 @@ namespace sli3
 {
   class SLIInterpreter;
 
-  // Axis II: hot-op inlining (doc/compact_procedure_spec.md §Axis II).
+  // Hot-op inlining.
   //
   // The dispatcher's `functiontype` path switches on
   // SLIFunction::hot_op() before falling back to the virtual

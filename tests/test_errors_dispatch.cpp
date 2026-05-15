@@ -188,13 +188,15 @@ void test_or_happy_paths(SLIInterpreter& i)
 // C stack frame. When the typed leaf raises, /commandname must
 // name the user-facing dispatcher, not the implementation leaf.
 //
-// Today this works because get_current_name() reads the e-stack top
-// (which holds the dispatcher's function Token, pushed by the main
-// dispatcher loop before entering the dispatcher's execute body).
-// After Axis I Slice 4 introduces current_op_, the same attribution
-// must hold via the new field; the audit at doc/axis1_slice2_audit.md
-// concluded that the default behavior (current_op_ unchanged across
-// the inner .execute(i) call) gives the right answer at every site.
+// Today this works because the dispatcher tracks `current_op_` --
+// the function being executed -- which raiseerror reads to label
+// /commandname. The contract: current_op_ stays unchanged across
+// any inner .execute() call that the outer op makes, so nested
+// dispatch (e.g. /get fanning into /get_a) reports the outer name.
+// One exception: when the outer op pushes a leaf onto the e-stack
+// for the dispatcher itself to dispatch, the leaf becomes the new
+// current_op_ (e.g. /cvi -> baselookup /cvi_s -> push to e-stack;
+// /commandname is /cvi_s).
 //
 // These tests pin the contract so a regression at Slice 4 surfaces.
 
@@ -219,7 +221,6 @@ void test_attrib_cvi_string(SLIInterpreter& i)
     // e-stack, so the dispatcher itself dispatches /cvi_s and that
     // becomes the current op. /commandname is /cvi_s, not /cvi.
     // Distinct from /get above which is direct-call.
-    // See doc/axis1_slice2_audit.md for the two patterns.
     expect_commandname(i, "(notanumber) cvi", "cvi_s");
 }
 
