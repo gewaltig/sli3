@@ -294,6 +294,10 @@ void SLIInterpreter::init_internal_functions(void) {
   createcommand(iforallstring_name, &iforallstringfunction);
   createcommand("]", &arraycreatefunction);
   createcommand(">>", &dictconstructfunction);
+  // Phase 5: both moved to new-ABI (their bodies were updated to
+  // drop the trailing self-pop).
+  arraycreatefunction.set_new_abi();
+  dictconstructfunction.set_new_abi();
 
   createdouble(pi_name, numerics::pi);
   createdouble(e_name, numerics::e);
@@ -740,27 +744,11 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         }
         case sli3::litproceduretype:
           execution_stack_.top().type_ = proc_type;
-          operand_stack_.push(execution_stack_.top());
+          operand_stack_.push_move(execution_stack_.top());
           execution_stack_.pop();
           break;
 
         case sli3::functiontype: {
-          static int trace = -1;
-          if (trace == -1) {
-            char const *env = std::getenv("SLI3_TRACE");
-            trace = env && env[0] ? 1 : 0;
-          }
-          if (trace) {
-            SLIFunction *fn = execution_stack_.top().data_.func_val;
-            std::cerr << "[fn] " << fn->get_name().toString()
-                      << " ostack=" << operand_stack_.load();
-            size_t lim = std::min<size_t>(operand_stack_.load(), 4);
-            for (size_t k = 0; k < lim; ++k) {
-              std::cerr << " [" << k << "]=";
-              operand_stack_.pick(k).pprint(std::cerr);
-            }
-            std::cerr << '\n';
-          }
           SLIFunction* fn = execution_stack_.top().data_.func_val;
           if (__builtin_expect(count_calls_, 0))
             ++call_counts_[fn];

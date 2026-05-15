@@ -126,13 +126,13 @@ public:
         i->require_stack_load(1);
         Token& top = i->top();
         // Closing is implicit on Token destruction (when refcount hits
-        // zero). Just drop the stream.
+        // zero). Just drop the stream. new-ABI: dispatcher pre-popped
+        // /close's slot, no self-pop needed.
         if (top.is_of_type(sli3::istreamtype) ||
             top.is_of_type(sli3::xistreamtype) ||
             top.is_of_type(sli3::ostreamtype))
         {
             i->pop();
-            i->EStack().pop();
         }
         else
         {
@@ -326,6 +326,7 @@ void init_io_ops(SLIInterpreter* i)
     ofstream_fn.set_new_abi();
     ostrstream_fn.set_new_abi();
     str_fn.set_new_abi();
+    close_fn.set_new_abi();  // Phase 5
 }
 
 }  // namespace sli3

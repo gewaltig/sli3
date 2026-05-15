@@ -333,13 +333,15 @@ FirstVersion: 25 Jul 2005, Gewaltig
 
 void CloseinputFunction::execute(SLIInterpreter *i) const
 {
-  size_t l=i->EStack().load();
-
-  bool found=false;
-  size_t n=1;
-
-  while( ( l > n ) &&  !(found))
-    found = i->EStack().pick(n++).is_of_type(sli3::xistreamtype);
+  // Phase 5 new-ABI: dispatcher pre-popped /closeinput, so start
+  // the scan at pick(0) (the call site) and look upward for the
+  // nearest xistreamtype slot. On hit, pop(n) drops everything
+  // from top down to and including the xistream.
+  size_t const l = i->EStack().load();
+  bool found = false;
+  size_t n = 0;
+  while (n < l && !(found = i->EStack().pick(n).is_of_type(sli3::xistreamtype)))
+    ++n;
 
 /*
   if(i->catch_errors() || ! found)
@@ -377,8 +379,8 @@ void CloseinputFunction::execute(SLIInterpreter *i) const
     return;
   }
 
-  i->EStack().pop(n);
-
+  // Drop everything from top down to and including the xistream slot.
+  i->EStack().pop(n + 1);
 }
 
 /* BeginDocumentation
@@ -2204,6 +2206,9 @@ void  init_slicontrol(SLIInterpreter *i)
     stopfunction.set_new_abi();
     execfunction.set_new_abi();
     bindfunction.set_new_abi();
+    // Phase 5: the last old-ABI ops in this file.
+    closeinputfunction.set_new_abi();
+    startfunction.set_new_abi();
     forall_afunction.set_new_abi();
     forall_sfunction.set_new_abi();
     forallindexed_afunction.set_new_abi();

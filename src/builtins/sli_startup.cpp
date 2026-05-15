@@ -134,15 +134,12 @@ public:
         // Set up an owning istringstream wrapped in an SLIistream.
         auto* iss = new std::istringstream(std::move(src));
         auto* wrap = new SLIistream(iss);  // owns iss
-        // Replace ourselves on the estack with [xistream, iparse]: the
-        // dispatcher will run iparse repeatedly over the stream until
-        // EOF, executing each parsed token.
-        i->EStack().pop();  // pop /evalstring entry
+        // Phase 5 new-ABI: dispatcher already pre-popped the
+        // /evalstring entry. Push [xistream, iparse] on top so the
+        // dispatcher runs iparse repeatedly over the stream until EOF.
         Token x(i->get_type(sli3::xistreamtype));
         x.data_.istream_val = wrap;
         i->EStack().push(x);
-        // x.execute() (XIstreamType::execute) would push iparse, but
-        // we're already past the dispatch — push iparse manually.
         i->EStack().push(i->new_token<sli3::nametype, Name>(i->iparse_name));
     }
 };
@@ -542,6 +539,7 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     flush_fn.set_new_abi();
     write_fn.set_new_abi();
     pwrite_fn.set_new_abi();
+    evalstring_fn.set_new_abi();  // Phase 5
 
     // 2b. Stubs for unimplemented operators that typeinit.sli /
     //     mathematica.sli / etc. reference via `<X> load addtotrie`.

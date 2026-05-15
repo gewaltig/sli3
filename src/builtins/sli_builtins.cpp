@@ -484,7 +484,7 @@ void ArraycreateFunction::execute(SLIInterpreter *i) const
 	    (*ad)[l-2].init((i->pick(n-l)));
 	i->pop(n);
 	i->push(i->new_token<sli3::arraytype>(ad));
-	i->EStack().pop();
+	// new-ABI: dispatcher pre-popped the /] slot.
     }
     else
     {
@@ -547,7 +547,7 @@ void DictconstructFunction::execute(SLIInterpreter *i) const
     Token dict_tok(i->get_type(sli3::dictionarytype));
     dict_tok.data_.dict_val = d;
     i->push(dict_tok);
-    i->EStack().pop();
+    // new-ABI: dispatcher pre-popped the />> slot.
 }
 
 

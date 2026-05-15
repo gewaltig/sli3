@@ -375,9 +375,11 @@ void  init_slistack(SLIInterpreter *i)
     i->createcommand("operandstack",&operandstackfunction);
 
     // Axis I bundle step 3: ops in sli_stack.cpp converted to new ABI.
-    // RestoreestackFunction stays old-ABI -- it replaces the entire
-    // e-stack via i->EStack() = *array_val, so the dispatcher post-
-    // check (compares fn pointer identity) must not run.
+    // Phase 5: restoreestack joins them. Under new-ABI the dispatcher
+    // pre-pops the /restoreestack slot before the body runs; the body
+    // then overwrites the estack with the supplied array. Either ABI
+    // produces the same result; new-ABI is consistent with the rest.
+    restoreestackfunction.set_new_abi();
     clearfunction.set_new_abi();
     copyfunction.set_new_abi();
     countfunction.set_new_abi();
