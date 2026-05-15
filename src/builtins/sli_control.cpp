@@ -302,54 +302,28 @@ SeeAlso: stopped, raiseerror
 */
 void StopFunction::execute(SLIInterpreter *i) const
 {
-
-    size_t l=i->EStack().load();
-    bool found=false;
-    size_t n=1;
-
-    while( ( l > n ) &&  !(found))
-    {
-	Token &t=i->EStack().pick(n++);
-        found= (t == i->istopped_name);
+    // Axis I bundle Phase 2b: new-ABI. Dispatcher pre-popped /stop,
+    // so the scan starts at pick(0) and walks upward for the nearest
+    // istopped_name sentinel (pushed by StoppedFunction). On hit:
+    // push true onto the operand stack and pop(n + 1) the estack
+    // down to and including the sentinel.
+    size_t const l = i->EStack().load();
+    size_t n = 0;
+    bool found = false;
+    while (n < l) {
+        if (i->EStack().pick(n) == i->istopped_name) {
+            found = true;
+            break;
+        }
+        ++n;
     }
-
-    // if(i->catch_errors() && ! found)
-    // 	i->debug_mode_on();
-
-/*
-    if(i->get_debug_mode() || i->show_backtrace())
-    {
-	if(i->show_backtrace() || ! found)
-	    i->stack_backtrace(l-1);
-
-	std::cerr << "In stop: An error or stop was raised."
-		  <<" Unrolling stack by " << n << " levels."
-		  << std::endl;
-	if(!found)
-	{
-	    std::cerr << "No 'stopped' context found." << std::endl
-		      << "Stack unrolling will erase the execution stack." << std::endl
-		      << "Entering debug mode. Type '?' for help." << std::endl;
-	}
-	
-	if(i->get_debug_mode())
-	{
-	    char c=i->debug_commandline(i->EStack().top());
-	    if(c=='i') // in interactive mode, we leave the stack as it is.
-		return;
-	}
+    if (!found) {
+        i->message(30, "stop", "No stopped context was found! \n");
+        i->EStack().clear();
+        return;
     }
-*/  
-    if(!found)
-    {
-	i->message(30,"stop",
-		   "No stopped context was found! \n");
-	i->EStack().clear();
-	return;
-    }
-
-    i->push(true);    
-    i->EStack().pop(n);
+    i->push(true);
+    i->EStack().pop(n + 1);
 }
 
 /*BeginDocumentation
@@ -1132,7 +1106,13 @@ SeeAlso: cvx
 */
 void ExecFunction::execute(SLIInterpreter *i) const
 {
-    i->EStack().swap(i->top());
+    // new-ABI: dispatcher pre-popped /exec. Move the ostack top
+    // (the object to execute) onto the estack via swap-out. The
+    // vacated ostack slot is type_=0 so the trailing pop is a
+    // no-op refcount-wise.
+    i->require_stack_load(1);
+    i->EStack().push(Token{});
+    i->EStack().top().swap(i->top());
     i->pop();
 }
 
@@ -2133,8 +2113,13 @@ void  init_slicontrol(SLIInterpreter *i)
     repeatfunction.set_new_abi();
     stoppedfunction.set_new_abi();
     forfunction.set_new_abi();
-    // Phase 2a: exit migrated to new-ABI. Body scans from pick(0).
+    // Phase 2a/2b: exit + stop + exec migrated to new-ABI. Exit/stop
+    // scan the estack from pick(0); exec moves the ostack top onto
+    // the estack via swap-out. All three rely on the dispatcher
+    // having pre-popped the call slot.
     exitfunction.set_new_abi();
+    stopfunction.set_new_abi();
+    execfunction.set_new_abi();
     forall_afunction.set_new_abi();
     forall_sfunction.set_new_abi();
     forallindexed_afunction.set_new_abi();
