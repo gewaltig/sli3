@@ -29,12 +29,13 @@ namespace sli3
   built-in or user supplied functions must be defined
   either in builtins.{h,cc} or in user-defined modules
   *******************************************************/
-  class IparsestdinFunction: public SLIFunction
-  {
-  public:
-    IparsestdinFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
+  // Phase 5 cleanup: IparsestdinFunction, IlookupFunction,
+  // IiterateFunction, IrepeatFunction, IforFunction, and
+  // IforallarrayFunction were dead in dispatch mode (the
+  // dispatcher handles proceduretype, ifortype, iforalltype
+  // inline via body_walk; ::lookup, ::pop, ::parsestdin were
+  // createcommand'd but no caller baselookup'd them). All six
+  // have been deleted -- see sli_builtins.cpp for the audit.
 
   class IparseFunction: public SLIFunction
   {
@@ -43,21 +44,6 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
 
-  class IlookupFunction: public SLIFunction
-  {
-  public:
-    IlookupFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
-  class IiterateFunction: public SLIFunction
-  {
-  public:
-    IiterateFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-  };
-  
   class IloopFunction: public SLIFunction
   {
   public:
@@ -65,32 +51,7 @@ namespace sli3
     void execute(SLIInterpreter *) const;
     void backtrace(SLIInterpreter *, int) const ;
   };
-  
-  class IrepeatFunction: public SLIFunction
-  {
-  public:
-    IrepeatFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-    
-  };
-  
-  class IforFunction: public SLIFunction
-  {
-  public:
-    IforFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-  };
-  
-  class IforallarrayFunction: public SLIFunction
-  {
-  public:
-    IforallarrayFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-  };
-  
+
   class IforallindexedarrayFunction: public SLIFunction
   {
   public:

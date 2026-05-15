@@ -133,11 +133,14 @@ namespace sli3
 
   void ProcedureType::execute(Token &)
   {
+    // Unreachable in dispatch mode: the dispatcher's outer-switch
+    // `case sli3::proceduretype:` handles proceduretype tokens
+    // directly, so SLIType::execute is never invoked for them.
+    // Kept as a defensive fallback that mirrors the dispatcher's
+    // setup: push pos=0 + an iiterate type marker so body_walk
+    // takes over if anything ever lands here.
     sli_->EStack().push(sli_->new_token<sli3::integertype>(0));
-    sli_->EStack().push(sli_->baselookup(sli_->iiterate_name));
+    sli_->EStack().push(Token(sli_->get_type(sli3::iiteratetype)));
     sli_->inc_call_depth();
-    // EStack().dump(std::cerr) was here as leftover debug; removed
-    // in Stage 1.4 — the dispatcher invokes this on every procedure
-    // call and the dump was flooding stderr.
   }
 }

@@ -25,28 +25,10 @@
 
 namespace sli3
 {
-  void IlookupFunction::execute(SLIInterpreter *i) const
-  {
-    i->EStack().pop(2);
-  }
-  
-/*BeginDocumentation
-Name: parsestdin - Read and execute tokens from standard input
-Description: parsestdin repeatedly reads and executes SLI commands from
-the standard input stream (cin) until an end-of-file symbol is excountered
-or the command exit is executed.
-
-*/
-void IparsestdinFunction::execute(SLIInterpreter *i) const
-{
-    Token t= i->read_token(std::cin);
-    if(t.is_of_type(sli3::symboltype))
-        i->EStack().pop();
-    else
-      {
-        i->EStack().push(t);
-      }
-}
+// Phase 5: IlookupFunction and IparsestdinFunction were dead --
+// ::lookup / ::pop / ::parsestdin were createcommand'd but no
+// caller ever baselookup'd them. Removed; the classes are gone
+// from sli_builtins.h.
 
 void IparseFunction::execute(SLIInterpreter *i) const
 {
@@ -75,57 +57,14 @@ void IparseFunction::execute(SLIInterpreter *i) const
     }
 }
 
-  
-  void IiterateFunction::backtrace(SLIInterpreter *i, int p) const
-  {
-    /*
-      assert(i->EStack().pick(p+2).is_of_type(sli3::proceduretype));
-      TokenArray *proc=EStack().pick(p+2).data_.array_val;
-      assert(i->EStack().pick(p+1).is_of_type(sli3::integertypetype));
-      long pos= i->EStack().pick(p+1).data_.long_val;
-      
-      std::cerr << "In procedure:" << std::endl;
-      
-      proc->list(std::cerr,"   ",pos-1);
-      std::cerr << std::endl;
-    */
-  }
-  
-  void IiterateFunction::execute(SLIInterpreter *i) const
-  {
-    /* 
-       This function is responsible for executing a procedure
-       object. Iiterate expects the procedure to execute as first
-       and the iteration counter as second argument.
-       
-       Like in all internal function, no error checking is done.
-       
-    */
-    
-    /* Stack Layout:
-       3       2       1
-       <proc>  <pos>   %iterate
-    */
-    
-    TokenArray *proc= i->EStack().pick(2).data_.array_val;   
-    long &pos=i->EStack().pick(1).data_.long_val;
-    
-    while( proc->index_is_valid(pos))
-      {
-	const Token &t=proc->get(pos);
-	++pos;
-	if( t.is_executable())
-	  {
-	    i->EStack().push(t);
-	    return;
-	  }
-	i->push(t);
-      }
-    
-    i->EStack().pop(3);
-    i->dec_call_depth();
-  }
-  
+  // Phase 5: IiterateFunction was dead. ProcedureType::execute
+  // (sli_arraytype.cpp) used to push baselookup(iiterate_name) so
+  // this function would be invoked, but ProcedureType::execute is
+  // itself unreachable in dispatch mode (the dispatcher's outer
+  // `case proceduretype:` handles proceduretype directly). Removed.
+  // The body_walk `case sli3::iiteratetype:` arm provides the
+  // same semantics inline.
+
   void IloopFunction::execute(SLIInterpreter *i) const
   {
     // stack: mark procedure n   %loop
@@ -167,167 +106,11 @@ void IparseFunction::execute(SLIInterpreter *i) const
   }
   
   
-  /**********************************************/
-  /* %repeat                                    */
-  /*  call: mark  count proc  n %repeat         */
-  /*  pick   5      4     3   2    1            */        
-  /**********************************************/
-  void IrepeatFunction::execute(SLIInterpreter *i) const
-  {
-    TokenArray *proc= i->EStack().pick(2).data_.array_val;   
-    long &pos=i->EStack().pick(1).data_.long_val;
-
-    while( proc->index_is_valid(pos))
-      {
-	const Token &t=proc->get(pos);
-	++pos;
-	if( t.is_executable())
-	  {
-	    i->EStack().push(t);
-	    return;
-	  }
-	i->push(t);
-      }
-    
-    long &lc=i->EStack().pick(3).data_.long_val;
-    if( lc > 0 )
-      {
-	pos=0;     // reset procedure iterator
-	--lc;
-      }
-    else
-      {
-	i->EStack().pop(5);
-	i->dec_call_depth();
-      }
-  }
-
-void IrepeatFunction::backtrace(SLIInterpreter *i, int p) const
-{
-  /*
-  IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack().pick(p+3).datum());
-  assert(count != NULL);
-
-  ProcedureDatum const *pd= static_cast<ProcedureDatum *>(i->EStack().pick(p+2).datum());   
-  assert(pd!= NULL);
-
-  IntegerDatum   *id= static_cast<IntegerDatum *>(i->EStack().pick(p+1).datum());
-  assert(id != NULL);
-
-  std::cerr << "During repeat with " << count->get() << " iterations remaining." << std::endl;
-  
-  pd->list(std::cerr,"   ",id->get()-1);
-  std::cerr <<std::endl;
-  */
-}
-
-/*****************************************************/
-/* %for                                              */
-/*  call: mark incr limit count proc  n  %for        */
-/*  pick   6     5    4     3    2    1    0         */        
-/*****************************************************/
-void IforFunction::execute(SLIInterpreter *i) const
-{
-  TokenArray *proc= i->EStack().pick(2).data_.array_val;   
-  long &pos=i->EStack().pick(1).data_.long_val;
-  
-  while( proc->index_is_valid(pos))
-    {
-      const Token &t= proc->get(pos);
-      ++pos;
-      if( t.is_executable())
-	{
-	  i->EStack().push(t);
-	  return;
-	}
-      i->push(t);
-    }
-  
-  long &count=i->EStack().pick(3).data_.long_val;
-  long &lim=i->EStack().pick(4).data_.long_val;
-  long &inc=i->EStack().pick(5).data_.long_val;
-        
-   if(( (inc> 0) && (count <= lim)) ||
-      ( (inc< 0) && (count >= lim)))
-    {
-	pos=0;                        // reset procedure interator
-	
-	i->push(i->EStack().pick(3)); // push counter to user
-	count += inc;                 // increment loop counter
-    }
-  else
-  {
-      i->EStack().pop(7);
-      i->dec_call_depth();
-  }
-}
-  
-void IforFunction::backtrace(SLIInterpreter *i, int p) const
-{
-  /* 
- IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack().pick(p+3).datum());
-  assert(count!=NULL);
-  ProcedureDatum const *pd= static_cast<ProcedureDatum *>(i->EStack().pick(p+2).datum());   
-  assert(pd != NULL);
-  IntegerDatum   *id= static_cast<IntegerDatum *>(i->EStack().pick(p+1).datum());
-  assert(id != NULL);
-
-  std::cerr << "During for at iterator value " << count->get() << "." << std::endl;
-  
-  pd->list(std::cerr,"   ",id->get()-1);
-  std::cerr <<std::endl;
-  */
-}
-
-/*********************************************************/
-/* %forallarray                                          */
-/*  call: mark object count proc n %forallarray      */
-/*  pick    5     4    3     2    1    0               */        
-/*********************************************************/
-void IforallarrayFunction::execute(SLIInterpreter *i) const
-{
-  TokenArray *proc= i->EStack().pick(2).data_.array_val;   
-  long &pos=i->EStack().pick(1).data_.long_val;
-
-  while( proc->index_is_valid(pos))
-    {
-      const Token &t= proc->get(pos);
-      ++pos;
-      if( t.is_executable())
-	{
-	  i->EStack().push(t);
-	  return;
-	}
-      i->push(t);
-    }
- 
-  TokenArray *ad= i->EStack().pick(4).data_.array_val;   
-  long &idx=i->EStack().pick(3).data_.long_val;
-        
-  if(ad->index_is_valid(idx))
-    {
-      pos=0; // reset procedure interator
-      
-      i->push(ad->get(idx)); // push counter to user
-      ++idx;
-    }
-  else
-    {
-      i->EStack().pop(6);
-      i->dec_call_depth();
-    }
-}
-
-
-void IforallarrayFunction::backtrace(SLIInterpreter *i, int p) const
-{
-  /*
-  IntegerDatum   *count= static_cast<IntegerDatum *>(i->EStack().pick(p+3).datum());
-  assert(count!=NULL);
-
-  std::cerr << "During forall (array) at iteration " << count->get() << "." << std::endl;
-  */
-}
+  // Phase 5: IrepeatFunction, IforFunction, IforallarrayFunction
+  // were dead. The dispatcher's body_walk handles irepeattype,
+  // ifortype, iforalltype directly; the entry ops (RepeatFunction,
+  // ForFunction, Forall_aFunction) push the type marker on top of
+  // their iter frame, not these legacy function tokens.
 
 /*********************************************************/
 /* %forallindexedarray                                   */

@@ -280,18 +280,20 @@ void SLIInterpreter::init_dictionaries() {
 
 void SLIInterpreter::init_internal_functions(void) {
   createcommand(iparse_name, &iparsefunction);
-  createcommand(iparsestdin_name, &iparsestdinfunction);
-  createcommand(ilookup_name, &ilookupfunction);
-  createcommand(ipop_name, &ilookupfunction);
-  createcommand(iiterate_name, &iiteratefunction);
   createcommand(iloop_name, &iloopfunction);
   system_dict_->insert(irepeat_name, Token(types_[sli3::irepeattype]));
   system_dict_->insert(Name("quit"), Token(types_[sli3::quittype]));
   system_dict_->insert(iforallarray_name, Token(types_[sli3::iforalltype]));
-  createcommand(ifor_name, &iforfunction);
   createcommand(iforallindexedstring_name, &iforallindexedstringfunction);
   createcommand(iforallindexedarray_name, &iforallindexedarrayfunction);
   createcommand(iforallstring_name, &iforallstringfunction);
+  // IiterateFunction / IforFunction / IforallarrayFunction /
+  // IlookupFunction / IparsestdinFunction were the legacy iter
+  // helpers. The dispatcher's body_walk handles proceduretype,
+  // ifortype, iforalltype directly; ::lookup, ::pop, ::parsestdin
+  // were createcommand'd but no caller ever baselookup'd them.
+  // Removed in Phase 5 (dead-code cleanup); all five helper classes
+  // are gone from sli_builtins.{h,cpp}.
   createcommand("]", &arraycreatefunction);
   createcommand(">>", &dictconstructfunction);
   // Phase 5: both moved to new-ABI (their bodies were updated to

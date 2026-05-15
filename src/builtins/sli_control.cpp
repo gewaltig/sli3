@@ -343,33 +343,6 @@ void CloseinputFunction::execute(SLIInterpreter *i) const
   while (n < l && !(found = i->EStack().pick(n).is_of_type(sli3::xistreamtype)))
     ++n;
 
-/*
-  if(i->catch_errors() || ! found)
-    i->debug_mode_on();
-
-  if(i->get_debug_mode() || i->show_backtrace())
-  {
-    if(i->show_backtrace() || ! found)
-      i->stack_backtrace(n);
-
-    std::cerr << "In closeinput: Termination of input file requested."
-        <<" Unrolling stack by " << n << " levels."
-        << std::endl;
-    if(!found)
-    {
-      std::cerr << "In closeinput: No active input file was found." << std::endl
-          << "Stack unrolling will erase the execution stack." << std::endl
-          << "Entering debug mode. Type '?' for help." << std::endl;
-    }
-
-    if(i->get_debug_mode())
-    {
-      char c=i->debug_commandline(i->EStack().top());
-      if(c=='i') // in interactive mode, we leave the stack as it is.
-        return;
-    }
-  }
-*/
   if(!found)
   {
     i->message(30,"closeinput",
@@ -439,24 +412,24 @@ void DefFunction::execute(SLIInterpreter *i) const
 
 /*BeginDocumentation
 Name: Set - Define an association between a name and an object in the current dictionary
-Synopsis: 
+Synopsis:
   obj literal   Set -> -
   [... [obj_1 ...] ... obj_n] [... [literal_1 ...] ... literal_n] Set -> -
-Description: 
+Description:
  In the first form Set is identical to def, except for the reversed parameters and
- creates or modifies an entry for the literal in the current dictionary. The new value 
+ creates or modifies an entry for the literal in the current dictionary. The new value
  assigned to the literal is obj.
  In the second form multiple simultaneous assignments are made to the literals contained in
- the second. The nesting of this array is arbitrary, indicated in the synopsis by the 
- inner brackets, and the same object are taken from the identical positions in first array. 
+ the second. The nesting of this array is arbitrary, indicated in the synopsis by the
+ inner brackets, and the same object are taken from the identical positions in first array.
 
 
-Examples: 
+Examples:
  {1 2 add} /myproc Set
- [4 3] [/x /y] Set 
- [[4 3 7] [-9 1]] [[/a /b /c] [/x /y]] Set 
- [[4 9] 3] [/x /y] Set 
- [[4 9] 3] [[/a /b] /y] Set 
+ [4 3] [/x /y] Set
+ [[4 3 7] [-9 1]] [[/a /b /c] [/x /y]] Set
+ [[4 9] 3] [/x /y] Set
+ [[4 9] 3] [[/a /b] /y] Set
 
 SeeAlso: def, undef, begin, end
 */
@@ -629,7 +602,7 @@ BeginDocumentation
      Dictionaries:
        For each key/value pair of the dictionary, forall calls f.
        Order on the operand stack will be: key, value. (I.e. value on top.)
- 
+
        *Note: The dictionary contents are copied before operation.
         This can be a potentially expensive operation.*
 
@@ -993,7 +966,7 @@ void RaiseerrorFunction::execute(SLIInterpreter *i) const
  Description:
    print_error prints a message describing the content of
    the error dictionary. Please see the example below for
-   information about how to use this function. 
+   information about how to use this function.
    Note: The errordict parameters command and message are
    reset after a call to print_error. The errorname is not
    reset, so every call to print_error will use the same
@@ -1014,7 +987,7 @@ void RaiseerrorFunction::execute(SLIInterpreter *i) const
 
 void PrinterrorFunction::execute(SLIInterpreter *i) const
 {
-  // The name of the command that raised the error should be 
+  // The name of the command that raised the error should be
   // placed at the top of the OStack.
     i->require_stack_load(1);
 
@@ -1583,16 +1556,16 @@ SeeAlso: clock, usertime, tic, toc
 */
 
 void Sleep_iFunction::execute(SLIInterpreter *i) const
-{ 
+{
   i->require_stack_load(1);
   i->require_stack_type(0,sli3::integertype);
-  const long sec    =  i->pick(0).data_.long_val;  
+  const long sec    =  i->pick(0).data_.long_val;
   const long usec   = 0;
   struct timeval tv = { sec, usec };
 
   if (sec>0)
     select( 0, 0, 0, 0, &tv );
-  
+
   i->pop();
 }
 
