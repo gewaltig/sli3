@@ -542,280 +542,13 @@ public:
 };
 
 //------------------------------------------------------------------------
-// Map family
-//
-// Iterator-on-EStack pattern. The entry function (Map/MapIndexed/MapThread)
-// pops itself, sets up a frame on the execution stack ending in the
-// iterator function, then returns. The dispatcher then keeps re-invoking
-// the iterator: each invocation collects the result of the previous
-// procedure call (if any), pushes the next argument(s), and then pushes
-// the user procedure on the estack so the dispatcher executes it. When
-// the source is exhausted the iterator pops its frame and pushes the
-// result array onto the operand stack.
-//
-// Frame layout for ::Map / ::MapIndexed (top to bottom):
-//   pick(0)  iterator function (this is what gets dispatched)
-//   pick(1)  pos (integertype)            -- elements processed so far
-//   pick(2)  proc (proceduretype)         -- user procedure
-//   pick(3)  result array (arraytype)     -- mutated in place
-//   pick(4)  mark                          -- exit/cleanup boundary
-//
-// Frame layout for ::MapThread (top to bottom):
-//   pick(0)  iterator function
-//   pick(1)  pos
-//   pick(2)  proc
-//   pick(3)  result array
-//   pick(4)  source array of inner arrays
-//   pick(5)  mark
-//------------------------------------------------------------------------
-
-// Set up an estack frame and exit the entry function. The result array
-// is pre-sized to N and gets overwritten slot-by-slot by the iterator.
-void setup_map_frame_(SLIInterpreter* i, TokenArray* result, Token const& iter)
-{
-    // EStack on entry: top is the entry function (Map/MapIndexed). Pop it.
-    i->EStack().pop();
-    i->EStack().push(i->new_token<sli3::marktype>());
-    i->EStack().push(i->new_token<sli3::arraytype>(result));
-    i->EStack().push(i->top());                                  // proc
-    i->EStack().push(i->new_token<sli3::integertype>(0L));       // pos
-    i->EStack().push(iter);                                      // iterator
-    i->inc_call_depth();
-    // Entry function had array+proc on the operand stack. Drop both;
-    // the caller will receive 'result' from the iterator on completion.
-    i->pop(2);
-}
-
-class IMapFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        long pos = i->EStack().pick(1).data_.long_val;
-        TokenArray* result = i->EStack().pick(3).data_.array_val;
-        size_t limit = result->size();
-
-        if (pos > 0)
-        {
-            if (i->load() == 0)
-            {
-                i->raiseerror(i->StackUnderflowError);
-                return;
-            }
-            (*result)[static_cast<size_t>(pos) - 1] = i->top();
-            i->pop();
-        }
-
-        if (static_cast<size_t>(pos) < limit)
-        {
-            // Push the next element to the user. Read pick before any
-            // estack push to keep the reference valid.
-            Token elem = result->get(pos);
-            ++i->EStack().pick(1).data_.long_val;
-            Token proc_copy = i->EStack().pick(2);
-            i->push(elem);
-            i->EStack().push(proc_copy);
-        }
-        else
-        {
-            // Done: extract result, pop frame, push to ostack.
-            Token res = i->EStack().pick(3);
-            i->EStack().pop(5);
-            i->push(res);
-            i->dec_call_depth();
-        }
-    }
-};
-
-class IMapIndexedFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        long pos = i->EStack().pick(1).data_.long_val;
-        TokenArray* result = i->EStack().pick(3).data_.array_val;
-        size_t limit = result->size();
-
-        if (pos > 0)
-        {
-            if (i->load() == 0)
-            {
-                i->raiseerror(i->StackUnderflowError);
-                return;
-            }
-            (*result)[static_cast<size_t>(pos) - 1] = i->top();
-            i->pop();
-        }
-
-        if (static_cast<size_t>(pos) < limit)
-        {
-            Token elem = result->get(pos);
-            long idx = pos;
-            ++i->EStack().pick(1).data_.long_val;
-            Token proc_copy = i->EStack().pick(2);
-            i->push(elem);
-            i->push(idx);
-            i->EStack().push(proc_copy);
-        }
-        else
-        {
-            Token res = i->EStack().pick(3);
-            i->EStack().pop(5);
-            i->push(res);
-            i->dec_call_depth();
-        }
-    }
-};
-
-class IMapThreadFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        long pos = i->EStack().pick(1).data_.long_val;
-        TokenArray* result = i->EStack().pick(3).data_.array_val;
-        TokenArray* sources = i->EStack().pick(4).data_.array_val;
-        size_t limit = result->size();
-
-        if (pos > 0)
-        {
-            if (i->load() == 0)
-            {
-                i->raiseerror(i->StackUnderflowError);
-                return;
-            }
-            (*result)[static_cast<size_t>(pos) - 1] = i->top();
-            i->pop();
-        }
-
-        if (static_cast<size_t>(pos) < limit)
-        {
-            // Push inner_arrays[k][pos] for each k.
-            ++i->EStack().pick(1).data_.long_val;
-            Token proc_copy = i->EStack().pick(2);
-            for (Token const* row = sources->begin(); row != sources->end(); ++row)
-                i->push(row->data_.array_val->get(pos));
-            i->EStack().push(proc_copy);
-        }
-        else
-        {
-            Token res = i->EStack().pick(3);
-            i->EStack().pop(6);
-            i->push(res);
-            i->dec_call_depth();
-        }
-    }
-};
-
-class MapFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        i->require_stack_load(2);
-        i->require_stack_type(0, sli3::proceduretype);
-        i->require_stack_type(1, sli3::arraytype);
-        TokenArray* proc = i->top().data_.array_val;
-        TokenArray* src = i->pick(1).data_.array_val;
-        if (proc->size() == 0 || src->size() == 0)
-        {
-            // Empty proc or empty source: leave the array untouched.
-            // proc is currently on top, array right below — pop proc.
-            i->EStack().pop();
-            i->pop();
-            return;
-        }
-        TokenArray* result = new TokenArray(*src);
-        setup_map_frame_(i, result, i->baselookup(Name("::Map")));
-    }
-};
-
-class MapIndexedFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        i->require_stack_load(2);
-        i->require_stack_type(0, sli3::proceduretype);
-        i->require_stack_type(1, sli3::arraytype);
-        TokenArray* proc = i->top().data_.array_val;
-        TokenArray* src = i->pick(1).data_.array_val;
-        if (proc->size() == 0 || src->size() == 0)
-        {
-            i->EStack().pop();
-            i->pop();
-            return;
-        }
-        TokenArray* result = new TokenArray(*src);
-        setup_map_frame_(i, result, i->baselookup(Name("::MapIndexed")));
-    }
-};
-
-class MapThreadFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        i->require_stack_load(2);
-        i->require_stack_type(0, sli3::proceduretype);
-        i->require_stack_type(1, sli3::arraytype);
-        TokenArray* proc = i->top().data_.array_val;
-        TokenArray* outer = i->pick(1).data_.array_val;
-        if (outer->empty())
-        {
-            // No inner arrays -> nothing to do. Leave outer (empty)
-            // unchanged on the operand stack.
-            i->EStack().pop();
-            i->pop();
-            return;
-        }
-        // Validate: every element must be an array of equal length.
-        if (!outer->begin()->is_of_type(sli3::arraytype))
-        {
-            i->raiseerror(i->ArgumentTypeError);
-            return;
-        }
-        size_t n = outer->begin()->data_.array_val->size();
-        for (Token const* t = outer->begin(); t != outer->end(); ++t)
-        {
-            if (!t->is_of_type(sli3::arraytype))
-            {
-                i->raiseerror(i->ArgumentTypeError);
-                return;
-            }
-            if (t->data_.array_val->size() != n)
-            {
-                i->raiseerror(i->RangeCheckError);
-                return;
-            }
-        }
-        if (proc->size() == 0 || n == 0)
-        {
-            // Empty proc or zero-length inner: return an empty
-            // array (matches NEST 2.x MapThread on this edge case).
-            i->EStack().pop();
-            i->pop();  // proc
-            TokenArray* empty = new TokenArray();
-            i->top() = i->new_token<sli3::arraytype>(empty);
-            return;
-        }
-        TokenArray* result = new TokenArray(n, Token());
-
-        // EStack frame for MapThread (additional: source array).
-        // Top to bottom:
-        //   ::MapThread, pos, proc, result, sources, mark
-        i->EStack().pop();  // pop entry function
-        i->EStack().push(i->new_token<sli3::marktype>());
-        i->EStack().push(i->pick(1));                              // sources (outer)
-        i->EStack().push(i->new_token<sli3::arraytype>(result));   // result
-        i->EStack().push(i->top());                                // proc
-        i->EStack().push(i->new_token<sli3::integertype>(0L));     // pos
-        i->EStack().push(i->baselookup(Name("::MapThread")));
-        i->inc_call_depth();
-        i->pop(2);  // pop sources, proc from ostack
-    }
-};
-
+// Map family: removed from C++ in Phase 5. /Map, /MapIndexed_a, and
+// /MapThread_a are defined in lib/sli/sli-init.sli using forall +
+// array constructors. The C++ implementation required an
+// iterator-on-estack pattern with old-ABI ::Map / ::MapIndexed /
+// ::MapThread helpers that blocked the dispatcher's ABI cleanup;
+// the SLI versions are slower per call but the dispatcher now has
+// only new-ABI ops.
 //------------------------------------------------------------------------
 // Function instances. One per operator, since createcommand() stores a
 // pointer and back-references for dispatch and naming.
@@ -835,12 +568,6 @@ MinMaxFunction<true>       getmax_fn;
 MinMaxFunction<false>      getmin_fn;
 ValidFunction              valid_fn;
 FiniteQDFunction           finiteq_d_fn;
-MapFunction                map_fn;
-MapIndexedFunction         map_indexed_fn;
-MapThreadFunction          map_thread_fn;
-IMapFunction               imap_fn;
-IMapIndexedFunction        imap_indexed_fn;
-IMapThreadFunction         imap_thread_fn;
 
 }  // anonymous namespace
 
@@ -860,16 +587,13 @@ void init_sliarray(SLIInterpreter* i)
     i->createcommand("GetMin",           &getmin_fn);
     i->createcommand("valid_a",          &valid_fn);
     i->createcommand("finite_q_d",       &finiteq_d_fn);
-    i->createcommand("Map",              &map_fn);
-    i->createcommand("MapIndexed_a",     &map_indexed_fn);
-    i->createcommand("MapThread_a",      &map_thread_fn);
-    i->createcommand("::Map",            &imap_fn);
-    i->createcommand("::MapIndexed",     &imap_indexed_fn);
-    i->createcommand("::MapThread",      &imap_thread_fn);
 
-    // Axis I bundle step 3f: array_module trailing ops new ABI.
-
-    // Axis I bundle step 3f: trailing-pop array_module ops to new ABI. Map / MapIndexed / MapThread setups stay old (iter frame push).
+    // Phase 5: Map / MapIndexed_a / MapThread_a moved to SLI (see
+    // sli-init.sli). The C++ entries + their ::Map / ::MapIndexed /
+    // ::MapThread iterator helpers have been removed; the ABI
+    // cleanup that follows assumes no remaining old-ABI ops here.
+    //
+    // Axis I bundle step 3f: trailing-pop array_module ops to new ABI.
     array_fn.set_new_abi();
     arraystore_fn.set_new_abi();
     finiteq_d_fn.set_new_abi();

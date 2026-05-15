@@ -364,119 +364,6 @@ void test_valid_finite(SLIInterpreter& i)
     i.pop();
 }
 
-// -----------------------------------------------------------------
-// Map family — driven by the dispatcher
-// -----------------------------------------------------------------
-
-// Build a proceduretype Token wrapping a freshly-allocated TokenArray.
-// We construct directly because no inline new_token<proceduretype,TokenArray*>
-// definition is provided by the interpreter header.
-Token make_proc(SLIInterpreter& i, TokenArray* body)
-{
-    Token t(i.get_type(sli3::proceduretype));
-    t.data_.array_val = body;
-    return t;
-}
-
-// Build the procedure {n mul_ii} for the given n.
-Token make_mul_proc(SLIInterpreter& i, long n)
-{
-    TokenArray* p = new TokenArray();
-    p->push_back(i.new_token<sli3::integertype>(n));
-    p->push_back(i.lookup(Name("mul_ii")));
-    return make_proc(i, p);
-}
-
-// Build {add_ii} (consumes two ints, leaves their sum).
-Token make_add_proc(SLIInterpreter& i)
-{
-    TokenArray* p = new TokenArray();
-    p->push_back(i.lookup(Name("add_ii")));
-    return make_proc(i, p);
-}
-
-void test_map(SLIInterpreter& i)
-{
-    // [1 2 3 4] {2 mul_ii} Map -> [2 4 6 8]
-    i.EStack().push(i.new_token<sli3::quittype>());
-    i.push(int_array(i, {1, 2, 3, 4}));
-    i.push(make_mul_proc(i, 2));
-    i.EStack().push(i.lookup(Name("Map")));
-
-    run_to_quit(i);
-
-    TokenArray* r = i.top().data_.array_val;
-    CHECK(r->size() == 4);
-    CHECK((*r)[0].data_.long_val == 2);
-    CHECK((*r)[1].data_.long_val == 4);
-    CHECK((*r)[2].data_.long_val == 6);
-    CHECK((*r)[3].data_.long_val == 8);
-    i.pop();
-}
-
-void test_map_indexed(SLIInterpreter& i)
-{
-    // [10 10 10] {add_ii} MapIndexed_a
-    //   element + index: -> [10 11 12]
-    i.EStack().push(i.new_token<sli3::quittype>());
-    i.push(int_array(i, {10, 10, 10}));
-    i.push(make_add_proc(i));
-    i.EStack().push(i.lookup(Name("MapIndexed_a")));
-
-    run_to_quit(i);
-
-    TokenArray* r = i.top().data_.array_val;
-    CHECK(r->size() == 3);
-    CHECK((*r)[0].data_.long_val == 10);  // 10 + 0
-    CHECK((*r)[1].data_.long_val == 11);  // 10 + 1
-    CHECK((*r)[2].data_.long_val == 12);  // 10 + 2
-    i.pop();
-}
-
-void test_map_thread(SLIInterpreter& i)
-{
-    // [[1 2 3] [10 20 30]] {add_ii} MapThread_a -> [11 22 33]
-    TokenArray* outer = new TokenArray();
-    outer->push_back(int_array(i, {1, 2, 3}));
-    outer->push_back(int_array(i, {10, 20, 30}));
-
-    i.EStack().push(i.new_token<sli3::quittype>());
-    i.push(i.new_token<sli3::arraytype>(outer));
-    i.push(make_add_proc(i));
-    i.EStack().push(i.lookup(Name("MapThread_a")));
-
-    run_to_quit(i);
-
-    TokenArray* r = i.top().data_.array_val;
-    CHECK(r->size() == 3);
-    CHECK((*r)[0].data_.long_val == 11);
-    CHECK((*r)[1].data_.long_val == 22);
-    CHECK((*r)[2].data_.long_val == 33);
-    i.pop();
-}
-
-void test_map_empty(SLIInterpreter& i)
-{
-    // [] {2 mul_ii} Map -> []
-    push_estack_placeholder(i);
-    i.push(int_array(i, {}));
-    i.push(make_mul_proc(i, 2));
-    i.lookup(Name("Map")).data_.func_val->execute(&i);
-    TokenArray* r = i.top().data_.array_val;
-    CHECK(r->size() == 0);
-    i.pop();
-
-    // [1 2 3] {} Map -> [1 2 3] (empty proc leaves array unchanged)
-    push_estack_placeholder(i);
-    i.push(int_array(i, {1, 2, 3}));
-    i.push(make_proc(i, new TokenArray()));
-    i.lookup(Name("Map")).data_.func_val->execute(&i);
-    TokenArray* r2 = i.top().data_.array_val;
-    CHECK(r2->size() == 3);
-    CHECK((*r2)[0].data_.long_val == 1);
-    i.pop();
-}
-
 }  // namespace
 
 int main()
@@ -495,10 +382,10 @@ int main()
     test_min_max(i);
     test_valid_finite(i);
 
-    test_map(i);
-    test_map_indexed(i);
-    test_map_thread(i);
-    test_map_empty(i);
+    // Map / MapIndexed_a / MapThread_a moved to SLI (sli-init.sli)
+    // -- see Phase 5 dispatcher cleanup. The SLI versions exercise
+    // the same code paths through eval-driven integration tests
+    // and indirectly through arraylib.sli / mathematica.sli.
 
     std::cerr << "test_array_module: all checks passed\n";
     return 0;

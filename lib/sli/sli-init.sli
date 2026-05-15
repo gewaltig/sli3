@@ -136,6 +136,55 @@ systemdict begin
 */
 
 
+%% Phase 5: Map / MapIndexed_a / MapThread_a moved out of C++ into
+%% pure SLI. The C++ implementations under sli_array_module.cpp
+%% required an old-ABI iterator-on-estack pattern (::Map / ::MapIndexed
+%% / ::MapThread helpers) that blocked the dispatcher's ABI cleanup.
+%% The SLI versions trade per-element interpreter overhead for a clean
+%% all-new-ABI dispatcher. `1 dict begin` scopes /:p (and /:i / /:n)
+%% per call so recursive Map nests safely.
+
+/Map
+{
+  1 dict begin
+    /:p exch def
+    [ exch { :p exec } forall ]
+  end
+} def
+
+/MapIndexed_a
+{
+  1 dict begin
+    /:p exch def
+    /:i 0 def
+    [
+      exch
+      { :i :p exec /:i :i 1 add def } forall
+    ]
+  end
+} def
+
+/MapThread_a
+{
+  1 dict begin
+    /:p exch def
+    /:outer exch def
+    :outer length 0 eq
+      { :outer end }
+      {
+        /:n :outer 0 get length def
+        [
+          0 1 :n 1 sub_ii {
+            /:i exch def
+            :outer { :i get } forall
+            :p exec
+          } for
+        ]
+        end
+      } ifelse
+} def
+
+
 /get_d_a
 {
  {
