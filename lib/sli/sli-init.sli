@@ -853,6 +853,7 @@ def
 */
 
 /cvs_f {
+  << >> begin
   /n Set    % number of desired digits after decimal point
   /x Set    % some double number
   n 1 arraystore Flatten length 1 eq
@@ -892,6 +893,7 @@ def
     bd () eq {(0) exch join} if
     x 0 lt {(-) exch join} if	% add minus sign if x<0
   } ifelse
+  end
 } def
 
 
@@ -1180,6 +1182,56 @@ SeeAlso: join
   }ifelse
 } bind addtotrie def
 
+% * List Operations
+/** @BeginDocumentation
+Name: First - Return the first element of an array or string.
+
+Synopsis: string First -> char
+array First -> arrayelement
+
+Examples: (train) First -> 104
+[1 2 3] First -> 1
+[(this) (is) (an) (example)] First -> (this)
+
+Author: docu edited by Sirko Straube
+
+SeeAlso: Last, Rest, Most
+*/
+
+/First { 0 get }    bind def
+
+/** @BeginDocumentation
+Name: Last - Return the last element of an array or string
+
+Synopsis: string Last -> char
+array Last -> arrayelement
+
+Examples: (train) Last -> 110
+[1 2 3] Last -> 3
+[(this) (is) (an) (example)] Last -> (example)
+
+Author: docu edited by Sirko Straube
+
+SeeAlso: First, Rest, Most
+*/
+/Last  { size 1 sub_ii get } bind def
+
+/** @BeginDocumentation
+Name: Rest - Remove the first element of an array or string and return
+the rest.
+
+Synopsis: string Rest -> string
+array Rest -> array
+
+Examples: (train) Rest -> (rain)
+[1 2 3] Rest -> [2 3]
+[(this) (is) (an) (example)] Rest -> [(is) (an) (example)]
+
+Author: docu edited by Sirko Straube
+
+SeeAlso: First, Last, Most
+*/
+/Rest  { 0 1 erase} bind def
 
 /** @BeginDocumentation
  Name: run - execute a sli file
@@ -1528,13 +1580,12 @@ Author: Marc-Oliver Gewaltig
 */
 /save
 {
-  (save) =
   << >> begin
   operandstack /ostack Set
-  execstack [1 -4] Take /estack Set
+  execstack size 0 exch 3 sub getinterval /estack Set
   errordict /errdict Set
   currentdict end
-  dup /dstack dictstack put_d
+  dup /dstack dictstack put
   true
 } def
 
@@ -1559,8 +1610,9 @@ Author: Marc-Oliver Gewaltig
   begin
   currentdict /ostack get restoreostack false
   currentdict /errdict get systemdict /errordict rolld put
-  currentdict end
-  %dup /dstack get restoredstack
+  currentdict % get dict back before it is closed by end
+  end
+  dup /dstack get restoredstack % restore dict stack
   /estack get restoreestack
 } def
 
@@ -1668,11 +1720,7 @@ systemdict /GNUreadline known
 
 /:helptext
 {
-  (Type 'helpindex' to see the list of commands.) =
-  (Type 'helpdesk' to access the online documentation in a browser.) =
-  (Type '/<command> help' to get help on a command.) =
-  (Type '/help help' to learn more about the online help system.) =
-  (Type 'quit' or CTRL-D to quit NEST.) =
+(Type 'quit' or CTRL-D to quit NEST.) =
   (Type 'sysinfo' to see details on the system configuration.) =
   (Type 'authors' for information about the makers of NEST.) =
   (Type 'license' to display the license agreement that came with your copy of NEST.) =
@@ -1713,28 +1761,18 @@ SeeAlso: nestrc
 /welcome
 {
    () =
-   statusdict/argv :: 0 get 0 3 getinterval reverse
-   (ils) eq
-   {
-     (               -- S L I --) =
-   }
-   {
-     (              -- N E S T --) =
-   } ifelse
-   (  Copyright (C) 2004 The NEST Initiative) = () =
-   ( Version: ) =only statusdict/version :: =
-   ( Built: ) =only statusdict/built :: =
+   (               -- S L I --) =
+   (  Copyright (C) 2004 The NEST Initiative) =
+   (  Copyright (C) 2026 Marc-Oliver Gewaltig) =
+   () =
+   ( Version: ) =only statusdict /version get =
+   ( Built: ) =only statusdict /built get =
    () =
 
    ( This program is provided AS IS and comes with) =
    ( NO WARRANTY. See the file LICENSE for details.) =
    () =
 
-   ( Problems or suggestions?) =
-   (   Visit https://www.nest-simulator.org) =
-   () =
-
-   ( Type 'help' to get more information.) =
    ( Type 'quit' or press CTRL-D to quit.) =
    () =
    :warnings
@@ -1742,16 +1780,10 @@ SeeAlso: nestrc
 
 /shortwelcome
 {
-   statusdict/argv :: 0 get reverse 0 3 getinterval
-   (ils) eq
-   {
        (SLI ) =only
-   }
-   {
-       (NEST ) =only
-   } ifelse
-   statusdict/version :: =only
+   statusdict /version get =only
    ( (C) 2004 The NEST Initiative) =
+   ( (C) 2026 Marc-Oliver Gewaltig) =
 } def
 
 
@@ -1773,28 +1805,7 @@ SeeAlso: nestrc
   (members of the NEST Initiative:) <- endl endl
   (For a list of associated institutions and contributors,) <- endl
   (visit us at https://www.nest-initiative.org.) <- endl endl ;
-
 } def
-
-/** @BeginDocumentation
-Name: license - Display the NEST license.
-
-Description:
-Displays the license agreement that came with your copy of NEST.
-
-Remarks:
-license uses the command "pager" to display its information.
-Type
-    /pager help
-to learn how to customize the output of this command.
-
-SeeAlso: page
-*/
-/license
-{
-  statusdict /prgdocdir get (/LICENSE) join page
-} def
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Encapsulate builtins in type-trie structures
@@ -1837,63 +1848,6 @@ SeeAlso: page
  } ifelse
 } bind addtotrie def
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% SLI library handling                    %
-%                                         %
-% This should be initialized as early as  %
-% possible, so that other initialization  %
-% files can use the library management!   %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-(library.sli) run
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% PS conforming operators      %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-(ps-lib) run
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%    Module Initialization     %%
-%%                              %%
-%%   now execute all module     %%
-%%   commandstrings.            %%
-%%   These are defined in the   %%
-%%   module classes and called  %%
-%%   by the interpreter.        %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-M_STATUS (sli-init) (Executing module initializers...) message
-moduleinitializers
-{
-  initialize_module
-} forall
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Mathematica Style Formatted IO %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% sli3 scope cut: FormattedIO.sli relies on /Options /GetOption
-% defined in mathematica.sli, which sli-init.sli does not load. The
-% interactive REPL doesn't need ReadList / Read / Export, so this
-% script is skipped. Re-enable once mathematica.sli's option machinery
-% is supported.
-% (FormattedIO.sli) run
-
-% sli3 prelude: minimal array helpers normally provided by
-% mathematica.sli. /:commandline (defined later in this file) uses
-% First and Rest to walk argv; we cannot load all of mathematica.sli
-% here because it depends on vector types we do not have. These
-% one-liners are taken verbatim from mathematica.sli.
-/First { 0 get } bind def
-/Last  { size 1 sub_ii get } bind def
-/Rest  { 0 1 erase } bind def
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    Debugging Features        %%
 %%                              %%
@@ -1902,21 +1856,6 @@ moduleinitializers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 (debug.sli) run
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%    Online Help System        %%
-%%                              %%
-%%   run after modules are      %%
-%%   initialized                %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% sli3 scope cut: helpinit.sli relies on regcomp / regexec (POSIX
-% regex), which are not yet implemented. The interactive REPL doesn't
-% need the help system, so this script is skipped. Re-enable once a
-% regex layer (or stubs that satisfy the Keyword defs) is in.
-% (helpinit.sli) run
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2087,11 +2026,11 @@ moduleinitializers
   end
 
   % put the value of interactive on the stack
-  statusdict/interactive ::
+  statusdict /interactive get
   dup not
   {
     % put the files to execute on the stack if not running interactively
-    statusdict/files :: exch
+    statusdict /files get exch
   } if
 
 } bind def
@@ -2289,7 +2228,7 @@ SeeAlso: statusdict
 */
 /environment
 {
-  statusdict/environment ::
+  statusdict /environment get
 } def
 
 end % systemdict
@@ -2303,53 +2242,3 @@ end % systemdict
 % benign-looking but state-polluting error output before the prompt.
 % Not on the interactive-prompt path. Re-enable once we ship examples.
 % evalrcfile
-
-
-/** @BeginDocumentation
-Name: is_threaded - returns true if NEST/SLI was compiled with thread support
-Synopsis: is_threaded -> bool
-Description:
-Returns true if NEST/SLI was compiled with support for threads, and returns
-false otherwise.
-SeeAlso: statusdict
-*/
-/is_threaded
-{
-  % We must test against "no", if threads are supported threading is a
-  % string containing the threading model.
-  statusdict/threading :: (no) neq
-} def
-
-/** @BeginDocumentation
-Name: is_threaded_with_openmp - returns true if NEST/SLI was compiled with OpenMP support
-Synopsis: is_threaded_with_openmp -> bool
-Description:
-Returns true if NEST/SLI was compiled with support for OpenMP threads, and returns
-false otherwise.
-SeeAlso: statusdict
-*/
-/is_threaded_with_openmp
-{
-  statusdict/threading :: ToLowercase (openmp) searchif
-} def
-
-% Add directories in environment variable SLI_PATH to the search path
-% for SLI files. Directories have to be separated by colon.
-(SLI_PATH) getenv { (:) breakup { addpath } forall } if
-
-
-/** @BeginDocumentation
-Name: skip_if_* - End script and report it as skipped
-Synopsis: skip_if_* -> -
-Description:
-These functions will terminate NEST/SLI with a return code signaling that the
-script was skipped. It should be used to leave test/example scripts that have
-special prerequisites.
-SeeAlso: exit_test_gracefully
-*/
-
-/skip_if_no_mpi { statusdict/is_mpi :: not { /skipped_no_mpi exit_test_gracefully } if } def
-/skip_if_have_mpi { statusdict/is_mpi :: { /skipped_have_mpi exit_test_gracefully } if } def
-/skip_if_not_threaded { is_threaded not { /skipped_no_threading exit_test_gracefully } if } def
-/skip_if_without_gsl { statusdict/have_gsl :: not { /skipped_no_gsl exit_test_gracefully } if } def
-/skip_if_without_music { statusdict/have_music :: not { /skipped_no_music exit_test_gracefully } if } def
