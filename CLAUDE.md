@@ -39,17 +39,17 @@ Previously done work is described in ChangeLog.md
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
 |---|---:|---:|---:|---:|
-| B1   `1 pop`           | **0.85** | 1.32 | 1.97 | **−36 %** ⬇ |
-| B2   `1 1 add pop`     | **1.78** | 2.70 | 4.28 | **−34 %** ⬇ |
-| B2b  bound `{...}`     | 1.64 | **1.22** | 3.39 | +34 % ⬆ |
-| B3   nested for        | **1.51** | 2.59 | 4.28 | **−42 %** ⬇ |
-| B5   dict alloc+lookup | **1.49** | 2.56 | 4.33 | **−42 %** ⬇ |
-| B7   bubble sort       | 2.15 | **1.98** |  —  | +9 % ⬆ |
-| B8   insertion sort    | 1.41 | **1.00** |  —  | +41 % ⬆ |
-| B9   recursive fib(28) | 1.99 | **1.71** | 4.23 | +16 % ⬆ |
-| B10  matmul 50×50      | **1.74** | 1.88 |  —  | **−7 %** ⬇ |
+| B1   `1 pop`           | **0.84** | 1.30 | 1.96 | **−35 %** ⬇ |
+| B2   `1 1 add pop`     | **1.81** | 2.66 | 4.24 | **−32 %** ⬇ |
+| B2b  bound `{...}`     | 1.59 | **1.21** | 3.35 | +31 % ⬆ |
+| B3   nested for        | **1.61** | 2.55 | 4.21 | **−37 %** ⬇ |
+| B5   dict alloc+lookup | **1.49** | 2.45 | 4.24 | **−39 %** ⬇ |
+| B7   bubble sort       | 2.15 | **1.96** |  —  | +10 % ⬆ |
+| B8   insertion sort    | 1.39 | **1.00** |  —  | +39 % ⬆ |
+| B9   recursive fib(28) | 1.80 | **1.68** | 4.20 | +7 % ⬆ |
+| B10  matmul 50×50      | **1.75** | 1.87 |  —  | **−6 %** ⬇ |
 
-  Score vs gs: **5 wins, 4 losses**. sli3 beats nest 2.2–2.9× across the board. The Axis II step-3 hybrid dispatcher (5 inline ultra-hot ops + function-pointer table for the warm 11) recovered half of the B2b regression and improved B2 / B3 / B9 vs the post-step-2 baseline — see `fix-plan.md` "B2b regression follow-up — resolved 2026-05-14".
+  Score vs gs: **5 wins, 4 losses** (run 6, commit `ad75ded`). sli3 beats nest 2.2–2.9× across the board. The litproc / ifelse refcount-churn fix (commit `ad75ded`, 2026-05-15) closed B9 from +16 % to +7 % by short-circuiting litproc dispatch in `body_walk` and using a swap-out push in `IfelseFunction` / `hot_op_if`. The Axis II step-3 hybrid dispatcher (5 inline ultra-hot ops + function-pointer table for the warm 11) recovered half of the earlier B2b regression and improved B2 / B3 / B9 vs the post-step-2 baseline — see `fix-plan.md` "B2b regression follow-up — resolved 2026-05-14".
 - Full plan in `implementation_spec.md`.
 
 ## Build
