@@ -15,7 +15,6 @@
  */
 
 #include "sli_dictionary.h"
-//#include "dictutils.h"
 #include "sli_exceptions.h"
 #include <iomanip>
 #include <algorithm>
@@ -47,7 +46,7 @@ void Dictionary::clear()
     // now clear dictionary itself; HEP 2004-09-08
     TokenMap::clear();
 }
-    
+
 void Dictionary::info(std::ostream &out) const
 {
   out.setf(std::ios::left);
@@ -115,12 +114,12 @@ void Dictionary::clear_access_flags()
 bool Dictionary::all_accessed_(std::string& missed, std::string prefix) const
 {
   missed = "";
-  
+
   // build list of all non-accessed Token names
-  for ( TokenMap::const_iterator it = TokenMap::begin() ; 
+  for ( TokenMap::const_iterator it = TokenMap::begin() ;
 	it != TokenMap::end() ; ++it )
   {
-    if ( !it->second.accessed() )	
+    if ( !it->second.accessed() )
 	missed = missed + " " + prefix + it->first.toString();
     else if ( it->second.is_of_type(sli3::dictionarytype) )
     {
@@ -131,7 +130,7 @@ bool Dictionary::all_accessed_(std::string& missed, std::string prefix) const
       // since it is anyways set, otherwise we would not be recursing
       Dictionary* subdict = it->second.data_.dict_val;
 
-      subdict->all_accessed_(missed, prefix + it->first.toString() + "::"); 
+      subdict->all_accessed_(missed, prefix + it->first.toString() + "::");
     }
   }
 
@@ -141,17 +140,17 @@ bool Dictionary::all_accessed_(std::string& missed, std::string prefix) const
 
 std::ostream & operator<<(std::ostream &out, const Dictionary &d)
 {
-    out << "<<";
-        
+    out << "<< ";
+
     for(TokenMap::const_iterator where = d.begin(); where != d.end(); where ++)
     {
-        out << (*where).first << ' ' 
-	    << (*where).second << ',';
+        out << '/' << (*where).first << ' '
+	    << (*where).second << ' ';
     }
     out << ">>";
-    
+
     return out;
-    
+
 }
 
 bool Dictionary::DictItemLexicalOrder::nocase_compare(char c1, char c2)

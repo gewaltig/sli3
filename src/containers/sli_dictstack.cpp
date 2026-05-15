@@ -55,8 +55,6 @@ DictionaryStack::~DictionaryStack()
 void DictionaryStack::undef(Name const & n)
 {
     // Erase from the TOP dictionary only -- PostScript semantics.
-    // (Previously walked the entire stack, which removed shadowed
-    // bindings from lower dicts -- a real bug.)
     if (d.empty())
       throw UndefinedName(n.toString());
 
