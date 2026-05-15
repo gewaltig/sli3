@@ -544,11 +544,6 @@ namespace sli3
 	
 	Token execbarrier_token; 
 	
-	IparseFunction       iparsefunction;
-	IloopFunction        iloopfunction;
-	IforallindexedarrayFunction iforallindexedarrayfunction;
-	IforallindexedstringFunction iforallindexedstringfunction;
-	IforallstringFunction iforallstringfunction;
 	ArraycreateFunction arraycreatefunction;
 	DictconstructFunction dictconstructfunction;
 

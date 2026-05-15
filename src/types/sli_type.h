@@ -43,6 +43,11 @@ namespace sli3
     irepeattype,
     ifortype,
     iforalltype,
+    ilooptype,                 //!< Phase 5: was IloopFunction
+    iparsetype,                //!< Phase 5: was IparseFunction
+    iforallstringtype,         //!< Phase 5: was IforallstringFunction
+    iforallindexedarraytype,   //!< Phase 5: was IforallindexedarrayFunction
+    iforallindexedstringtype,  //!< Phase 5: was IforallindexedstringFunction
     nooptype,
     quittype,
     num_sli_types, //!< Number of builtin types. User type ids start here

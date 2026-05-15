@@ -29,53 +29,12 @@ namespace sli3
   built-in or user supplied functions must be defined
   either in builtins.{h,cc} or in user-defined modules
   *******************************************************/
-  // Phase 5 cleanup: IparsestdinFunction, IlookupFunction,
-  // IiterateFunction, IrepeatFunction, IforFunction, and
-  // IforallarrayFunction were dead in dispatch mode (the
-  // dispatcher handles proceduretype, ifortype, iforalltype
-  // inline via body_walk; ::lookup, ::pop, ::parsestdin were
-  // createcommand'd but no caller baselookup'd them). All six
-  // have been deleted -- see sli_builtins.cpp for the audit.
-
-  class IparseFunction: public SLIFunction
-  {
-  public:
-    IparseFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-
-  class IloopFunction: public SLIFunction
-  {
-  public:
-    IloopFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-  };
-
-  class IforallindexedarrayFunction: public SLIFunction
-  {
-  public:
-    IforallindexedarrayFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-  };
-  
-  class IforallindexedstringFunction: public SLIFunction
-  {
-  public:
-    IforallindexedstringFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-  };
-  
-  class IforallstringFunction: public SLIFunction
-  {
-  public:
-    IforallstringFunction() {}
-    void execute(SLIInterpreter *) const;
-    void backtrace(SLIInterpreter *, int) const ;
-  };
- 
+  // Phase 5 cleanup: all 11 legacy iter-helper SLIFunction classes
+  // have been replaced by TYPE markers. The dispatcher's body_walk
+  // handles iiterate / irepeat / ifor / iforall / iloop /
+  // iforallstring / iforallindexedarray / iforallindexedstring
+  // inline at body_exhausted; iparse has its own outer-switch case.
+  // See sli_interpreter.cpp:execute_dispatch_.
 
   class ArraycreateFunction: public SLIFunction
   {

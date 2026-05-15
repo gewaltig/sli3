@@ -229,6 +229,20 @@ void SLIInterpreter::init_types() {
   types_[sli3::quittype] = (new OperatorType<sli3::quittype>(this, "quit"));
   types_[sli3::iforalltype] =
       (new OperatorType<sli3::iforalltype>(this, "forall_continue"));
+  // Phase 5: five iter helpers converted to TYPE markers (parallel
+  // to iiteratetype / ifortype / iforalltype). body_walk handles
+  // them inline; their entry ops push the type instead of a function
+  // token, and the SLIFunction classes were deleted.
+  types_[sli3::ilooptype] =
+      (new OperatorType<sli3::ilooptype>(this, "loop_continue"));
+  types_[sli3::iparsetype] =
+      (new OperatorType<sli3::iparsetype>(this, "parse_continue"));
+  types_[sli3::iforallstringtype] =
+      (new OperatorType<sli3::iforallstringtype>(this, "forallstring_continue"));
+  types_[sli3::iforallindexedarraytype] =
+      (new OperatorType<sli3::iforallindexedarraytype>(this, "forallindexedarray_continue"));
+  types_[sli3::iforallindexedstringtype] =
+      (new OperatorType<sli3::iforallindexedstringtype>(this, "forallindexedstring_continue"));
   types_[sli3::trietype] = (new TrieType(this, "trietype", sli3::trietype));
   types_[sli3::istreamtype] =
       (new IstreamType(this, "istreamtype", sli3::istreamtype));
@@ -279,21 +293,18 @@ void SLIInterpreter::init_dictionaries() {
 }
 
 void SLIInterpreter::init_internal_functions(void) {
-  createcommand(iparse_name, &iparsefunction);
-  createcommand(iloop_name, &iloopfunction);
+  // Phase 5: all iter helpers are now TYPE markers handled inline
+  // by the dispatcher (body_walk for iiterate/ifor/iforall/iloop/
+  // iforall_s/iforallindexed_a/iforallindexed_s; outer-switch case
+  // for iparse). Each name binds to its type.
+  system_dict_->insert(iparse_name, Token(types_[sli3::iparsetype]));
+  system_dict_->insert(iloop_name, Token(types_[sli3::ilooptype]));
   system_dict_->insert(irepeat_name, Token(types_[sli3::irepeattype]));
   system_dict_->insert(Name("quit"), Token(types_[sli3::quittype]));
   system_dict_->insert(iforallarray_name, Token(types_[sli3::iforalltype]));
-  createcommand(iforallindexedstring_name, &iforallindexedstringfunction);
-  createcommand(iforallindexedarray_name, &iforallindexedarrayfunction);
-  createcommand(iforallstring_name, &iforallstringfunction);
-  // IiterateFunction / IforFunction / IforallarrayFunction /
-  // IlookupFunction / IparsestdinFunction were the legacy iter
-  // helpers. The dispatcher's body_walk handles proceduretype,
-  // ifortype, iforalltype directly; ::lookup, ::pop, ::parsestdin
-  // were createcommand'd but no caller ever baselookup'd them.
-  // Removed in Phase 5 (dead-code cleanup); all five helper classes
-  // are gone from sli_builtins.{h,cpp}.
+  system_dict_->insert(iforallstring_name, Token(types_[sli3::iforallstringtype]));
+  system_dict_->insert(iforallindexedarray_name, Token(types_[sli3::iforallindexedarraytype]));
+  system_dict_->insert(iforallindexedstring_name, Token(types_[sli3::iforallindexedstringtype]));
   createcommand("]", &arraycreatefunction);
   createcommand(">>", &dictconstructfunction);
   // Phase 5: both moved to new-ABI (their bodies were updated to
@@ -791,7 +802,11 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         case sli3::iiteratetype:
         case sli3::irepeattype:
         case sli3::ifortype:
-        case sli3::iforalltype: {
+        case sli3::iforalltype:
+        case sli3::ilooptype:                 // Phase 5
+        case sli3::iforallstringtype:         // Phase 5
+        case sli3::iforallindexedarraytype:   // Phase 5
+        case sli3::iforallindexedstringtype: {// Phase 5
           TokenArray *proc = execution_stack_.pick(2).data_.array_val;
           long *pos_p = &execution_stack_.pick(1).data_.long_val;
         body_walk:
@@ -942,6 +957,63 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               }
               break;
             }
+            // Phase 5: loop / forall_s / forallindexed_a / forallindexed_s
+            // converted from old-ABI iter functions to TYPE markers in
+            // body_walk's exhaust arm.
+            case sli3::ilooptype:
+              // loop: reset pos and walk the body forever; only exit /
+              // stop unwinds the frame.
+              *pos_p = 0;
+              break;
+            case sli3::iforallstringtype: {
+              // Frame: [mark, str, idx, proc, pos, iforallstringtype].
+              SLIString *str = execution_stack_.pick(4).data_.string_val;
+              long &idx      = execution_stack_.pick(3).data_.long_val;
+              if (idx < static_cast<long>(str->str().size())) {
+                *pos_p = 0;
+                operand_stack_.push(get_type(sli3::integertype));
+                operand_stack_.top().data_.long_val =
+                    static_cast<long>(str->str()[idx]);
+                ++idx;
+              } else {
+                execution_stack_.pop(6);
+              }
+              break;
+            }
+            case sli3::iforallindexedarraytype: {
+              // Frame: [mark, ad, lim, count, proc, pos, type].
+              TokenArray *ad = execution_stack_.pick(5).data_.array_val;
+              long &count    = execution_stack_.pick(3).data_.long_val;
+              long &lim      = execution_stack_.pick(4).data_.long_val;
+              if (count < lim) {
+                *pos_p = 0;
+                operand_stack_.push(ad->get(count));
+                operand_stack_.push(get_type(sli3::integertype));
+                operand_stack_.top().data_.long_val = count;
+                ++count;
+              } else {
+                execution_stack_.pop(7);
+              }
+              break;
+            }
+            case sli3::iforallindexedstringtype: {
+              // Frame: [mark, str, lim, count, proc, pos, type].
+              SLIString *str = execution_stack_.pick(5).data_.string_val;
+              long &count    = execution_stack_.pick(3).data_.long_val;
+              long &lim      = execution_stack_.pick(4).data_.long_val;
+              if (count < lim) {
+                *pos_p = 0;
+                operand_stack_.push(get_type(sli3::integertype));
+                operand_stack_.top().data_.long_val =
+                    static_cast<long>(str->str()[count]);
+                operand_stack_.push(get_type(sli3::integertype));
+                operand_stack_.top().data_.long_val = count;
+                ++count;
+              } else {
+                execution_stack_.pop(7);
+              }
+              break;
+            }
             default: __builtin_unreachable();
           }
           // Fall through to resume_iter. The exhaust handler may
@@ -964,6 +1036,10 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             case sli3::irepeattype:
             case sli3::ifortype:
             case sli3::iforalltype:
+            case sli3::ilooptype:                 // Phase 5
+            case sli3::iforallstringtype:         // Phase 5
+            case sli3::iforallindexedarraytype:   // Phase 5
+            case sli3::iforallindexedstringtype:  // Phase 5
               proc  = execution_stack_.pick(2).data_.array_val;
               pos_p = &execution_stack_.pick(1).data_.long_val;
               goto body_walk;
@@ -974,6 +1050,25 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         }
         case sli3::quittype:
           goto exit_interpreter;
+        case sli3::iparsetype: {
+          // Phase 5: was IparseFunction. The parser drives one token
+          // off the stream and either pushes it (executable) or
+          // dispatches it (data). When the stream returns
+          // symboltype (EOF), pop the [xistream, iparsetype] frame.
+          // Frame: pick(0) = iparsetype, pick(1) = xistream.
+          SLIistream *is = execution_stack_.pick(1).data_.istream_val;
+          Token t = read_token(*is->get());
+          if (t.is_of_type(sli3::symboltype)) {
+            execution_stack_.pop(2);
+          } else {
+            // Push the parsed token on top; the dispatcher runs it
+            // (if executable) or pushes it to ostack (if data).
+            // Either way, control returns to iparsetype on the next
+            // cycle and we read the next token.
+            execution_stack_.push(t);
+          }
+          break;
+        }
         case sli3::nulltype:
           // Defensive guard. The dispatcher pushes a nulltype
           // sentinel before invoking an old-ABI fn at the body-

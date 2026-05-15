@@ -112,12 +112,16 @@ void LoopFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     i->require_stack_type(0, sli3::proceduretype);
 
-    // Axis I bundle step 4: dispatcher pre-popped /loop. Push iter
-    // frame directly.
+    // Phase 5: push the iloop TYPE marker instead of the legacy
+    // IloopFunction token. body_walk's `case sli3::ilooptype` walks
+    // the proc body inline (same shape as iiterate); the
+    // body_exhausted handler resets pos=0 instead of popping, so
+    // the loop runs forever until exit / stop unwinds it.
+    // Frame: [mark, proc, pos=0, ilooptype].
     i->EStack().push(i->baselookup(i->mark_name));
     i->EStack().push(i->top());
     i->EStack().push(0);
-    i->EStack().push(i->baselookup(i->iloop_name));
+    i->EStack().push(Token(i->get_type(sli3::ilooptype)));
     i->inc_call_depth();
     i->pop();
 }
@@ -707,16 +711,24 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
 
     assert(i->top().data_.array_val != 0);
 
+    // Phase 5: frame layout converted to body-walking form, parallel
+    // to ifortype. Layout (bottom -> top):
+    //   [mark, ad, lim, count, proc, pos=proclen, iforallindexedarraytype]
+    // pos starts at proclen so body_walk's first iteration triggers
+    // body_exhausted, which advances count, pushes ad[count]+count,
+    // and resets pos=0.
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
     TokenArray  *ad= i->EStack().top().data_.array_val;
     assert(ad !=NULL);
 
-    i->EStack().push(i->new_token<sli3::integertype>(ad->size())); // push limit
-    i->EStack().push(i->new_token<sli3::integertype>(0));          // push initial counter
-    i->EStack().push(i->pick(0));       // push procedure
-    i->EStack().push(i->baselookup(i->iforallindexedarray_name));
+    TokenArray  *proc= i->top().data_.array_val;
+    i->EStack().push(i->new_token<sli3::integertype>(ad->size())); // limit
+    i->EStack().push(i->new_token<sli3::integertype>(0));          // counter
+    i->EStack().push(i->pick(0));                                  // proc
+    i->EStack().push(i->new_token<sli3::integertype>(proc->size())); // pos
+    i->EStack().push(Token(i->get_type(sli3::iforallindexedarraytype)));
     i->inc_call_depth();
     i->pop(2);
 }
@@ -734,16 +746,20 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
 
     assert(i->top().data_.array_val != 0);
 
+    // Phase 5: parallel to Forallindexed_a above. Layout:
+    //   [mark, str, lim, count, proc, pos=proclen, iforallindexedstringtype]
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
     SLIString  *strd= i->EStack().top().data_.string_val;
     assert(strd !=NULL);
 
-    i->EStack().push(i->new_token<sli3::integertype>(strd->size())); // push limit
-    i->EStack().push(i->new_token<sli3::integertype>(0));          // push initial counter
-    i->EStack().push(i->pick(0));       // push procedure
-    i->EStack().push(i->baselookup(i->iforallindexedstring_name));
+    TokenArray  *proc= i->top().data_.array_val;
+    i->EStack().push(i->new_token<sli3::integertype>(strd->size())); // limit
+    i->EStack().push(i->new_token<sli3::integertype>(0));            // counter
+    i->EStack().push(i->pick(0));                                    // proc
+    i->EStack().push(i->new_token<sli3::integertype>(proc->size())); // pos
+    i->EStack().push(Token(i->get_type(sli3::iforallindexedstringtype)));
     i->inc_call_depth();
     i->pop(2);
 }
@@ -761,16 +777,21 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
 
     assert(i->top().data_.array_val != 0);
 
+    // Phase 5: body-walking form, parallel to Forall_aFunction (which
+    // uses iforalltype). Layout:
+    //   [mark, str, idx=0, proc, pos=proclen, iforallstringtype]
     i->EStack().push(i->new_token<sli3::marktype>());
     i->EStack().push(i->pick(1));        // push object
 
     SLIString  *strd= i->EStack().top().data_.string_val;
     assert(strd !=NULL);
+    (void)strd;  // size info now reached via body_exhausted handler
 
-    i->EStack().push(i->new_token<sli3::integertype>(strd->size())); // push limit
-    i->EStack().push(i->new_token<sli3::integertype>(0));          // push initial counter
-    i->EStack().push(i->pick(0));       // push procedure
-    i->EStack().push(i->baselookup(i->iforallstring_name));
+    TokenArray  *proc= i->top().data_.array_val;
+    i->EStack().push(i->new_token<sli3::integertype>(0));            // idx
+    i->EStack().push(i->pick(0));                                    // proc
+    i->EStack().push(i->new_token<sli3::integertype>(proc->size())); // pos
+    i->EStack().push(Token(i->get_type(sli3::iforallstringtype)));
     i->inc_call_depth();
     i->pop(2);
 }
