@@ -122,8 +122,6 @@ namespace sli3
 	/**
 	 * Execute until execution stack reaches level.
 	 */
-	int execute_(size_t level=0);
-	int execute_debug_(size_t level=0);
 	int execute_dispatch_(size_t level=0);
 
 	void createdouble(Name , double);

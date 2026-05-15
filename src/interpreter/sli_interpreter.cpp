@@ -664,15 +664,10 @@ int SLIInterpreter::execute(const std::string &cmdline) {
 
   operand_stack_.push(new_token<sli3::stringtype>(cmdline));
   execution_stack_.push(new_token<sli3::nametype>(Name("evalstring")));
-  // Route through the dispatch-mode driver to match sli_main's
-  // semantics (TCO, hot-op inlining, unified body-walk). The
-  // plain `execute_()` loop diverges on trie / for / forall /
-  // iiterate handling, which surfaces as different behaviour
-  // for C++-API consumers vs the REPL.
   return execute_dispatch_();
 }
 
-int SLIInterpreter::execute(int v) {
+int SLIInterpreter::execute(int /*unused*/) {
   startup();
   execution_stack_.push(new_token<sli3::quittype>());
   // /start is the SLI-defined entry point set up by sli-init.sli:
@@ -680,119 +675,11 @@ int SLIInterpreter::execute(int v) {
   // (interactive) or runs the named scripts and quits. executive
   // drives the prompt+readline+cst+exec loop.
   execution_stack_.push(new_token<sli3::nametype>(Name("start")));
-  switch (v) {
-  case 0:
-    return execute_(); // run the interpreter
-  case 1:
-    return execute_debug_(); // run the interpreter in debug mode
-  case 2:
-    return execute_dispatch_();
-  default:
-    return -1;
-  }
-}
-
-int SLIInterpreter::execute_(size_t exitlevel) {
-  int exitcode = 0;
-
-  if (sli3::signalflag != 0) {
-    return sli3::unknown_error;
-  }
-
-  try {
-    do { // loop1  this double loop to keep the try/catch outside the inner loop
-      try {
-        while (!sli3::signalflag and
-               execution_stack_.load() > exitlevel) // loop 2
-        {
-          ++cycle_count_;
-          if (cycle_guard_ and cycle_count_ > cycle_restriction_) {
-            return 0;
-          }
-          execution_stack_.top().execute();
-        }
-      } catch (std::exception &exc) {
-        raiseerror(exc);
-      }
-    } while (execution_stack_.load() > exitlevel);
-  } catch (std::exception &e) {
-    message(M_FATAL, "SLIInterpreter", "A C++ library exception occured.");
-    operand_stack_.dump(std::cerr);
-    execution_stack_.dump(std::cerr);
-    message(M_FATAL, "SLIInterpreter", e.what());
-    terminate(sli3::exception);
-  } catch (...) {
-    message(M_FATAL, "SLIInterpreter", "An unknown c++ exception occured.");
-    operand_stack_.dump(std::cerr);
-    execution_stack_.dump(std::cerr);
-    terminate(sli3::exception);
-  }
-
-  return exitcode;
-}
-
-int SLIInterpreter::execute_debug_(size_t exitlevel) {
-  int exitcode;
-
-  if (sli3::signalflag != 0) {
-    return sli3::unknown_error;
-  }
-
-  try {
-    do { // loop1  this double loop to keep the try/catch outside the inner loop
-      try {
-        while (!sli3::signalflag and
-               execution_stack_.load() > exitlevel) // loop 2
-        {
-          ++cycle_count_;
-          if (cycle_guard_ and cycle_count_ > cycle_restriction_) {
-            return 0;
-          }
-          if (operand_stack_.load() > 0)
-            operand_stack_.dump(std::cerr);
-          execution_stack_.top().execute();
-        }
-      } catch (std::exception &exc) {
-        message(M_ERROR, "SLIInterpreter",
-                "A C++ library exception was caught.");
-        operand_stack_.dump(std::cerr);
-        execution_stack_.dump(std::cerr);
-        message(M_ERROR, "SLIInterpreter", exc.what());
-        // Funnel through raiseerror so a surrounding stopped /
-        // handleerror context can react, matching the dispatch
-        // loop's behaviour. Without this the debug loop silently
-        // swallows exceptions and the surrounding script can't
-        // tell anything went wrong.
-        raiseerror(exc);
-      }
-    } while (execution_stack_.load() > exitlevel);
-  } catch (std::exception &e) {
-    message(M_FATAL, "SLIInterpreter", "A C++ library exception occured.");
-    operand_stack_.dump(std::cerr);
-    execution_stack_.dump(std::cerr);
-    message(M_FATAL, "SLIInterpreter", e.what());
-    terminate(sli3::exception);
-  } catch (...) {
-    message(M_FATAL, "SLIInterpreter", "An unknown c++ exception occured.");
-    operand_stack_.dump(std::cerr);
-    execution_stack_.dump(std::cerr);
-    terminate(sli3::exception);
-  }
-
-  // statusdict may not have "exitcode" yet during very-early
-  // bootstrap (before sli-init.sli has run). Default to 0.
-  exitcode = 0;
-  if (status_dict_) {
-    static const Name exitcode_name("exitcode");
-    Token exit_tk = (*status_dict_)[exitcode_name];
-    if (exit_tk.is_of_type(sli3::integertype))
-      exitcode = exit_tk.data_.long_val;
-  }
-
-  if (exitcode != 0 && error_dict_)
-    error_dict_->insert(quitbyerror_name, new_token<sli3::booltype>(true));
-
-  return exitcode;
+  // execute_dispatch_ is the only execution mode. The pre-Phase-1
+  // execute_ (plain) and execute_debug_ alternates have been
+  // retired; the legacy `int` parameter is kept for source
+  // compatibility but ignored.
+  return execute_dispatch_();
 }
 
 int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
