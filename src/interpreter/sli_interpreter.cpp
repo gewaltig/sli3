@@ -150,7 +150,7 @@ SLIInterpreter::SLIInterpreter()
       InternalKernelError("InternalKernelError"), is_initialized_(false),
       debug_mode_(false), show_stack_(false), show_backtrace_(false),
       catch_errors_(false), opt_tailrecursion_(true), cycle_guard_(false),
-      call_depth_(0), max_call_depth_(10), cycle_count_(0),
+      cycle_count_(0),
       cycle_restriction_(0), verbosity_level_(M_INFO), system_dict_(0),
       user_dict_(0), status_dict_(0), error_dict_(0), parser_(0),
       operand_stack_(1000), execution_stack_(1000), types_() {

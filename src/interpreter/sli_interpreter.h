@@ -272,9 +272,6 @@ namespace sli3
 	    {
 		return *error_dict_;
 	    }
-	
-	
-	bool step_mode() const {return false;}
 
 	/**
 	 * Fill token with an object of the specified type.
@@ -404,86 +401,11 @@ namespace sli3
 	void backtrace_off()
 	    { show_backtrace_=false;}
 
-	
-	/**
-	 * Increment call depth level.
-	 * The value of call_depth_ is used to control
-	 * the step mode. 
-	 * Step mode is disabled for call_depth_ >= max_call_depth_.
-	 * This gives the user the opportunity to skip over nested 
-	 * calls during debugging.
-	 */
-	void inc_call_depth()
-	    {
-		++call_depth_;
-	    }
-	
-	/**
-	 * Decrement call depth level.
-	 * The value of call_depth_ is used to control
-	 * the step mode. 
-	 * Step mode is disabled for call_depth_ >= max_call_depth_.
-	 * This gives the user the opportunity to skip over nested 
-	 * calls during debugging.
-	 */
-	void dec_call_depth()
-	    {
-		--call_depth_;
-	    }
-	
-	/**
-	 * Set call depth level to a specific value.
-	 * The value of call_depth_ is used to control
-	 * the step mode. 
-	 * Step mode is disabled for call_depth_ >= max_call_depth_.
-	 * This gives the user the opportunity to skip over nested 
-	 * calls during debugging.
-	 */
-	void set_call_depth(int l)
-	    {
-		call_depth_=l;
-	    }
-	
-	/**
-	 * Return current call depth level.
-	 * The value of call_depth_ is used to control
-	 * the step mode. 
-	 * Step mode is disabled for call_depth_ >= max_call_depth_.
-	 * This gives the user the opportunity to skip over nested 
-	 * calls during debugging.
-	 */
-	int get_call_depth() const
-	    {
-		return call_depth_;
-	    }
-	
-	/**
-	 * Set maximal call depth level to a specific value.
-	 * The value of call_depth_ is used to control
-	 * the step mode. 
-	 * Step mode is disabled for call_depth_ >= max_call_depth_.
-	 * This gives the user the opportunity to skip over nested 
-	 * calls during debugging.
-	 */
-	void set_max_call_depth(int d)
-	    {
-		max_call_depth_=d;
-	    }
-	
-	/**
-	 * Return value of maximal call depth level.
-	 * The value of call_depth_ is used to control
-	 * the step mode. 
-	 * Step mode is disabled for call_depth_ >= max_call_depth_.
-	 * This gives the user the opportunity to skip over nested 
-	 * calls during debugging.
-	 */
-	int get_max_call_depth() const
-	    {
-		return max_call_depth_;
-	    }
-	
-	
+	// Phase 5: call_depth / max_call_depth removed. The fields fed
+	// a step-debugger that step_mode() always returned false for;
+	// no live caller relied on them. The legacy inc/dec_call_depth
+	// hooks in iter setups have been deleted alongside.
+
 	// Names of basics functions
 	Name mark_name;
 	Name iparse_name;
@@ -555,9 +477,6 @@ namespace sli3
 	bool catch_errors_;     //!< Enter debugger on error.
 	bool opt_tailrecursion_;//!< Optimize tailing recursion.
 	bool cycle_guard_;
-
-	size_t  call_depth_;       //!< Current depth of procedure calls.
-	size_t  max_call_depth_;   //!< Depth until which procedure calls are debugged.
 
 	size_t cycle_count_;
 	size_t cycle_restriction_; 

@@ -51,7 +51,6 @@ void clear_after_error(SLIInterpreter& i)
     i.EStack().clear();
     // Wipe error_dict_ so the next call observes a fresh state.
     i.error_dict().clear();
-    i.set_call_depth(0);
 }
 
 // Throw an SLIException of the given type via raiseerror, then

@@ -122,7 +122,6 @@ void LoopFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->top());
     i->EStack().push(0);
     i->EStack().push(Token(i->get_type(sli3::ilooptype)));
-    i->inc_call_depth();
     i->pop();
 }
 
@@ -148,7 +147,6 @@ void ExitFunction::execute(SLIInterpreter *i) const
         i->raiseerror("EStackUnderflow");
         return;
     }
-    i->dec_call_depth();
     i->EStack().pop(n + 1);
 }
 
@@ -574,7 +572,6 @@ void ForFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->pick(0));      // procedure
     i->EStack().push(i->new_token<sli3::integertype>(i->top().data_.array_val->size()));
     i->EStack().push(for_t); // %for
-    i->inc_call_depth();
     i->pop(4);
 }
 
@@ -658,7 +655,6 @@ void Forall_aFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->new_token<sli3::integertype>(proc->size()));          // push procedure counter
     i->EStack().push(i->baselookup(i->iforallarray_name));
     i->pop(2);
-    i->inc_call_depth();
 }
 
 
@@ -729,7 +725,6 @@ void Forallindexed_aFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->pick(0));                                  // proc
     i->EStack().push(i->new_token<sli3::integertype>(proc->size())); // pos
     i->EStack().push(Token(i->get_type(sli3::iforallindexedarraytype)));
-    i->inc_call_depth();
     i->pop(2);
 }
 
@@ -760,7 +755,6 @@ void Forallindexed_sFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->pick(0));                                    // proc
     i->EStack().push(i->new_token<sli3::integertype>(proc->size())); // pos
     i->EStack().push(Token(i->get_type(sli3::iforallindexedstringtype)));
-    i->inc_call_depth();
     i->pop(2);
 }
 
@@ -792,7 +786,6 @@ void Forall_sFunction::execute(SLIInterpreter *i) const
     i->EStack().push(i->pick(0));                                    // proc
     i->EStack().push(i->new_token<sli3::integertype>(proc->size())); // pos
     i->EStack().push(Token(i->get_type(sli3::iforallstringtype)));
-    i->inc_call_depth();
     i->pop(2);
 }
 
@@ -1866,12 +1859,9 @@ The following commands are available:
 Note: This mode is still experimental.
 SeeAlso: debugoff, debug
 */
-void DebugOnFunction::execute(SLIInterpreter *i) const
+void DebugOnFunction::execute(SLIInterpreter *) const
 {
-//  std::cerr << "Starting debug mode." << std::endl;
-  // i->debug_options();
-  // i->debug_mode_on();
-  // i->set_max_call_depth(i->get_call_depth()+5);
+  // SLI-level debugger was never wired up in sli3; this op is a stub.
 }
 
 /*

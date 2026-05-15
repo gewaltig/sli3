@@ -48,7 +48,6 @@ void prime_eval(SLIInterpreter& i, std::string const& src)
 
     i.OStack().clear();
     i.EStack().clear();
-    i.set_call_depth(0);
 
     i.EStack().push(i.new_token<sli3::quittype>());
     Token x(i.get_type(sli3::xistreamtype));

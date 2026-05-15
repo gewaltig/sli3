@@ -141,6 +141,5 @@ namespace sli3
     // takes over if anything ever lands here.
     sli_->EStack().push(sli_->new_token<sli3::integertype>(0));
     sli_->EStack().push(Token(sli_->get_type(sli3::iiteratetype)));
-    sli_->inc_call_depth();
   }
 }

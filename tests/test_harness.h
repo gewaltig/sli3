@@ -48,8 +48,7 @@ namespace sli_test
 // Clears the operand and execution stacks (their Tokens'
 // destructors fire and release any refcounted payload — including
 // stream wrappers left on the e-stack when a previous eval threw).
-// Resets call_depth_ so step-mode counters from a prior test do not
-// bleed in. The dictionary stack is intentionally NOT touched — the
+// The dictionary stack is intentionally NOT touched — the
 // interpreter's bootstrap sets up systemdict / userdict, and tearing
 // those down would leave the next eval without a working lookup
 // path. Tests that mutate user bindings should clean up after
@@ -58,7 +57,6 @@ inline void clear_stacks(sli3::SLIInterpreter& i)
 {
     i.OStack().clear();
     i.EStack().clear();
-    i.set_call_depth(0);
 }
 
 // Parse and execute a SLI source string against an interpreter. Does
