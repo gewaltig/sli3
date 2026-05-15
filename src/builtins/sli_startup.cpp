@@ -320,6 +320,12 @@ public:
         Dictionary* d = i->DStack().top();
         Token t(i->get_type(sli3::dictionarytype));
         t.data_.dict_val = d;
+        // Raw-assigned payload: bump the dict's refcount so the local
+        // destructor's remove_reference is balanced. Without this, the
+        // local's drop cancels push's add, leaving the ostack entry
+        // unaccounted -- a later `end` then deletes the dict out from
+        // under it. Same pattern as DictionaryStack::toArray.
+        t.add_reference();
         i->push(t);
     }
 };
@@ -364,6 +370,38 @@ public:
     }
 };
 
+// `array restoredstack -> -`
+// Replace the dictionary stack with the dictionaries listed in the
+// argument array. Inverse of `dictstack`: array[0] is the bottom
+// dict, array[size-1] is the top. Used by debug.sli/sli-init.sli to
+// restore the dstack from the snapshot in errordict /dstack.
+class RestoredstackFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        i->require_stack_type(0, sli3::arraytype);
+        TokenArray const* arr = i->top().data_.array_val;
+        // Validate the whole array before touching the dstack: on a
+        // type error, both stacks must look as they did on entry so
+        // the error handler can introspect them.
+        for (size_t k = 0; k < arr->size(); ++k)
+        {
+            if (!(*arr)[k].is_of_type(sli3::dictionarytype))
+            {
+                i->raiseerror(i->ArgumentTypeError);
+                return;
+            }
+        }
+        i->DStack().clear();
+        for (size_t k = 0; k < arr->size(); ++k)
+            i->DStack().push((*arr)[k]);
+        i->DStack().set_basedict();
+        i->pop();
+    }
+};
+
 BeginFunction           begin_fn;
 EndFunction             end_fn;
 DictFunction            dict_fn;
@@ -371,6 +409,7 @@ CurrentdictFunction     currentdict_fn;
 CountdictstackFunction  countdictstack_fn;
 DictstackFunction       dictstack_fn;
 CleardictstackFunction  cleardictstack_fn;
+RestoredstackFunction   restoredstack_fn;
 
 //------------------------------------------------------------------------
 // Locate sli-init.sli. Search order:
@@ -487,6 +526,7 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     i->createcommand("countdictstack", &countdictstack_fn);
     i->createcommand("dictstack",      &dictstack_fn);
     i->createcommand("cleardictstack", &cleardictstack_fn);
+    i->createcommand("restoredstack",  &restoredstack_fn);
 
     // Axis I bundle step 3f: startup trailing ops new ABI.
     begin_fn.set_new_abi();
@@ -496,6 +536,7 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     dict_fn.set_new_abi();
     dictstack_fn.set_new_abi();
     end_fn.set_new_abi();
+    restoredstack_fn.set_new_abi();
     getenv_fn.set_new_abi();
     endl_fn.set_new_abi();
     flush_fn.set_new_abi();

@@ -150,6 +150,36 @@ void test_dictstack(Harness& h)
     h.run();
     // cleardictstack pops every dict above systemdict + userdict.
     CHECK(h.i.OStack().pick(0).data_.long_val == 2);
+
+    // Regression: `currentdict` used to raw-assign the dict pointer
+    // into a Token without bumping its refcount. The local Token's
+    // destructor then over-decremented, so a subsequent `end` would
+    // delete the dict while an ostack Token still referenced it --
+    // any later mutation (here `put`) was use-after-free.
+    h.prime("<< >> begin currentdict end dup /a 1 put /a get");
+    h.run();
+    CHECK(h.i.OStack().pick(0).is_of_type(sli3::integertype));
+    CHECK(h.i.OStack().pick(0).data_.long_val == 1);
+
+    // restoredstack: round-trip through dictstack. Snapshot a 2-deep
+    // stack, push another two dicts on top, then restore the snapshot
+    // and verify the dstack shrank back.
+    h.prime("3 dict begin 5 dict begin "
+            "dictstack /snap exch def "
+            "3 dict begin 7 dict begin "
+            "snap restoredstack countdictstack");
+    h.run();
+    long const after_snap = h.i.OStack().pick(0).data_.long_val;
+    CHECK(after_snap == 4);   // systemdict + userdict + 2 saved dicts
+
+    // restoredstack on a non-dict element raises ArgumentType and
+    // leaves the dstack untouched (validation runs before mutation).
+    h.prime("[1 2 3] restoredstack");
+    h.run();
+    CHECK(h.errorname() == "ArgumentType");
+    h.prime("countdictstack");
+    h.run();
+    CHECK(h.i.OStack().pick(0).data_.long_val == after_snap);
 }
 
 // ---------- containers --------------------------------------------------
