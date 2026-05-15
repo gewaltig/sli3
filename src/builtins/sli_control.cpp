@@ -131,16 +131,21 @@ Remarks: This command does not exit the SLI interpreter! Use quit instead.
 */
 void ExitFunction::execute(SLIInterpreter *i) const
 {
-    size_t n=1;
-    size_t l=i->EStack().load();
-    while( ( l > n ) && !( i->EStack().pick(n++).is_of_type(sli3::marktype)));
-    if( n >= l)
-    {
-	i->raiseerror("EStackUnderflow");
-	return;
+    // Axis I bundle Phase 2a: new-ABI. Dispatcher pre-popped the
+    // /exit slot, so the scan starts at pick(0) (the call site) and
+    // walks upward looking for the nearest marktype sentinel. All
+    // loop ops (loop / repeat / for / forall / ...) push a marktype
+    // as their exit anchor. pop(n + 1) drops everything from top
+    // down to and including the mark.
+    size_t n = 0;
+    size_t const l = i->EStack().load();
+    while (n < l && !i->EStack().pick(n).is_of_type(sli3::marktype)) ++n;
+    if (n >= l) {
+        i->raiseerror("EStackUnderflow");
+        return;
     }
     i->dec_call_depth();
-    i->EStack().pop(n);
+    i->EStack().pop(n + 1);
 }
 
 /*BeginDocumentation
@@ -2128,6 +2133,8 @@ void  init_slicontrol(SLIInterpreter *i)
     repeatfunction.set_new_abi();
     stoppedfunction.set_new_abi();
     forfunction.set_new_abi();
+    // Phase 2a: exit migrated to new-ABI. Body scans from pick(0).
+    exitfunction.set_new_abi();
     forall_afunction.set_new_abi();
     forall_sfunction.set_new_abi();
     forallindexed_afunction.set_new_abi();
