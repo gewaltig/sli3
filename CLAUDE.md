@@ -39,17 +39,17 @@ Previously done work is described in ChangeLog.md
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
 |---|---:|---:|---:|---:|
-| B1   `1 pop`           | **0.84** | 1.30 | 1.96 | **−35 %** ⬇ |
-| B2   `1 1 add pop`     | **1.81** | 2.66 | 4.24 | **−32 %** ⬇ |
-| B2b  bound `{...}`     | 1.59 | **1.21** | 3.35 | +31 % ⬆ |
-| B3   nested for        | **1.61** | 2.55 | 4.21 | **−37 %** ⬇ |
-| B5   dict alloc+lookup | **1.49** | 2.45 | 4.24 | **−39 %** ⬇ |
-| B7   bubble sort       | 2.15 | **1.96** |  —  | +10 % ⬆ |
-| B8   insertion sort    | 1.39 | **1.00** |  —  | +39 % ⬆ |
-| B9   recursive fib(28) | 1.80 | **1.68** | 4.20 | +7 % ⬆ |
-| B10  matmul 50×50      | **1.75** | 1.87 |  —  | **−6 %** ⬇ |
+| B1   `1 pop`           | **0.90** | 1.31 | 1.95 | **−31 %** ⬇ |
+| B2   `1 1 add pop`     | **1.70** | 2.67 | 4.25 | **−36 %** ⬇ |
+| B2b  bound `{...}`     | 1.59 | **1.22** | 3.39 | +30 % ⬆ |
+| B3   nested for        | **1.51** | 2.56 | 4.25 | **−41 %** ⬇ |
+| B5   dict alloc+lookup | **1.39** | 2.43 | 4.26 | **−43 %** ⬇ |
+| B7   bubble sort       | **1.90** | 1.96 |  —  | **−3 %** ⬇ |
+| B8   insertion sort    | **0.95** | 0.99 |  —  | **−4 %** ⬇ |
+| B9   recursive fib(28) | 1.72 | **1.68** | 4.21 | +2 % ⬆ |
+| B10  matmul 50×50      | **1.60** | 1.87 |  —  | **−14 %** ⬇ |
 
-  Score vs gs: **5 wins, 4 losses** (run 6, commit `ad75ded`). sli3 beats nest 2.2–2.9× across the board. The litproc / ifelse refcount-churn fix (commit `ad75ded`, 2026-05-15) closed B9 from +16 % to +7 % by short-circuiting litproc dispatch in `body_walk` and using a swap-out push in `IfelseFunction` / `hot_op_if`. The Axis II step-3 hybrid dispatcher (5 inline ultra-hot ops + function-pointer table for the warm 11) recovered half of the earlier B2b regression and improved B2 / B3 / B9 vs the post-step-2 baseline — see `fix-plan.md` "B2b regression follow-up — resolved 2026-05-14".
+  Score vs gs: **7 wins, 2 losses** (run 8, commit `59d0ee8`). sli3 beats nest 2.5–3.0× across the board. The Phase 5 dispatcher cleanup (May 2026, commits `fa93310`..`59d0ee8`) flipped B7/B8 from losses to wins and brought B9 to parity. Key moves: convert all 11 iter-helper SLIFunction classes (loop, repeat, for, forall, forallindexed, parse, lookup, parsestdin, iterate) to TYPE markers handled inline by body_walk's `body_exhausted` switch (commits `88770bb`, `168d015`); demote the C++ Map family to pure SLI (`4c2bd10`); migrate all remaining old-ABI ops to new-ABI then retire the `uses_new_abi()` switch entirely (`242d2fb`); add a native C++ `/bind` ~50× faster than the SLI loop it replaced (`a765314`); remove the dead `call_depth_` / `step_mode` machinery (`59d0ee8`). B8 dropped from 1.39 to 0.95 s alone — the iter-helper conversion was a vindication of the whole cleanup arc. Two losses remain: B2b (bound tight loop, dispatcher inner-switch cost) and B9 (within run-to-run noise).
 - Full plan in `implementation_spec.md`.
 
 ## Build
