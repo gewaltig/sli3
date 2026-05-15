@@ -712,7 +712,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         case sli3::stringtype:
         case sli3::arraytype:
         case sli3::dictionarytype:
-          operand_stack_.push(execution_stack_.top());
+          operand_stack_.push_move(execution_stack_.top());
           execution_stack_.pop();
           break;
         case sli3::nametype: {

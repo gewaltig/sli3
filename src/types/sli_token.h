@@ -1,5 +1,6 @@
 #ifndef SLI_TOKEN_H
 #define SLI_TOKEN_H
+#include <cassert>
 #include <iostream>
 #include <string>
 #include "sli_type.h"
@@ -63,6 +64,20 @@ namespace sli3
 	 * existing call sites; forwards to move-assign.
 	 */
 	Token & move(Token &t);
+
+	/**
+	 * Move t's payload into *this without dropping *this's old
+	 * payload. Precondition: *this is empty (type_ == 0). Saves
+	 * the gated `if (type_ != 0 && type_->needs_refcount())` load
+	 * inside remove_reference() on hot paths where the target is
+	 * known to be fresh (e.g. TokenStack::push_move after a
+	 * default-constructed push_back).
+	 *
+	 * Wrong-target behaviour: if *this owns a refcounted payload
+	 * on entry, that payload's refcount is NOT decremented, which
+	 * leaks. Only call from sites that guarantee emptiness.
+	 */
+	Token & move_into_empty(Token &t) noexcept;
 
 	/**
 	 * Exchange the contents of t and this token.
@@ -269,6 +284,19 @@ namespace sli3
     Token& Token::move( Token&t)
     {
       return *this = static_cast<Token&&>(t);
+    }
+
+    inline
+    Token& Token::move_into_empty(Token& t) noexcept
+    {
+      // Precondition (debug-only): caller has ensured *this holds
+      // no payload, so there's nothing to remove_reference. We
+      // pay one assert in debug builds, zero in release.
+      assert(type_ == 0);
+      type_ = t.type_;
+      data_ = t.data_;
+      t.type_ = 0;
+      return *this;
     }
 
     inline

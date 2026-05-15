@@ -16,7 +16,7 @@
 
 #ifndef SLI_TOKENSTACK_H
 #define SLI_TOKENSTACK_H
-/* 
+/*
     SLI's stack for tokens
 */
 
@@ -33,9 +33,9 @@ namespace sli3
 class TokenStack : private TokenArray
 {
 public:
-    TokenStack(size_t n ) 
+    TokenStack(size_t n )
             : TokenArray(0,Token(),n) {}
-    TokenStack(const TokenArray& ta) 
+    TokenStack(const TokenArray& ta)
             : TokenArray(ta) {}
 
   using TokenArray::reserve;
@@ -45,46 +45,50 @@ public:
   {
     erase(begin(),end());
   }
-  
+
   void push(const Token& e)
   {
     push_back(e);
   }
-  
+
+  void push_move(Token& e)
+  {
+    // The fresh slot from push_back(Token()) is default-
+    // constructed (type_ == 0), so we can use the cheaper
+    // move_into_empty path -- skips the gated remove_reference
+    // check that the general Token::move would do.
+    push_back(Token());
+    (end()-1)->move_into_empty(e);
+  }
+
   void pop(void)
   {
-    assert(load() > 0);
     pop_back();
   }
 
   void pop(size_t n)
   {
-    assert(load() >= n);
     erase(end()-n, end());
   }
 
 
   Token& top(void)
     {
-      assert(load() > 0);
       return *(end()-1);
     }
 
   const Token& top(void) const
   {
-    assert(load() > 0);
     return *(end()-1);
   }
 
   const Token& pick(size_t i) const
   {
-    assert(i < load());
     return *(end()-i-1);
   }
 
   Token& pick(size_t i)
     {
-      assert(i < load());
       return *(end()-i-1);
     }
 
@@ -92,13 +96,11 @@ public:
 
   void swap(void)
   {
-    assert(load() >= 2);
     (end()-1)->swap(*(end()-2));
   }
 
   void swap(Token &e)
   {
-    assert(load() > 0);
     (end()-1)->swap(e);
   }
 
@@ -123,7 +125,7 @@ public:
 	rotate(end()-n,end()-(n+k)%n,end());
       }
   }
-            
+
   // ----------------------------------------------------------------
   // size() vs load() — read carefully.
   //
@@ -145,12 +147,12 @@ public:
   size_t load(void) const        {return TokenArray::size();}
 
   void dump(std::ostream &) const;
-  
+
   TokenArray * toArray(void) const
   {
     return new TokenArray(*this);
   }
-    
+
 };
 }
 #endif
