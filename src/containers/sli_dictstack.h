@@ -16,7 +16,7 @@
 
 #ifndef SLI_DICTSTACK_H
 #define SLI_DICTSTACK_H
-/* 
+/*
     SLI's dictionary stack
 */
 #include "sli_dictionary.h"
@@ -27,17 +27,17 @@
 /***************************************************************
 
 Problems:
-     
+
 - is ist better to uses dictionaries as references to common
   objects like in PS. What is the exact meaning of undef and
-  where in our current situation (read RedBook).     
-- more efficient implementation exploiting 
+  where in our current situation (read RedBook).
+- more efficient implementation exploiting
   the name ids (documented elsewhere).
 
 
 
     History:
-            (1) using list<Dictionary> 
+            (1) using list<Dictionary>
                MD, 23.6.1, Freiburg
             (0) first version (single dictionary)
                MOG, MD, June 1997, Freiburg
@@ -50,10 +50,10 @@ Problems:
  * 2. basecache_, a cache for the system dictionary
  * These caches are direct lookup table with one entry per name.
  * They work as follows:
- * If a name is looked up, it is looked up in the cache. 
+ * If a name is looked up, it is looked up in the cache.
  * If the cache does not have an entry, the dictionary stack is searched and
- * the name/token combination is added to the cache. 
- */ 
+ * the name/token combination is added to the cache.
+ */
 
 namespace sli3
 {
@@ -68,12 +68,36 @@ private:
     std::vector<Token *> cache_;
     std::vector<Token *> basecache_;
 
+    // Single search core. Returns a pointer into the owning dict's
+    // TokenMap slot (nullptr on miss). Both public lookup variants
+    // delegate here; do NOT replace one variant by calling the other,
+    // see the comment above bool lookup() below.
+    Token *find_(Name const & n)
+    {
+      Name::handle_t key = n.toIndex();
+      if (key < cache_.size())
+      {
+        if (Token *ct = cache_[key])
+          return ct;
+      }
+      for (Dictionary *dict : d)
+      {
+        TokenMap::iterator where = dict->find(n);
+        if (where != dict->end())
+        {
+          cache_token(n, &(where->second));
+          return &(where->second);
+        }
+      }
+      return nullptr;
+    }
+
 public:
   DictionaryStack();
   DictionaryStack(const DictionaryStack&);
   ~DictionaryStack();
 
-    
+
   /**
    * Add a token to the cache.
    */
@@ -136,64 +160,44 @@ public:
       basecache_[i]=0;
   }
 
+  // Two lookup variants, intentionally distinct. Both delegate to
+  // find_() so the search logic exists once.
+  //
+  //   bool lookup(Name, Token&) — COPIES the found token into the
+  //     caller's slot; returns false on miss. Use when absence is a
+  //     normal outcome (known(), conditional resolution, error
+  //     recovery) or when the caller wants an owned copy.
+  //
+  //   Token& lookup(Name)      — Returns a reference to the map slot
+  //     itself; throws UndefinedName on miss. Use on the hot
+  //     dispatch path (nametype execution, trie eval) where misses
+  //     are exceptional and avoiding the token copy matters.
+  //
+  // Do NOT collapse one into the other by try/catching UndefinedName
+  // around the throwing variant: the bool form is the engine of
+  // known() and is called where misses are expected, so throwing on
+  // absence would turn a list-walk into a stack unwind on every
+  // negative answer.
   bool lookup(Name const & n, Token &result)
   {
-    Name::handle_t key=n.toIndex();
-    if (key<cache_.size())
-      {
-    	Token *ct=cache_[key];
-    	if(ct)
-	  {
-	    result=*ct;
-	    return true;
-	  }
-      }
-
-    std::list<Dictionary *>::const_iterator i=d.begin();
-
-    while (i!=d.end())
-      {
-	TokenMap::iterator where =(*i)->find(n);
-	if(where!=(*i)->end())
-	  {
-	    cache_token(n,&(where->second)); // Update the cache
-	    result= where->second;
-	    return true;
-	  }
-	++i;
-      }
+    if (Token *p = find_(n))
+    {
+      result = *p;
+      return true;
+    }
     return false;
   }
 
   Token& lookup(Name const & n)
   {
-    Name::handle_t key=n.toIndex();
-    if (key<cache_.size())
-      {
-    	Token *ct=cache_[key];
-    	if(ct)
-	  return *ct;
-      }
-
-    std::list<Dictionary *>::const_iterator i=d.begin();
-
-    while (i!=d.end())
-      {
-	TokenMap::iterator where =(*i)->find(n);
-	if(where!=(*i)->end())
-	  {
-	    cache_token(n,&(where->second)); // Update the cache
-	    return where->second;
-	  }
-	++i;
-      }
+    if (Token *p = find_(n))
+      return *p;
     throw UndefinedName(n.toString());
   }
 
   bool known(Name const & n)
   {
-    Token result;
-    return lookup(n,result);
+    return find_(n) != nullptr;
   }
 
   /** Lookup a name searching only the bottom level dictionary.
@@ -212,7 +216,7 @@ public:
 	    return *ct;
       }
     TokenMap::iterator where =base_->find(n);
-    
+
     if ( where != base_->end() )
       {
 	cache_token(n, &(where->second)); // Update the cache
@@ -272,25 +276,25 @@ public:
   void pop(void);
 
 
-  Dictionary * top() const; 
+  Dictionary * top() const;
   void push(Token const &);
-   
+
   void clear(void);
   void toArray(SLIInterpreter &, TokenArray &) const;
 
-    // 
+    //
     // number of dictionaries currently on the stack
     //
   size_t size(void) const;
 
 
    //
-   // info for debugging purposes. 
-   // calls info(ostream&) for all dictionaries 
+   // info for debugging purposes.
+   // calls info(ostream&) for all dictionaries
    //
   void info(std::ostream&) const;
   void top_info(std::ostream &) const; // calls info of top dictionary
-  const DictionaryStack& operator=(const DictionaryStack&); 
+  const DictionaryStack& operator=(const DictionaryStack&);
 };
 
 inline
@@ -308,8 +312,3 @@ void DictionaryStack::def(Name const & n, const Token &t)
 
 }
 #endif
-
-
-
-
-

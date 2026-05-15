@@ -41,17 +41,6 @@ namespace
 {
 using namespace sli_test;
 
-// Build a procedure Token whose body is the given source. Pushes
-// the proc onto the ostack and returns nothing; caller can leave it
-// for the dispatcher to execute via `exec`, or invoke it directly.
-//
-// Implementation: we just eval `{ <body> }` -- the scanner produces
-// a proceduretype Token sitting on the ostack.
-void push_proc(sli3::SLIInterpreter& i, const std::string& body)
-{
-    eval(i, "{ " + body + " }");
-}
-
 void test_arrayload_via_dispatch(sli3::SLIInterpreter& i)
 {
     // [1 2 3] arrayload  ->  1 2 3 3   (elements then count)

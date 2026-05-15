@@ -201,6 +201,13 @@ static inline void hot_op_compare(SLIInterpreter* i, CmpNum cn, CmpStr cs)
         // without it the string leaks until process exit.
         a.clear();
     }
+    else
+    {
+        // Unsupported operand combination. The dispatcher's hot arm
+        // calls this without trie filtering, so we must reject here.
+        i->raiseerror(i->ArgumentTypeError);
+        return;
+    }
     a.type_ = bool_tid;
     a.data_.bool_val = result;
     i->pop();
