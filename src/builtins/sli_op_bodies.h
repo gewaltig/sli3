@@ -144,12 +144,17 @@ static inline void hot_op_sub(SLIInterpreter* i)
 // Under the new ABI, the dispatcher pre-popped /if's own slot
 // (in the main case) or never pushed it (in the body-walk
 // fast path). The body just consumes the two ostack args.
+// Swap-out (cf. IfelseFunction): when taking the branch, move
+// the proc Token to the estack via swap to skip one
+// ArrayType::add_reference / remove_reference pair.
 static inline void hot_op_if(SLIInterpreter* i)
 {
     i->require_stack_load(2);
     i->require_stack_type(1, sli3::booltype);
-    if (i->pick(1).data_.bool_val)
-        i->EStack().push(i->top());
+    if (i->pick(1).data_.bool_val) {
+        i->EStack().push(Token{});
+        i->EStack().top().swap(i->top());
+    }
     i->pop(2);
 }
 

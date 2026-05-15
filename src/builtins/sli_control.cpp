@@ -188,14 +188,17 @@ void IfelseFunction::execute(SLIInterpreter *i) const
     // OStack: bool tproc fproc
     //          2    1      0
     // EStack (new ABI, step 4): dispatcher pre-popped /ifelse's
-    // slot. Push the chosen branch and drop the ostack operands.
+    // slot. Move the chosen branch onto the estack via swap rather
+    // than copy: push an empty Token, swap with the ostack slot, then
+    // pop(3). The swapped-out slot's dtor is a no-op (type_=0), so we
+    // save one ArrayType::add_reference / remove_reference pair per
+    // ifelse call (a hot path in recursive procedures like fib).
     i->require_stack_load(3);
     i->require_stack_type(2, sli3::booltype);
 
-    if (i->pick(2).data_.bool_val)
-        i->EStack().push(i->pick(1));   // tproc
-    else
-        i->EStack().push(i->pick(0));   // fproc
+    Token& chosen = i->pick(2).data_.bool_val ? i->pick(1) : i->pick(0);
+    i->EStack().push(Token{});
+    i->EStack().top().swap(chosen);
     i->pop(3);
 }
 

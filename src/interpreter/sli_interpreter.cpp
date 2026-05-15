@@ -996,9 +996,25 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               operand_stack_.push(resolved);
               goto body_walk;
             }
-            // proceduretype / trietype / litproceduretype / other
-            // executable types: push to e-stack and break to the
-            // outer switch. The outer switch handles them; on
+            // litproctype short-circuit: a literal procedure in
+            // a body is data -- push it directly to the operand
+            // stack as a proceduretype value, skipping the
+            // estack round-trip through the outer switch. Saves
+            // one ArrayType::add_reference / remove_reference
+            // pair per litproc. Marked unlikely to keep the
+            // compiler from re-laying-out the dispatcher's hot
+            // path for benchmarks that have no litprocs in their
+            // body (B2b is the canary -- a 1% regression appears
+            // here without the hint).
+            if (__builtin_expect(t.tag() == sli3::litproceduretype, 0)) {
+              operand_stack_.push(t);
+              operand_stack_.top().type_ = proc_type;
+              if (proc->index_is_valid(*pos_p))
+                goto body_walk;
+              goto body_exhausted;
+            }
+            // proceduretype / trietype / other executable types:
+            // push to e-stack and break to the outer switch. On
             // return (when the dispatcher re-enters via our case
             // label) proc/pos_p are re-loaded.
             execution_stack_.push(t);
