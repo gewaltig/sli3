@@ -896,6 +896,13 @@ def
   end
 } def
 
+/** @BeginDocumentation
+Name: array - construct array with n zeros (PS)
+Synopsis: int array -> array
+Examples: 10 array ->[0 0 0 0 0 0 0 0 0 0]
+SeeAlso: Range, LayoutArray, Table, arraystore
+*/
+/array /array_ load def
 
 /** @BeginDocumentation
 Name: statusdict - dictionary with platform dependent status
