@@ -66,14 +66,9 @@ namespace sli3
   {
     if (!t.data_.func_val) return;
     SLIFunction* fn = t.data_.func_val;
-    // Axis I bundle step 4: pre-pop the fn slot for new-ABI ops
-    // (mirrors the dispatcher's main-case behaviour). execute_
-    // (plain mode) reaches this path via top().execute(); the
-    // dispatcher's inline functiontype case bypasses
-    // FunctionType::execute and runs its own pre-pop.
-    if (fn->uses_new_abi()) {
-      sli_->EStack().pop();
-    }
+    // Phase 5: all ops are new-ABI; pre-pop the fn slot
+    // unconditionally before running the body.
+    sli_->EStack().pop();
     fn->execute(sli_);
   }
 

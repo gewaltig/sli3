@@ -98,25 +98,6 @@ namespace sli3
 	      name_=n;
 	  }
 
-      // Axis I bundle step 3: when true, the dispatcher pops this
-      // operator's e-stack slot itself after fn->execute returns
-      // (in the main functiontype case) or skips the sentinel push
-      // entirely (in iter cases). When false, the operator manages
-      // its own slot -- either via a trailing i->EStack().pop()
-      // (most ops, pre-conversion) or by special manipulation
-      // (Repeat / For / Loop / Iparse and other control-flow
-      // setups, which push iter frames or stay-in-place to
-      // re-iterate).
-      //
-      // Default is false (today's ABI). Per-file step-3 commits
-      // call set_new_abi() in the file's init function for each
-      // converted operator (whose trailing i->EStack().pop() in
-      // execute() has been removed). Step 4 of the bundle flips
-      // the default to true and drops the flag once the
-      // dispatcher's old-ABI path can be deleted.
-      bool uses_new_abi() const { return new_abi_; }
-      void set_new_abi() { new_abi_ = true; }
-
       // Axis II: hot-op tag. Subclasses set this in their
       // constructor (see Pop/Dup/Exch/Add_ii). HOP_NONE keeps
       // the virtual-call path. The setter is intentionally
@@ -125,9 +106,15 @@ namespace sli3
       HotOpId hot_op() const { return hot_op_id_; }
       void set_hot_op(HotOpId id) { hot_op_id_ = id; }
 
+      // Phase 5: legacy uses_new_abi() / set_new_abi() are gone.
+      // The dispatcher always pre-pops the fn slot before running
+      // execute(); every op is new-ABI. Keep set_new_abi() as a
+      // no-op stub so any external module that still calls it
+      // compiles. Remove after a deprecation cycle.
+      void set_new_abi() {}
+
   private:
       Name name_;
-      bool new_abi_ = false;
       HotOpId hot_op_id_ = HOP_NONE;
   };
 }

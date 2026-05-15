@@ -442,13 +442,8 @@ Name SLIInterpreter::get_current_name(void) const {
 
 void SLIInterpreter::raiseerror(Name err) {
   Name caller = get_current_name();
-  // Axis I bundle step 4: under new-ABI dispatcher, the fn slot was
-  // pre-popped before fn->execute. raiseerror called from inside a
-  // new-ABI op must NOT pop again -- the slot is already gone. For
-  // old-ABI ops the slot is still on top and gets popped here as
-  // before.
-  if (current_op_ == nullptr || !current_op_->uses_new_abi())
-    execution_stack_.pop();
+  // Phase 5: dispatcher always pre-pops the fn slot before
+  // fn->execute, so we never pop here.
   raiseerror(caller, err);
 }
 
@@ -459,19 +454,9 @@ void SLIInterpreter::raiseerror(std::exception &err) {
   Name command_n("command");
 
   assert(error_dict_ != NULL);
-  // Axis I bundle step 4: under new-ABI dispatcher, the fn slot was
-  // pre-popped before fn->execute, so what's on top is NOT the fn
-  // slot anymore. /command in errordict ends up being whatever was
-  // below (often nothing interesting). For old-ABI we keep the
-  // historical behaviour: read top into /command, then pop it.
-  if (current_op_ == nullptr || !current_op_->uses_new_abi()) {
-    error_dict_->insert(command_n, execution_stack_.top());
-    execution_stack_.pop();
-  }
-  // else: /command stays whatever it was previously; new-ABI ops
-  // are uniquely identified via /commandname (set in
-  // raiseerror(Name,Name)) so this is fine for the bench/error
-  // tests.
+  // Phase 5: dispatcher pre-pops the fn slot. /command stays
+  // whatever was there previously; new-ABI ops are uniquely
+  // identified via /commandname (set in raiseerror(Name,Name)).
 
   // SLIException provide addtional information
   SLIException *slierr = dynamic_cast<SLIException *>(&err);
@@ -705,7 +690,9 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   const Token null_val = new_token<sli3::integertype>(0);
   SLIType *iiterate_t = get_type(sli3::iiteratetype);
   SLIType *proc_type  = get_type(sli3::proceduretype);
-  const Token sentinel(get_type(sli3::nulltype));
+  // Phase 5 (final): the `sentinel` Token (nulltype placeholder for
+  // old-ABI ops to absorb their self-pop) is gone. All ops are
+  // new-ABI; the dispatcher always pre-pops the fn slot.
   if (status_dict_)
     (*status_dict_)[exitcode_name] = null_val;
 
@@ -766,12 +753,9 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           if (__builtin_expect(count_calls_, 0))
             ++call_counts_[fn];
           current_op_ = fn;
-          if (fn->uses_new_abi()) {
-            execution_stack_.pop();
-            fn->execute(this);
-          } else {
-            fn->execute(this);
-          }
+          // Phase 5: all ops are new-ABI; pre-pop unconditionally.
+          execution_stack_.pop();
+          fn->execute(this);
           current_op_ = nullptr;
           break;
         }
@@ -846,10 +830,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                 case HOP_EXCH:   hot_op_exch(this);   break;
                 case HOP_ADD_II: hot_op_add_ii(this); break;
                 case HOP_ADD:    hot_op_add(this);    break;
-                case HOP_NONE:
-                  if (fn->uses_new_abi()) { fn->execute(this); }
-                  else { execution_stack_.push(sentinel); fn->execute(this); }
-                  break;
+                case HOP_NONE:   fn->execute(this); break;
                 default:
                   hot_op_table[fn->hot_op()](this);
                   break;
@@ -870,10 +851,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
                   case HOP_EXCH:   hot_op_exch(this);   break;
                   case HOP_ADD_II: hot_op_add_ii(this); break;
                   case HOP_ADD:    hot_op_add(this);    break;
-                  case HOP_NONE:
-                    if (fn->uses_new_abi()) { fn->execute(this); }
-                    else { execution_stack_.push(sentinel); fn->execute(this); }
-                    break;
+                  case HOP_NONE:   fn->execute(this); break;
                   default:
                     hot_op_table[fn->hot_op()](this);
                     break;
@@ -1069,16 +1047,6 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           }
           break;
         }
-        case sli3::nulltype:
-          // Defensive guard. The dispatcher pushes a nulltype
-          // sentinel before invoking an old-ABI fn at the body-
-          // walk fn arms above. An old-ABI op is supposed to pop
-          // the sentinel as part of its own e-stack cleanup; if
-          // a future op forgets, the sentinel surfaces here. Eat
-          // it cleanly rather than letting SLIType::execute
-          // deposit a nulltype Token on the operand stack.
-          execution_stack_.pop();
-          break;
         default:
           execution_stack_.top().execute();
         }
