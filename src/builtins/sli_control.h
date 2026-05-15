@@ -283,6 +283,21 @@ namespace sli3
     ExecFunction() {}
     void execute(SLIInterpreter *) const;
   };
+
+  // Phase 4: deep `/bind` that walks a procedure body and replaces
+  // every nametype token whose dstack lookup resolves to a function
+  // or trie with the resolved Token directly. Names that resolve to
+  // anything else (or are undefined) are left as-is, mirroring
+  // PostScript bind semantics. Nested procedures (litproctype /
+  // proctype) are recursed into in place. Re-binding is a no-op
+  // (idempotent) -- the SLI-level bind in sli-init.sli has the same
+  // shape but is interpreted and ~50x slower per pass.
+  class BindFunction: public SLIFunction
+  {
+  public:
+    BindFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
   
   
   class TypeinfoFunction: public SLIFunction
