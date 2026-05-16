@@ -1394,6 +1394,14 @@ void CvaFunction::execute(SLIInterpreter* i) const
         // the trie wrapper's `exch pop` cleanup.
         return;
       }
+      case sli3::proceduretype:
+      case sli3::litproceduretype:
+        // Procedures share the TokenArray payload with arrays; the
+        // refcount lives on the heap object, so flipping the SLIType
+        // pointer in place reinterprets the same payload as an array
+        // without touching the array_val or its refcount.
+        i->top().type_ = i->get_type(sli3::arraytype);
+        return;
     }
     i->raiseerror(i->ArgumentTypeError);
 }

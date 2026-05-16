@@ -817,6 +817,14 @@ void ForallFunction::execute(SLIInterpreter *i) const
         return;
     }
     switch (i->pick(1).tag()) {
+      case sli3::proceduretype:
+      case sli3::litproceduretype:
+        // Procedures share the TokenArray payload with arrays; flip
+        // the SLIType pointer so forall_a sees an array. The slot is
+        // popped inside forall_a, so the relabel doesn't outlive the
+        // call.
+        i->pick(1).type_ = i->get_type(sli3::arraytype);
+        [[fallthrough]];
       case sli3::arraytype:
         forall_afunction.execute(i);
         return;
