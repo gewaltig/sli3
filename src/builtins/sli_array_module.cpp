@@ -175,6 +175,74 @@ public:
 };
 
 //------------------------------------------------------------------------
+// First / Rest — array | proc | litproc.
+//   First returns the leading element; Rest returns a same-type
+//   container with the leading element dropped. NEST 2.x defines
+//   both in mathematica.sli as `{ 0 get }` / `{ 0 1 erase }`; the
+//   C++ versions skip the SLI dispatch overhead and accept all
+//   three TokenArray-payload types directly.
+//------------------------------------------------------------------------
+class FirstFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        unsigned tag = i->top().tag();
+        if (tag != sli3::arraytype
+            && tag != sli3::proceduretype
+            && tag != sli3::litproceduretype)
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        TokenArray const* arr = i->top().data_.array_val;
+        if (arr->empty())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        // Copy the element out before overwriting top(): replacing
+        // top() may drop the container's last reference and free the
+        // storage we're reading from.
+        Token first = arr->get(0);
+        i->top() = std::move(first);
+    }
+};
+
+class RestFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        unsigned tag = i->top().tag();
+        if (tag != sli3::arraytype
+            && tag != sli3::proceduretype
+            && tag != sli3::litproceduretype)
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        TokenArray const* src = i->top().data_.array_val;
+        if (src->empty())
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        TokenArray* result = new TokenArray();  // refs_=1
+        result->reserve(src->size() - 1);
+        for (Token const* t = src->begin() + 1; t != src->end(); ++t)
+            result->push_back(*t);
+        // Preserve input container type so {1 2 3} Rest yields a
+        // procedure, not an array.
+        Token out(i->get_type(tag));
+        out.data_.array_val = result;  // consumes the refs_=1
+        i->top() = std::move(out);
+    }
+};
+
+//------------------------------------------------------------------------
 // Rotate
 //   array n Rotate -> rotated array
 // Positive n rotates elements right (last n elements become first).
@@ -556,6 +624,8 @@ public:
 
 RangeFunction              range_fn;
 ArrayFunction              array_fn;
+FirstFunction              first_fn;
+RestFunction               rest_fn;
 ReverseFunction            reverse_fn;
 RotateFunction             rotate_fn;
 FlattenFunction            flatten_fn;
@@ -575,6 +645,8 @@ void init_sliarray(SLIInterpreter* i)
 {
     i->createcommand("Range",            &range_fn);
     i->createcommand("array_",           &array_fn);
+    i->createcommand("First_",           &first_fn);
+    i->createcommand("Rest_",            &rest_fn);
     i->createcommand("Reverse",          &reverse_fn);
     i->createcommand("Rotate",           &rotate_fn);
     i->createcommand("Flatten",          &flatten_fn);

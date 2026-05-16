@@ -1233,7 +1233,9 @@ Author: docu edited by Sirko Straube
 SeeAlso: Last, Rest, Most
 */
 
-/First { 0 get }    bind def
+% /First is a C++ leaf in sli_array_module: FirstFunction.
+% Handles array/proc/litproc (the TokenArray-payload types).
+/First /First_ load def
 
 /** @BeginDocumentation
 Name: Last - Return the last element of an array or string
@@ -1266,7 +1268,10 @@ Author: docu edited by Sirko Straube
 
 SeeAlso: First, Last, Most
 */
-/Rest  { 0 1 erase} bind def
+% /Rest is a C++ leaf in sli_array_module: RestFunction.
+% Handles array/proc/litproc (the TokenArray-payload types) and
+% preserves the container type (procedures stay procedures).
+/Rest /Rest_ load def
 
 /** @BeginDocumentation
  Name: run - execute a sli file
