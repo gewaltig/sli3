@@ -88,8 +88,8 @@ public:
         i->require_stack_type(1, TID);
         i->require_stack_type(0, sli3::integertype);
         TokenArray* arr = i->pick(1).data_.array_val;
-        long idx = i->top().data_.long_val;
-        if (idx < 0 || static_cast<size_t>(idx) >= arr->size())
+        long idx = resolve_index(i->top().data_.long_val, arr->size());
+        if (idx < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
@@ -121,8 +121,8 @@ public:
                 i->raiseerror(i->ArgumentTypeError);
                 return;
             }
-            long k = t->data_.long_val;
-            if (k < 0 || static_cast<size_t>(k) >= arr->size())
+            long k = resolve_index(t->data_.long_val, arr->size());
+            if (k < 0)
             {
                 delete out;
                 i->raiseerror(i->RangeCheckError);
@@ -145,8 +145,8 @@ public:
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
         std::string& s = i->pick(1).data_.string_val->str();
-        long idx = i->top().data_.long_val;
-        if (idx < 0 || static_cast<size_t>(idx) >= s.size())
+        long idx = resolve_index(i->top().data_.long_val, s.size());
+        if (idx < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
@@ -197,8 +197,8 @@ public:
         i->require_stack_type(2, TID);
         i->require_stack_type(1, sli3::integertype);
         TokenArray* arr = i->pick(2).data_.array_val;
-        long idx = i->pick(1).data_.long_val;
-        if (idx < 0 || static_cast<size_t>(idx) >= arr->size())
+        long idx = resolve_index(i->pick(1).data_.long_val, arr->size());
+        if (idx < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
@@ -218,9 +218,9 @@ public:
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::integertype);
         std::string& s = i->pick(2).data_.string_val->str();
-        long idx = i->pick(1).data_.long_val;
+        long idx = resolve_index(i->pick(1).data_.long_val, s.size());
         long c = i->top().data_.long_val;
-        if (idx < 0 || static_cast<size_t>(idx) >= s.size())
+        if (idx < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
@@ -270,8 +270,8 @@ public:
                 i->raiseerror(i->ArgumentTypeError);
                 return;
             }
-            long k = it->data_.long_val;
-            if (k < 0 || static_cast<size_t>(k) >= cur->size())
+            long k = resolve_index(it->data_.long_val, cur->size());
+            if (k < 0)
             {
                 i->raiseerror(i->RangeCheckError);
                 return;

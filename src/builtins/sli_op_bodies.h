@@ -24,6 +24,19 @@
 namespace sli3
 {
 
+// Resolve an SLI container index against `size`, supporting
+// Python-style negative indexing (-1 == last element). Returns the
+// resolved non-negative index in [0, size), or -1 if the original
+// index is out of range. Caller raises RangeCheck on -1.
+static inline long resolve_index(long idx, size_t size)
+{
+    if (idx < 0)
+        idx += static_cast<long>(size);
+    if (idx < 0 || static_cast<size_t>(idx) >= size)
+        return -1;
+    return idx;
+}
+
 // pop -- discard ostack top.
 static inline void hot_op_pop(SLIInterpreter* i)
 {
@@ -291,8 +304,8 @@ static inline void hot_op_get(SLIInterpreter* i)
         && key == sli3::integertype)
     {
         TokenArray* arr = i->pick(1).data_.array_val;
-        long idx = i->top().data_.long_val;
-        if (idx < 0 || static_cast<size_t>(idx) >= arr->size())
+        long idx = resolve_index(i->top().data_.long_val, arr->size());
+        if (idx < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
@@ -317,8 +330,8 @@ static inline void hot_op_get(SLIInterpreter* i)
                 i->raiseerror(i->ArgumentTypeError);
                 return;
             }
-            long k = t->data_.long_val;
-            if (k < 0 || static_cast<size_t>(k) >= arr->size())
+            long k = resolve_index(t->data_.long_val, arr->size());
+            if (k < 0)
             {
                 delete out;
                 i->raiseerror(i->RangeCheckError);
@@ -333,8 +346,8 @@ static inline void hot_op_get(SLIInterpreter* i)
     if (coll == sli3::stringtype && key == sli3::integertype)
     {
         std::string& s = i->pick(1).data_.string_val->str();
-        long idx = i->top().data_.long_val;
-        if (idx < 0 || static_cast<size_t>(idx) >= s.size())
+        long idx = resolve_index(i->top().data_.long_val, s.size());
+        if (idx < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
@@ -377,8 +390,8 @@ static inline void hot_op_put(SLIInterpreter* i)
         && idx == sli3::integertype)
     {
         TokenArray* arr = i->pick(2).data_.array_val;
-        long k = i->pick(1).data_.long_val;
-        if (k < 0 || static_cast<size_t>(k) >= arr->size())
+        long k = resolve_index(i->pick(1).data_.long_val, arr->size());
+        if (k < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
@@ -406,8 +419,8 @@ static inline void hot_op_put(SLIInterpreter* i)
                 i->raiseerror(i->ArgumentTypeError);
                 return;
             }
-            long k = it->data_.long_val;
-            if (k < 0 || static_cast<size_t>(k) >= cur->size())
+            long k = resolve_index(it->data_.long_val, cur->size());
+            if (k < 0)
             {
                 i->raiseerror(i->RangeCheckError);
                 return;
@@ -433,9 +446,9 @@ static inline void hot_op_put(SLIInterpreter* i)
     if (coll == sli3::stringtype && idx == sli3::integertype)
     {
         std::string& s = i->pick(2).data_.string_val->str();
-        long k = i->pick(1).data_.long_val;
+        long k = resolve_index(i->pick(1).data_.long_val, s.size());
         long c = i->top().data_.long_val;
-        if (k < 0 || static_cast<size_t>(k) >= s.size())
+        if (k < 0)
         {
             i->raiseerror(i->RangeCheckError);
             return;
