@@ -40,6 +40,11 @@ DictionaryStack::DictionaryStack(const DictionaryStack &ds )
 
 DictionaryStack::~DictionaryStack()
 {
+    // Release our cached snapshot before tearing the stack down so
+    // the array's destructor (which decrements each dict-entry's
+    // refcount) runs while the dicts are still alive.
+    invalidate_snapshot();
+
     // Each push() did add_reference() to keep the dict alive while
     // it was on the stack. The destructor must pair every push with
     // a remove_reference; otherwise dictionaries left on the stack
@@ -50,6 +55,38 @@ DictionaryStack::~DictionaryStack()
       (*i)->clear();
       (*i)->remove_reference();
     }
+}
+
+void DictionaryStack::invalidate_snapshot()
+{
+    if (snapshot_ != nullptr)
+    {
+        // Drop our reference. If outside holders (a /d binding,
+        // a Token on the operand stack) keep it alive, the array
+        // survives with a smaller refcount; if we were the last,
+        // remove_reference deletes it.
+        snapshot_->remove_reference();
+        snapshot_ = nullptr;
+    }
+}
+
+TokenArray *DictionaryStack::snapshot(SLIInterpreter &sli)
+{
+    if (snapshot_ == nullptr)
+    {
+        // First call since the last mutation: materialise. The fresh
+        // TokenArray has refs_=1 — exactly the ref we keep in the
+        // cache slot. add_reference for each dict happens inside
+        // toArray.
+        snapshot_ = new TokenArray();
+        toArray(sli, *snapshot_);
+    }
+    // Hand out one ref to the caller (matches the implicit +1 that
+    // `new TokenArray()` used to give the old DictstackFunction
+    // body). The Token-construct / push / local-destruct dance at
+    // the call site will net-leave that +1 on the operand stack.
+    snapshot_->add_reference();
+    return snapshot_;
 }
 
 void DictionaryStack::undef(Name const & n)
@@ -99,6 +136,9 @@ void DictionaryStack::pop(void)
 
   Dictionary *top = *(d.begin());
 
+  // dstack identity changes — snapshot is stale.
+  invalidate_snapshot();
+
   // Cache invalidation. Cached pointers into `top`'s entries become
   // dangling as soon as `top` is gone (and once we drop our reference,
   // it may actually be deleted). Same rationale as push: cache_token
@@ -118,6 +158,9 @@ void DictionaryStack::pop(void)
 
 void DictionaryStack::clear(void)
 {
+    // dstack identity changes — snapshot is stale.
+    invalidate_snapshot();
+
     // Mirror destructor refcount accounting: each entry on the stack
     // owes one remove_reference (paired with push's add_reference).
     for (std::list<Dictionary *>::iterator i = d.begin();
@@ -141,27 +184,28 @@ Dictionary *DictionaryStack::top() const
 void DictionaryStack::toArray(SLIInterpreter &sli, TokenArray &ta) const
 {
   //
-  // create a copy of the top level dictionary
-  // and move it into Token t.
-  // new should throw an exception if it fails
+  // Bottom-first snapshot: arr[0] = bottom dict, arr[size-1] = top.
+  // Inverse of restore_from. Reserve up front so push_back never
+  // reallocates — on the dictstack save/restore hot path that's a
+  // measurable win (the array is freshly allocated per dictstack
+  // call, so growth would mean every call goes through a
+  // 1→2→4-element realloc chain).
   //
-
   ta.clear();
+  ta.reserve(d.size());
 
-  std::list<Dictionary *>::const_reverse_iterator i(d.rbegin());
-
-  while (i!=d.rend())
+  SLIType *dict_type = sli.get_type(sli3::dictionarytype);
+  for (auto it = d.rbegin(); it != d.rend(); ++it)
   {
     Token dicttoken;
-    dicttoken.type_=sli.get_type(sli3::dictionarytype);
-    dicttoken.data_.dict_val=*i;
+    dicttoken.type_ = dict_type;
+    dicttoken.data_.dict_val = *it;
     dicttoken.add_reference();  // raw-assigned payload: bump dict refcount so
                                 // the local destructor's remove_reference is
                                 // balanced (otherwise vector entry's bump and
                                 // local's drop cancel, leaving the array
                                 // entry without a true reference).
     ta.push_back(dicttoken);
-   ++i;
   }
 }
 
@@ -169,6 +213,9 @@ void DictionaryStack::push(Token const & dicttoken)
 {
   assert(dicttoken.is_of_type(sli3::dictionarytype));
   Dictionary *dict=dicttoken.data_.dict_val;
+
+  // dstack identity changes — snapshot is stale.
+  invalidate_snapshot();
   //
   // extract Dictionary from Token envelope
   // and push it on top of the stack.
@@ -195,6 +242,48 @@ void DictionaryStack::push(Token const & dicttoken)
 #endif
 
     d.push_front(dict);
+}
+
+void DictionaryStack::restore_from(TokenArray const &ta)
+{
+    const size_t n = ta.size();
+
+    // Fast path: same dicts, same order. The dictstack list keeps top
+    // at front (push_front), so d.rbegin() walks bottom→top, which
+    // matches ta[0]..ta[n-1]. Identity match means refcounts and
+    // cache_/basecache_ entries are still valid — skip the rebuild.
+    if (n == d.size())
+    {
+        bool match = true;
+        size_t k = 0;
+        for (auto it = d.rbegin(); it != d.rend(); ++it, ++k)
+        {
+            if (*it != ta[k].data_.dict_val)
+            {
+                match = false;
+                break;
+            }
+        }
+        if (match)
+            return;
+    }
+
+    // Slow path: real rebuild. clear() drops every dict's refcount
+    // and wipes both caches; the subsequent pushes don't need to
+    // walk each dict's keys again (the cache is already all zero),
+    // so we inline a no-invalidate push instead of calling push().
+    clear();
+    for (size_t k = 0; k < n; ++k)
+    {
+        Dictionary *dict = ta[k].data_.dict_val;
+        assert(dict != nullptr);
+        dict->add_reference();
+#ifdef DICTSTACK_CACHE
+        dict->add_dictstack_reference();
+#endif
+        d.push_front(dict);
+    }
+    set_basedict();
 }
 
 void DictionaryStack::set_basedict()

@@ -68,6 +68,17 @@ private:
     std::vector<Token *> cache_;
     std::vector<Token *> basecache_;
 
+    // Lazy refcount-shared snapshot used by snapshot()/the
+    // `dictstack` op. Built on first request after invalidation;
+    // every dstack mutation (push / pop / clear / restore_from's
+    // slow path) drops our reference and nulls the pointer. The
+    // array's own refcount keeps it alive for outstanding
+    // /dictstack consumers (a binding via `/d def`, a Token on the
+    // operand stack, …) even after we let go.
+    TokenArray *snapshot_ = nullptr;
+
+    void invalidate_snapshot();
+
     // Single search core. Returns a pointer into the owning dict's
     // TokenMap slot (nullptr on miss). Both public lookup variants
     // delegate here; do NOT replace one variant by calling the other,
@@ -281,6 +292,48 @@ public:
 
   void clear(void);
   void toArray(SLIInterpreter &, TokenArray &) const;
+
+  /**
+   * Refcount-shared snapshot of the current dstack, built lazily.
+   *
+   * Returns a TokenArray* whose refcount has been bumped by one — the
+   * caller takes ownership of that +1, exactly as if it had received
+   * a freshly-`new`'d array. The DictionaryStack itself also holds
+   * one ref (cached in `snapshot_`) until the next dstack mutation
+   * (push / pop / clear / restore_from-slow-path) invalidates it.
+   *
+   * For the common `dictstack ... restoredstack` pattern the cache
+   * survives across many iterations, so /dictstack avoids the
+   * per-call `new TokenArray()` + vector growth + dict-token build
+   * loop, and /restoredstack's identity fast path matches on the
+   * cached pointer.
+   *
+   * Caller MUST treat the returned array as read-only — mutating it
+   * corrupts the cached state shared with other holders. The
+   * dictstack op pushes it directly without any mutation; that is
+   * the only intended consumer.
+   */
+  TokenArray *snapshot(SLIInterpreter &sli);
+
+  /**
+   * Replace the dictstack with the dicts listed in `ta` (bottom-first,
+   * matching toArray's order). Inverse of toArray.
+   *
+   * Fast path: if `ta` lists the same dicts in the same order as the
+   * current stack, do nothing — refcounts and cache stay consistent.
+   * This is the common `dictstack ... restoredstack` save/restore
+   * pattern.
+   *
+   * Slow path: clear() wipes the cache, then each push skips
+   * clear_dict_from_cache (the cache is already zero, so per-key
+   * invalidation would be redundant work; on a 3-deep stack with
+   * systemdict that's hundreds of zero-stores per call).
+   *
+   * Callers must validate that every entry in `ta` is a
+   * dictionarytype Token before invoking — this routine assumes
+   * well-formed input and asserts via push_no_invalidate's check.
+   */
+  void restore_from(TokenArray const &ta);
 
     //
     // number of dictionaries currently on the stack

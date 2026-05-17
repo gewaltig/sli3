@@ -339,16 +339,17 @@ public:
 };
 
 // PostScript: push an array containing every dictionary currently
-// on the dictionary stack, top first. Each entry shares the same
+// on the dictionary stack, bottom first. Each entry shares the same
 // payload pointer as the dictstack -- mutations via one are
-// visible through the other.
+// visible through the other. The returned array itself is the
+// DictionaryStack's cached snapshot (refcount-shared); callers
+// must treat it as read-only.
 class DictstackFunction : public SLIFunction
 {
 public:
     void execute(SLIInterpreter* i) const override
     {
-        TokenArray *arr = new TokenArray();
-        i->DStack().toArray(*i, *arr);
+        TokenArray *arr = i->DStack().snapshot(*i);
         Token t(i->get_type(sli3::arraytype));
         t.data_.array_val = arr;
         i->push(t);
@@ -391,10 +392,11 @@ public:
                 return;
             }
         }
-        i->DStack().clear();
-        for (size_t k = 0; k < arr->size(); ++k)
-            i->DStack().push((*arr)[k]);
-        i->DStack().set_basedict();
+        // DictionaryStack::restore_from has an identity fast path for
+        // the common `dictstack ... restoredstack` save/restore case
+        // and skips redundant per-key cache invalidation on the slow
+        // path. See sli_dictstack.h for the contract.
+        i->DStack().restore_from(*arr);
         i->pop();
     }
 };
