@@ -127,6 +127,14 @@ std::string WriteProtected::message()
   return "Attempted to modify a write-protected " + what_ + ".";
 }
 
+std::string InvalidAccess::message()
+{
+  if (what_.empty())
+    return "Attempted to read an object whose access does not permit reading.";
+  return "Attempted to read a " + what_
+         + " whose access does not permit reading.";
+}
+
 std::string IOError::message()
 {
   return std::string();

@@ -18,6 +18,7 @@
 #ifndef SLI_OP_BODIES_H
 #define SLI_OP_BODIES_H
 
+#include "sli_access_check.h"
 #include "sli_interpreter.h"
 #include "sli_tokenstack.h"
 
@@ -179,11 +180,7 @@ static inline void hot_op_def(SLIInterpreter* i)
     // def mutates the current top-of-dictstack dict. Refuse if it
     // has been narrowed to readonly (e.g. systemdict after bootstrap).
     Dictionary* top = i->DStack().top();
-    if (__builtin_expect(top && !top->is_writable(), 0))
-    {
-        i->raiseerror(i->WriteProtectedError);
-        return;
-    }
+    if (top && !require_writable(top, i)) return;
     i->def(i->pick(1).data_.name_val, i->top());
     i->pop(2);
 }
@@ -267,6 +264,27 @@ static inline void hot_op_leq(SLIInterpreter* i)
         [](auto const& x, auto const& y) { return x <= y; });
 }
 
+// PostScript spec: `eq` / `ne` on a composite operand requires read
+// access. Scalars (integer, double, bool, name, …) are unaffected.
+// Strings are the only composite whose equal_tokens reads contents
+// in sli3 — array/dict eq compares pointer identity, so reading the
+// underlying payload isn't required. Gate the string arm here so the
+// composite-typed `compare()` virtual stays oblivious to access.
+static inline bool eq_check_string_access(SLIInterpreter* i)
+{
+    Token const& a = i->pick(1);
+    Token const& b = i->pick(0);
+    if (a.tag() == sli3::stringtype
+        && a.data_.string_val != nullptr
+        && !require_readable(a.data_.string_val, i))
+        return false;
+    if (b.tag() == sli3::stringtype
+        && b.data_.string_val != nullptr
+        && !require_readable(b.data_.string_val, i))
+        return false;
+    return true;
+}
+
 // eq -- any/any. Dispatches via Token::operator== (which is a
 // virtual call on the type's equal_tokens). Slot-1 must clear()
 // before being overwritten as a bool — otherwise refcounted
@@ -275,6 +293,7 @@ static inline void hot_op_leq(SLIInterpreter* i)
 static inline void hot_op_eq(SLIInterpreter* i)
 {
     i->require_stack_load(2);
+    if (!eq_check_string_access(i)) return;
     SLIType *bool_tid = i->get_type(sli3::booltype);
     bool result = i->pick(1) == i->pick(0);
     i->pop();
@@ -287,6 +306,7 @@ static inline void hot_op_eq(SLIInterpreter* i)
 static inline void hot_op_neq(SLIInterpreter* i)
 {
     i->require_stack_load(2);
+    if (!eq_check_string_access(i)) return;
     SLIType *bool_tid = i->get_type(sli3::booltype);
     bool result = not (i->pick(1) == i->pick(0));
     i->pop();
@@ -312,11 +332,7 @@ static inline void hot_op_get(SLIInterpreter* i)
         && key == sli3::integertype)
     {
         TokenArray* arr = i->pick(1).data_.array_val;
-        if (__builtin_expect(!arr->is_readable(), 0))
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(arr, i)) return;
         long idx = resolve_index(i->top().data_.long_val, arr->size());
         if (idx < 0)
         {
@@ -333,11 +349,8 @@ static inline void hot_op_get(SLIInterpreter* i)
         // array of indices -> array of elements.
         TokenArray* arr  = i->pick(1).data_.array_val;
         TokenArray* idxs = i->top().data_.array_val;
-        if (__builtin_expect(!arr->is_readable() || !idxs->is_readable(), 0))
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(arr, i)) return;
+        if (!require_readable(idxs, i)) return;
         TokenArray* out  = new TokenArray();
         out->reserve(idxs->size());
         for (Token const* t = idxs->begin(); t != idxs->end(); ++t)
@@ -364,11 +377,7 @@ static inline void hot_op_get(SLIInterpreter* i)
     if (coll == sli3::stringtype && key == sli3::integertype)
     {
         SLIString* sv = i->pick(1).data_.string_val;
-        if (__builtin_expect(!sv->is_readable(), 0))
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(sv, i)) return;
         std::string& s = sv->str();
         long idx = resolve_index(i->top().data_.long_val, s.size());
         if (idx < 0)
@@ -384,11 +393,7 @@ static inline void hot_op_get(SLIInterpreter* i)
     if (coll == sli3::dictionarytype && key == sli3::literaltype)
     {
         Dictionary* d = i->pick(1).data_.dict_val;
-        if (__builtin_expect(!d->is_readable(), 0))
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(d, i)) return;
         Name n(i->top().data_.name_val);
         if (!d->known(n))
         {
@@ -419,11 +424,7 @@ static inline void hot_op_put(SLIInterpreter* i)
         && idx == sli3::integertype)
     {
         TokenArray* arr = i->pick(2).data_.array_val;
-        if (__builtin_expect(!arr->is_writable(), 0))
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(arr, i)) return;
         long k = resolve_index(i->pick(1).data_.long_val, arr->size());
         if (k < 0)
         {
@@ -440,6 +441,7 @@ static inline void hot_op_put(SLIInterpreter* i)
         // `arr[i0][i1]... = val`. Mirrors PutArrayArrayTokenFunction.
         TokenArray* src  = i->pick(2).data_.array_val;
         TokenArray* path = i->pick(1).data_.array_val;
+        if (!require_readable(path, i)) return;
         if (path->empty())
         {
             i->raiseerror(i->RangeCheckError);
@@ -453,6 +455,11 @@ static inline void hot_op_put(SLIInterpreter* i)
                 i->raiseerror(i->ArgumentTypeError);
                 return;
             }
+            // Reading cur[k] for descent (and for the leaf write
+            // target check below) is a read of cur — gate it.
+            // Intermediate executeonly/noaccess arrays must reject
+            // descent before exposing element contents.
+            if (!require_readable(cur, i)) return;
             long k = resolve_index(it->data_.long_val, cur->size());
             if (k < 0)
             {
@@ -462,11 +469,7 @@ static inline void hot_op_put(SLIInterpreter* i)
             if (it + 1 == path->end())
             {
                 // Only the leaf is mutated — check writability there.
-                if (__builtin_expect(!cur->is_writable(), 0))
-                {
-                    i->raiseerror(i->WriteProtectedError);
-                    return;
-                }
+                if (!require_writable(cur, i)) return;
                 (*cur)[static_cast<size_t>(k)] = i->top();
             }
             else
@@ -486,11 +489,7 @@ static inline void hot_op_put(SLIInterpreter* i)
     if (coll == sli3::stringtype && idx == sli3::integertype)
     {
         SLIString* sv = i->pick(2).data_.string_val;
-        if (__builtin_expect(!sv->is_writable(), 0))
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(sv, i)) return;
         std::string& s = sv->str();
         long k = resolve_index(i->pick(1).data_.long_val, s.size());
         long c = i->top().data_.long_val;
@@ -506,12 +505,22 @@ static inline void hot_op_put(SLIInterpreter* i)
     if (coll == sli3::dictionarytype && idx == sli3::literaltype)
     {
         Dictionary* d = i->pick(2).data_.dict_val;
-        if (__builtin_expect(!d->is_writable(), 0))
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(d, i)) return;
         Name n(i->pick(1).data_.name_val);
+        // Insert into the dict directly. If this dict is currently on
+        // the dictstack the lookup cache may hold a stale Token* for
+        // the same name resolving to a SHADOWED binding in a lower
+        // dict (or a nullptr from a prior miss). The DictionaryStack's
+        // def() path does this invalidation; hot_op_put inlines the
+        // insert, so we replicate the invalidation here.
+        if (d->is_on_dictstack())
+        {
+            i->DStack().clear_token_from_cache(n);
+            // basecache_ is only populated for the base dict; the
+            // helper is a no-op when n isn't cached there, so it's
+            // safe to call unconditionally.
+            i->DStack().clear_token_from_basecache(n);
+        }
         d->insert(n, i->top());
         i->pop(3);
         return;

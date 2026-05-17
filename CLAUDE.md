@@ -39,17 +39,17 @@ Previously done work is described in ChangeLog.md
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
 |---|---:|---:|---:|---:|
-| B1   `1 pop`           | **1.01** | 1.31 | 1.98 | **−23 %** ⬇ |
-| B2   `1 1 add pop`     | **1.88** | 2.69 | 4.28 | **−30 %** ⬇ |
-| B2b  bound `{...}`     | 1.77 | **1.22** | 3.38 | +45 % ⬆ |
-| B3   nested for        | **1.57** | 2.58 | 4.26 | **−39 %** ⬇ |
-| B5   dict alloc+lookup | **1.45** | 2.47 | 4.32 | **−41 %** ⬇ |
-| B7   bubble sort       | **1.96** | 1.99 |  —  | **−1 %** ⬇ |
-| B8   insertion sort    | 1.03 | **1.00** |  —  | +3 % ⬆ |
-| B9   recursive fib(28) | 1.76 | **1.70** | 4.22 | +4 % ⬆ |
-| B10  matmul 50×50      | **1.69** | 1.88 |  —  | **−10 %** ⬇ |
+| B1   `1 pop`           | **0.90** | 1.31 | 1.98 | **−31 %** ⬇ |
+| B2   `1 1 add pop`     | **1.71** | 2.68 | 4.26 | **−36 %** ⬇ |
+| B2b  bound `{...}`     | 1.59 | **1.22** | 3.37 | +30 % ⬆ |
+| B3   nested for        | **1.50** | 2.56 | 4.24 | **−41 %** ⬇ |
+| B5   dict alloc+lookup | **1.43** | 2.49 | 4.29 | **−43 %** ⬇ |
+| B7   bubble sort       | **1.86** | 2.00 |  —  | **−7 %** ⬇ |
+| B8   insertion sort    | **0.98** | 1.01 |  —  | **−3 %** ⬇ |
+| B9   recursive fib(28) | 1.75 | **1.71** | 4.25 | +2 % ⬆ |
+| B10  matmul 50×50      | **1.64** | 1.90 |  —  | **−14 %** ⬇ |
 
-  Score vs gs: **6 wins, 3 losses** (run 23, commit `fc84204`). sli3 beats nest 2.5–3.0× across the board. Wave 1+2 of the PostScript access work (commits `3532d3a`..`fc84204`) introduced a uniform 5-10 % regression on dispatcher-dense benches — same icache-footprint pattern as the historical B2b regression, here caused by the new `is_readable()` / `is_writable()` checks inlined into `hot_op_put` / `hot_op_get` / `hot_op_def` (sli_op_bodies.h grew by ~50 LOC). B8 and B9 slipped back into the loss column; B7 narrowed from −8 % to −1 %. The dictstack save/restore microbenchmark (`{/d dictstack def d restoredstack} repeat`, the original Wave 1 motivator) stayed at 0.45 s — the readonly snapshot is identity-compared, not deref'd. Recovering the regression is a follow-up: candidates are hot_op_table extraction (mirrors the B2b fix), out-of-lining the access-check error path, or marking the new bodies `[[gnu::hot]]` to influence section placement.
+  Score vs gs: **7 wins, 2 losses** (run 24, Wave 3 commit). sli3 beats nest 2.5–3.0× across the board. Wave 3 of the PostScript access work routed all gate sites through inline templates `require_readable` / `require_writable` (in `src/builtins/sli_access_check.h`); the compiler factors the cold raise paths into a single shared subroutine, shrinking the dispatcher TU's icache footprint and recovering the 5-10 % regression Wave 2 introduced. B1 / B2 / B2b / B7 / B8 / B10 all improved 5-11 % vs Wave 2 (run 23); B7/B8 are wins again; B9 narrowed +4 % → +2 %. The dictstack save/restore microbenchmark stays at 0.45 s.
 
   The prior cleanup (Phase 5, May 2026, commits `fa93310`..`59d0ee8`) flipped B7/B8 from losses to wins by converting all 11 iter-helper SLIFunction classes (loop, repeat, for, forall, forallindexed, parse, lookup, parsestdin, iterate) to TYPE markers handled inline by `body_walk`'s `body_exhausted` switch (`88770bb`, `168d015`); demoting the C++ Map family to pure SLI (`4c2bd10`); migrating all remaining old-ABI ops to new-ABI and retiring the `uses_new_abi()` switch (`242d2fb`); adding a native C++ `/bind` ~50× faster than the SLI loop it replaced (`a765314`); and removing the dead `call_depth_` / `step_mode` machinery (`59d0ee8`). B8 dropped from 1.39 to 0.95 s alone — the iter-helper conversion was a vindication of the whole cleanup arc.
 - Full plan in `implementation_spec.md`.
@@ -88,7 +88,7 @@ When adding a new test: drop `test_<thing>.cpp` next to the others, add a short 
 
   Don't introduce a concrete class per semantic variant; reuse storage, dispatch through `SLIType`.
 - **Procedure type-checking via `type_trie`** (`sli_type_trie.{h,cpp}`, `trietype`). SLI's main extension over PostScript. Part of the dispatcher; not optional. Each `TypeNode` stores an `unsigned int tag_` (sli3::nulltype = unset); `lookup` compares `Token::tag()` to `tag_` and treats `sli3::anytype` as the wildcard.
-- **Composite access state** (`sli_access.h`, four values: `ACCESS_UNLIMITED → READONLY → EXECUTEONLY → NOACCESS`). One-byte `access_` field on `TokenArray` / `Dictionary` / `SLIString`. Monotonically narrowing via `set_access`. Mutation ops (put / def / append / prepend / reserve / cleardict / undef / Set) check `is_writable()` at entry; read ops (get / keys / values / cva) check `is_readable()`; print and pprint emit `--nostringval--` on non-readable composites. Raises `WriteProtected`. `DictionaryStack::snapshot()` flips the cached array readonly so `dictstack` consumers can't corrupt the shared cache. SLI-callable operators: `/readonly /executeonly /noaccess /rcheck /wcheck /xcheck`.
+- **Composite access state** (`sli_access.h`, four values: `ACCESS_UNLIMITED → READONLY → EXECUTEONLY → NOACCESS`). One-byte `access_` field on `TokenArray` / `Dictionary` / `SLIString`. Monotonically narrowing via `set_access`. All gates go through inline helpers in `src/builtins/sli_access_check.h` — `require_writable` raises `WriteProtected`, `require_readable` raises `InvalidAccess` (separate error names so `errordict /errorname` distinguishes read vs write denials; both correspond to PS's single `invalidaccess`). Write gates cover every put / def / append / prepend / reserve / cleardict / undef / Set site, including the leaf of `arr [path] val put`. Read gates cover every get / keys / values / cva / known / clonedict / join / search / insert / replace / erase / getinterval / insertelement / cvi_s / cvd_s / eq-on-strings site, and path-put descent (Wave 3). Print and pprint emit `--nostringval--` on non-readable composites. Length is intentionally ungated (no content leak, and the dictstack-snapshot workflow needs it on a readonly array). `DictionaryStack::snapshot()` flips the cached array readonly so `dictstack` consumers can't corrupt the shared cache. SLI-callable setters/predicates: `/readonly /executeonly /noaccess /rcheck /wcheck /xcheck`.
 - **Dictstack layout** (top → bottom after `init()`): `userdict` → `globaldict` → `systemdict`. `globaldict` is the PS Level-2 global namespace for persistent shared state (replaces the legacy NEST 2.x habit of writing into systemdict; the vendored sli-init.sli's `/tic /toc /clic /cloc /addpath /setpath` still mutate systemdict at runtime, which is why systemdict isn't yet sealed readonly).
 - **Memory-locality goal.** A procedure is one allocation holding N contiguous Tokens — not N tiny heap allocations behind pointers (the NEST 2.x failure mode). Don't undo this when modernizing containers.
 - **Serialization is a first-class concern.** Every `SLIType` subclass implements `serialize(Token const&, Writer&)` / `deserialize(Reader&, Token&)`. The `sli_typeid` enum is a **permanent wire contract** (append-only). Pointer-payload types use the Writer/Reader object table for de-duplication and cycle handling. `Name` serializes as string + re-interns on load. `SLIFunction*` and trie tokens re-resolve by name on load. Streams are not serializable. Both binary (primary) and text (debugging) writers via the same `Writer`/`Reader` interface.

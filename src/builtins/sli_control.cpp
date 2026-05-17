@@ -441,11 +441,7 @@ void SetFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::literaltype);
 
     Dictionary* top = i->DStack().top();
-    if (top && !top->is_writable())
-    {
-        i->raiseerror(i->WriteProtectedError);
-        return;
-    }
+    if (top && !require_writable(top, i)) return;
 
     Name name(i->pick(0).data_.name_val);
 

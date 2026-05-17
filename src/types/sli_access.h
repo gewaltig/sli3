@@ -20,13 +20,19 @@ namespace sli3
  *
  *   unlimited → readonly → executeonly → noaccess
  *
- * Wave 1 (this commit) wires the field, the predicates, the
- * readonly / rcheck / wcheck / xcheck operators, and gates every
- * composite mutation site on is_writable(). Wave 2 adds the
- * executeonly + noaccess setters and the read-path checks.
+ * Wave 1 wires the field, the predicates, the readonly / rcheck /
+ * wcheck / xcheck operators, and gates every composite mutation
+ * site on is_writable(). Wave 2 adds the executeonly + noaccess
+ * setters and read-path checks on the headline operators (get, keys,
+ * values, cva, print/pprint). Wave 3 extends the read gates to the
+ * functional read-and-copy operators (join, search, insert, replace,
+ * erase, getinterval, insertelement, clonedict, known, cvi_s, cvd_s,
+ * eq on strings) and path-put descent.
  *
- * The canonical error raised on a denied mutation is `WriteProtected`
- * (NEST 2.x name; PS spec calls it `invalidaccess`).
+ * Errors: denied mutations raise `WriteProtected`; denied reads
+ * raise `InvalidAccess`. Both correspond to PostScript's single
+ * `invalidaccess` condition; sli3 keeps them split so script
+ * authors can branch on errordict /errorname.
  */
 enum AccessState : uint8_t
 {

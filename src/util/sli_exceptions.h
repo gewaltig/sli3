@@ -297,7 +297,8 @@ class StackUnderflow: public InterpreterError
  * Thrown when a mutation is attempted on a composite object whose
  * access state forbids writes (anything stricter than
  * ACCESS_UNLIMITED). The SLI error name is `WriteProtected`
- * (NEST 2.x), conceptually the PostScript `invalidaccess` condition.
+ * (NEST 2.x); PostScript folds this and the read denial below into
+ * a single `invalidaccess` condition.
  * @ingroup SLIExceptions
  */
 class WriteProtected: public InterpreterError
@@ -310,6 +311,30 @@ class WriteProtected: public InterpreterError
   // Surfaces in the message; never user-facing-decided.
   explicit WriteProtected(std::string what = std::string())
    : InterpreterError("WriteProtected"),
+     what_(std::move(what))
+    {}
+
+  std::string message();
+};
+
+
+// -------------------- Invalid Access -------------------------
+/**
+ * Thrown when a read is attempted against a composite object whose
+ * access state is `executeonly` or `noaccess`. Sibling of
+ * `WriteProtected`; both correspond to PostScript's single
+ * `invalidaccess` condition. Kept distinct so that
+ * `errordict /errorname` reads back the intent of the failure
+ * (read denial vs. write denial).
+ * @ingroup SLIExceptions
+ */
+class InvalidAccess: public InterpreterError
+{
+  std::string what_;
+ public:
+  ~InvalidAccess() throw() {}
+  explicit InvalidAccess(std::string what = std::string())
+   : InterpreterError("InvalidAccess"),
      what_(std::move(what))
     {}
 

@@ -8,6 +8,7 @@
 //   get_a / get_a_a / get_p / get_lp / get_s / get_d / get_d_a
 //   put (single polymorphic entry; type-specific put_* retired)
 
+#include "sli_access_check.h"
 #include "sli_array.h"
 #include "sli_container_ops.h"
 #include "sli_dictionary.h"
@@ -88,11 +89,7 @@ public:
         i->require_stack_type(1, TID);
         i->require_stack_type(0, sli3::integertype);
         TokenArray* arr = i->pick(1).data_.array_val;
-        if (!arr->is_readable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(arr, i)) return;
         long idx = resolve_index(i->top().data_.long_val, arr->size());
         if (idx < 0)
         {
@@ -116,11 +113,8 @@ public:
         i->require_stack_type(0, sli3::arraytype);
         TokenArray* arr = i->pick(1).data_.array_val;
         TokenArray* idxs = i->top().data_.array_val;
-        if (!arr->is_readable() || !idxs->is_readable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(arr, i)) return;
+        if (!require_readable(idxs, i)) return;
         TokenArray* out = new TokenArray();
         out->reserve(idxs->size());
         for (Token const* t = idxs->begin(); t != idxs->end(); ++t)
@@ -155,11 +149,7 @@ public:
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
         SLIString* sv = i->pick(1).data_.string_val;
-        if (!sv->is_readable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(sv, i)) return;
         std::string& s = sv->str();
         long idx = resolve_index(i->top().data_.long_val, s.size());
         if (idx < 0)
@@ -183,11 +173,7 @@ public:
         i->require_stack_type(1, sli3::dictionarytype);
         i->require_stack_type(0, sli3::literaltype);
         Dictionary* d = i->pick(1).data_.dict_val;
-        if (!d->is_readable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(d, i)) return;
         Name n(i->top().data_.name_val);
         if (!d->known(n))
         {
@@ -232,6 +218,8 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::stringtype);
+        if (!require_readable(i->pick(1).data_.string_val, i)) return;
+        if (!require_readable(i->top().data_.string_val, i)) return;
         std::string const& a = i->pick(1).data_.string_val->str();
         std::string const& b = i->top().data_.string_val->str();
         std::string out;
@@ -254,6 +242,8 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::stringtype);
+        if (!require_readable(i->pick(1).data_.string_val, i)) return;
+        if (!require_readable(i->top().data_.string_val, i)) return;
         std::string haystack = i->pick(1).data_.string_val->str();  // copy
         std::string needle   = i->top().data_.string_val->str();    // copy
         i->pop(2);
@@ -286,6 +276,8 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::arraytype);
         i->require_stack_type(0, sli3::arraytype);
+        if (!require_readable(i->pick(1).data_.array_val, i)) return;
+        if (!require_readable(i->top().data_.array_val, i)) return;
         TokenArray const* a = i->pick(1).data_.array_val;
         TokenArray const* b = i->top().data_.array_val;
         Token const* hit = std::search(a->begin(), a->end(),
@@ -329,6 +321,7 @@ public:
     {
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::stringtype);
+        if (!require_readable(i->top().data_.string_val, i)) return;
         std::string const& s = i->top().data_.string_val->str();
         try
         {
@@ -356,6 +349,7 @@ public:
     {
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::stringtype);
+        if (!require_readable(i->top().data_.string_val, i)) return;
         std::string const& s = i->top().data_.string_val->str();
         try
         {
@@ -386,11 +380,7 @@ public:
         i->require_stack_type(1, tid_);
         i->require_stack_type(0, sli3::integertype);
         TokenArray* arr = i->pick(1).data_.array_val;
-        if (!arr->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(arr, i)) return;
         long n = i->top().data_.long_val;
         if (n < 0)
         {
@@ -411,11 +401,7 @@ public:
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
         SLIString* sv = i->pick(1).data_.string_val;
-        if (!sv->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(sv, i)) return;
         long n = i->top().data_.long_val;
         if (n < 0)
         {
@@ -483,11 +469,7 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::dictionarytype);
         Dictionary const* d = i->top().data_.dict_val;
-        if (!d->is_readable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(d, i)) return;
         TokenArray* out = new TokenArray();
         out->reserve(d->size());
         for (auto it = d->begin(); it != d->end(); ++it)
@@ -506,11 +488,7 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::dictionarytype);
         Dictionary const* d = i->top().data_.dict_val;
-        if (!d->is_readable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(d, i)) return;
         TokenArray* out = new TokenArray();
         out->reserve(d->size());
         for (auto it = d->begin(); it != d->end(); ++it)
@@ -529,11 +507,7 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::dictionarytype);
         Dictionary const* d = i->top().data_.dict_val;
-        if (!d->is_readable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_readable(d, i)) return;
         TokenArray* out = new TokenArray();
         out->reserve(d->size() * 2);
         for (auto it = d->begin(); it != d->end(); ++it)
@@ -555,11 +529,7 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::dictionarytype);
         Dictionary *dict = i->top().data_.dict_val;
-        if (!dict->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(dict, i)) return;
         // If this dict is on the dictstack, the dictstack's name
         // cache (and basecache, if dict is the base) holds raw
         // Token* pointers into the dict's TokenMap nodes. clearing
@@ -582,7 +552,9 @@ public:
 };
 
 // `dict clonedict -> dict copy` — leaves source AND a fresh shallow copy.
-// Per NEST: pushes a new dict alongside the source.
+// Per NEST: pushes a new dict alongside the source. PostScript spec:
+// `copy` (and clone variants) refuse to copy an object whose access
+// permits less than read, since the copy materialises the contents.
 class ClonedictFunction : public SLIFunction
 {
 public:
@@ -590,6 +562,7 @@ public:
     {
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::dictionarytype);
+        if (!require_readable(i->top().data_.dict_val, i)) return;
         Dictionary const* src = i->top().data_.dict_val;
         Dictionary* copy = new Dictionary(*src);
         Token t(i->get_type(sli3::dictionarytype));
@@ -710,6 +683,7 @@ public:
         long count = i->top().data_.long_val;
         long idx   = i->pick(1).data_.long_val;
         TokenArray* arr = i->pick(2).data_.array_val;
+        if (!require_readable(arr, i)) return;
         if (count < 0)
         {
             i->raiseerror(i->PositiveIntegerExpectedError);
@@ -744,6 +718,7 @@ public:
         i->require_stack_type(0, sli3::integertype);
         long count = i->top().data_.long_val;
         long idx   = i->pick(1).data_.long_val;
+        if (!require_readable(i->pick(2).data_.string_val, i)) return;
         std::string const& s = i->pick(2).data_.string_val->str();
         if (count < 0)
         {
@@ -775,6 +750,8 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::arraytype);
         i->require_stack_type(0, sli3::arraytype);
+        if (!require_readable(i->pick(1).data_.array_val, i)) return;
+        if (!require_readable(i->top().data_.array_val, i)) return;
         TokenArray const* a = i->pick(1).data_.array_val;
         TokenArray const* b = i->top().data_.array_val;
         TokenArray* out = new TokenArray();
@@ -803,6 +780,8 @@ public:
         i->require_stack_type(2, sli3::arraytype);
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::arraytype);
+        if (!require_readable(i->pick(2).data_.array_val, i)) return;
+        if (!require_readable(i->top().data_.array_val, i)) return;
         TokenArray const* a1 = i->pick(2).data_.array_val;
         long idx = i->pick(1).data_.long_val;
         TokenArray const* a2 = i->top().data_.array_val;
@@ -832,6 +811,8 @@ public:
         i->require_stack_type(2, sli3::stringtype);
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::stringtype);
+        if (!require_readable(i->pick(2).data_.string_val, i)) return;
+        if (!require_readable(i->top().data_.string_val, i)) return;
         std::string const& s1 = i->pick(2).data_.string_val->str();
         long idx = i->pick(1).data_.long_val;
         std::string const& s2 = i->top().data_.string_val->str();
@@ -870,6 +851,8 @@ public:
         i->require_stack_type(2, sli3::integertype);
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::arraytype);
+        if (!require_readable(i->pick(3).data_.array_val, i)) return;
+        if (!require_readable(i->top().data_.array_val, i)) return;
         TokenArray const* a1 = i->pick(3).data_.array_val;
         long idx = i->pick(2).data_.long_val;
         long n   = i->pick(1).data_.long_val;
@@ -908,6 +891,8 @@ public:
         i->require_stack_type(2, sli3::integertype);
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::stringtype);
+        if (!require_readable(i->pick(3).data_.string_val, i)) return;
+        if (!require_readable(i->top().data_.string_val, i)) return;
         std::string const& s1 = i->pick(3).data_.string_val->str();
         long idx = i->pick(2).data_.long_val;
         long n   = i->pick(1).data_.long_val;
@@ -951,6 +936,7 @@ public:
         i->require_stack_type(2, tid_);
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::integertype);
+        if (!require_readable(i->pick(2).data_.array_val, i)) return;
         TokenArray const* a1 = i->pick(2).data_.array_val;
         long idx = i->pick(1).data_.long_val;
         long n   = i->top().data_.long_val;
@@ -990,6 +976,7 @@ public:
         i->require_stack_type(2, sli3::stringtype);
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::integertype);
+        if (!require_readable(i->pick(2).data_.string_val, i)) return;
         std::string const& s1 = i->pick(2).data_.string_val->str();
         long idx = i->pick(1).data_.long_val;
         long n   = i->top().data_.long_val;
@@ -1021,6 +1008,7 @@ public:
         i->require_stack_load(3);
         i->require_stack_type(2, sli3::arraytype);
         i->require_stack_type(1, sli3::integertype);
+        if (!require_readable(i->pick(2).data_.array_val, i)) return;
         TokenArray const* a1 = i->pick(2).data_.array_val;
         long idx = i->pick(1).data_.long_val;
         Token const& elem = i->top();
@@ -1051,6 +1039,7 @@ public:
         i->require_stack_type(2, sli3::stringtype);
         i->require_stack_type(1, sli3::integertype);
         i->require_stack_type(0, sli3::integertype);
+        if (!require_readable(i->pick(2).data_.string_val, i)) return;
         std::string const& s1 = i->pick(2).data_.string_val->str();
         long idx = i->pick(1).data_.long_val;
         long ch  = i->top().data_.long_val;
@@ -1075,6 +1064,8 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::proceduretype);
         i->require_stack_type(0, sli3::proceduretype);
+        if (!require_readable(i->pick(1).data_.array_val, i)) return;
+        if (!require_readable(i->top().data_.array_val, i)) return;
         TokenArray const* a = i->pick(1).data_.array_val;
         TokenArray const* b = i->top().data_.array_val;
         TokenArray* out = new TokenArray();
@@ -1347,6 +1338,7 @@ void CvaFunction::execute(SLIInterpreter* i) const
 //------------------------------------------------------------------------
 
 // `dict literal known -> bool` — true if the dict has the key.
+// Reads dict structure; needs read access (matches keys/values/cva).
 class KnownFunction : public SLIFunction
 {
 public:
@@ -1356,6 +1348,7 @@ public:
         i->require_stack_type(1, sli3::dictionarytype);
         i->require_stack_type(0, sli3::literaltype);
         Dictionary* d = i->pick(1).data_.dict_val;
+        if (!require_readable(d, i)) return;
         Name n(i->top().data_.name_val);
         bool present = d->known(n);
         i->pop(2);
@@ -1406,11 +1399,7 @@ public:
         // undef mutates the dictstack's current dict; refuse if that
         // dict is write-protected.
         Dictionary* top = i->DStack().top();
-        if (top && !top->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (top && !require_writable(top, i)) return;
         Name n(i->top().data_.name_val);
         i->pop();
         try { i->undef(n); } catch (UndefinedName&) { /* silent no-op */ }
@@ -1436,11 +1425,7 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, TID);
         TokenArray* arr = i->pick(1).data_.array_val;
-        if (!arr->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(arr, i)) return;
         arr->push_back(i->top());
         i->pop();  // drop value, leave container on top
     }
@@ -1455,11 +1440,7 @@ public:
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
         SLIString* sv = i->pick(1).data_.string_val;
-        if (!sv->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(sv, i)) return;
         sv->str().push_back(static_cast<char>(i->top().data_.long_val));
         i->pop();
     }
@@ -1479,11 +1460,7 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, TID);
         TokenArray* arr = i->pick(1).data_.array_val;
-        if (!arr->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(arr, i)) return;
         arr->insert(0, i->top());
         i->pop();  // drop value, leave container on top
     }
@@ -1498,11 +1475,7 @@ public:
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
         SLIString* sv = i->pick(1).data_.string_val;
-        if (!sv->is_writable())
-        {
-            i->raiseerror(i->WriteProtectedError);
-            return;
-        }
+        if (!require_writable(sv, i)) return;
         std::string& s = sv->str();
         s.insert(s.begin(), static_cast<char>(i->top().data_.long_val));
         i->pop();

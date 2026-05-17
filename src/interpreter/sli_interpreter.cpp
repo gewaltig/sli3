@@ -141,6 +141,7 @@ SLIInterpreter::SLIInterpreter()
       ArgumentTypeError("ArgumentType"), StackUnderflowError("StackUnderflow"),
       UndefinedNameError("UndefinedName"),
       WriteProtectedError("WriteProtected"),
+      InvalidAccessError("InvalidAccess"),
       DivisionByZeroError("DivisionByZero"), RangeCheckError("RangeCheck"),
       PositiveIntegerExpectedError("PositiveIntegerExpected"),
       BadIOError("BadIO"), StringStreamExpectedError("StringStreamExpected"),

@@ -263,6 +263,146 @@ void test_nostringval_print(sli3::SLIInterpreter& i)
     EVAL_STRING(i, "<< /a 1 >> executeonly pcvs", "--nostringval--");
 }
 
+// Wave 3: read-gate coverage for functional read-and-copy operators.
+// Anything that materialises content from a composite operand must
+// reject executeonly / noaccess sources. The single-`get` ops are
+// already covered by test_executeonly_blocks_reads; this section
+// covers join / search / insert / replace / erase / insertelement /
+// getinterval / cvi / cvd / clonedict / known.
+void test_functional_ops_blocked_on_executeonly(sli3::SLIInterpreter& i)
+{
+    // String functional ops.
+    assert_stops(i, "(hello) executeonly ( world) join_s",
+                 "join_s lhs executeonly");
+    assert_stops(i, "(hello) (lo) executeonly search_s",
+                 "search_s rhs executeonly");
+    assert_stops(i, "(helloworld) executeonly 0 5 getinterval_s",
+                 "getinterval_s executeonly");
+    assert_stops(i, "(ab) executeonly 1 (XY) insert_s",
+                 "insert_s lhs executeonly");
+    assert_stops(i, "(abcd) executeonly 1 2 (Z) replace_s",
+                 "replace_s lhs executeonly");
+    assert_stops(i, "(abcd) executeonly 1 2 erase_s",
+                 "erase_s executeonly");
+    assert_stops(i, "(ab) executeonly 1 65 insertelement_s",
+                 "insertelement_s executeonly");
+    assert_stops(i, "(42) executeonly cvi_s", "cvi_s executeonly");
+    assert_stops(i, "(3.14) executeonly cvd_s", "cvd_s executeonly");
+
+    // Array / procedure functional ops.
+    assert_stops(i, "[1 2 3] executeonly [4 5] join_a",
+                 "join_a lhs executeonly");
+    assert_stops(i, "[1 2 3] executeonly [2] search_a",
+                 "search_a lhs executeonly");
+    assert_stops(i, "[1 2 3 4] executeonly 0 2 getinterval_a",
+                 "getinterval_a executeonly");
+    assert_stops(i, "[1 2 3] executeonly 1 [9] insert_a",
+                 "insert_a lhs executeonly");
+    assert_stops(i, "[1 2 3 4] executeonly 1 2 [9] replace_a",
+                 "replace_a lhs executeonly");
+    assert_stops(i, "[1 2 3 4] executeonly 1 2 erase_a",
+                 "erase_a executeonly");
+    assert_stops(i, "[1 2 3] executeonly 1 99 insertelement_a",
+                 "insertelement_a executeonly");
+    assert_stops(i, "{1 2 add} executeonly {99} join_p",
+                 "join_p lhs executeonly");
+
+    // Dict copy / lookup. clonedict materialises content.
+    assert_stops(i, "<< /a 1 >> noaccess clonedict",
+                 "clonedict on noaccess");
+    // /known reports presence — gated like keys/values/cva.
+    assert_stops(i, "<< /a 1 >> executeonly /a known",
+                 "known on executeonly dict");
+}
+
+// Wave 3: hot_op_put path descent. The outer array of a nested
+// `arr [i0 i1 ...] val put` is read to descend into nested arrays.
+// If it's executeonly/noaccess the descent must raise before any
+// element is exposed or mutated.
+void test_path_put_descent_blocked(sli3::SLIInterpreter& i)
+{
+    assert_stops(i, "[[1 2] [3 4]] executeonly [0 0] 99 put",
+                 "path-put through executeonly outer");
+    assert_stops(i, "[[1 2] [3 4]] noaccess [0 0] 99 put",
+                 "path-put through noaccess outer");
+    // Empty path is rejected (range), but the gate on the outer
+    // happens before the empty check; either error is acceptable.
+    // What we care about is that the read isn't silent.
+}
+
+// Wave 3: eq / ne raise invalidaccess when a string operand is not
+// readable. The integer / double / bool arms are unaffected.
+void test_eq_blocked_on_executeonly_strings(sli3::SLIInterpreter& i)
+{
+    assert_stops(i, "(hi) executeonly (hi) executeonly eq",
+                 "eq both executeonly");
+    assert_stops(i, "(hi) executeonly (hi) eq",
+                 "eq lhs executeonly");
+    assert_stops(i, "(hi) (hi) executeonly eq",
+                 "eq rhs executeonly");
+    assert_stops(i, "(hi) noaccess (hi) eq",
+                 "eq lhs noaccess");
+    // Non-string scalars are unaffected — same-value still eq, different
+    // values still not. This locks in the locality of the gate.
+    EVAL_BOOL(i, "1 1 eq", true);
+    EVAL_BOOL(i, "1 2 eq", false);
+}
+
+// PS semantic: executeonly procedures can still execute — execute
+// permission is what executeonly explicitly grants. Without this
+// invariant the access state degenerates into "noaccess but readable
+// from the dispatcher", which would silently break any sealed
+// procedure (e.g. systemdict procs after a future seal).
+void test_executeonly_procedure_still_executes(sli3::SLIInterpreter& i)
+{
+    EVAL_INT(i, "{1 2 add} executeonly exec", 3);
+    EVAL_INT(i, "/myproc {3 4 mul} executeonly def myproc", 12);
+}
+
+// Wave 3: errordict /errorname now distinguishes read denial
+// (InvalidAccess) from write denial (WriteProtected). Both used to
+// surface as /WriteProtected; the rename gives script authors a
+// useful errorname to branch on.
+//
+// We can't simply chain `{ ... } stopped pop errordict /errorname get`
+// because raised operators leave their operands on the stack (per
+// the operator authoring contract), so the second `get` would see
+// the leftover instead of errordict. Instead drive each side
+// independently: run the body, EVAL_CLEAR everything, then probe
+// errordict from a clean stack.
+void check_errorname(sli3::SLIInterpreter& i,
+                     std::string const& trigger,
+                     char const* expected)
+{
+    EVAL_CLEAR(i);
+    eval(i, "errordict /newerror false put");
+    EVAL_CLEAR(i);
+    eval(i, "{ " + trigger + " } stopped");
+    EVAL_CLEAR(i);
+    eval(i, "errordict /errorname get");
+    if (i.OStack().load() < 1
+        || !i.top().is_of_type(sli3::literaltype)
+        || sli3::Name(i.top().data_.name_val).toString() != expected)
+    {
+        std::cerr << "FAIL errorname for `" << trigger
+                  << "`: expected /" << expected;
+        if (i.OStack().load() >= 1 && i.top().is_of_type(sli3::literaltype))
+            std::cerr << ", got /"
+                      << sli3::Name(i.top().data_.name_val).toString();
+        std::cerr << '\n';
+        std::exit(1);
+    }
+    EVAL_CLEAR(i);
+}
+
+void test_errorname_distinguishes_read_vs_write(sli3::SLIInterpreter& i)
+{
+    check_errorname(i, "[1 2 3] executeonly 0 get",   "InvalidAccess");
+    check_errorname(i, "<< /a 1 >> executeonly keys", "InvalidAccess");
+    check_errorname(i, "[1 2 3] readonly 0 99 put",   "WriteProtected");
+    check_errorname(i, "[1 2 3] readonly 99 append",  "WriteProtected");
+}
+
 }  // namespace
 
 int main()
@@ -287,6 +427,13 @@ int main()
     test_monotonic_narrowing(i);
     test_globaldict_is_present(i);
     test_nostringval_print(i);
+
+    // Wave 3 additions.
+    test_functional_ops_blocked_on_executeonly(i);
+    test_path_put_descent_blocked(i);
+    test_eq_blocked_on_executeonly_strings(i);
+    test_executeonly_procedure_still_executes(i);
+    test_errorname_distinguishes_read_vs_write(i);
 
     std::cout << "test_access: all assertions passed\n";
     return 0;

@@ -451,6 +451,7 @@ namespace sli3
 	Name StackUnderflowError;
 	Name UndefinedNameError;
 	Name WriteProtectedError;
+	Name InvalidAccessError;
 	Name DivisionByZeroError;
 	Name RangeCheckError;
 	Name PositiveIntegerExpectedError;
