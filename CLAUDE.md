@@ -39,17 +39,19 @@ Previously done work is described in ChangeLog.md
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
 |---|---:|---:|---:|---:|
-| B1   `1 pop`           | **0.90** | 1.31 | 1.95 | **−31 %** ⬇ |
-| B2   `1 1 add pop`     | **1.70** | 2.67 | 4.25 | **−36 %** ⬇ |
-| B2b  bound `{...}`     | 1.59 | **1.22** | 3.39 | +30 % ⬆ |
-| B3   nested for        | **1.51** | 2.56 | 4.25 | **−41 %** ⬇ |
-| B5   dict alloc+lookup | **1.39** | 2.43 | 4.26 | **−43 %** ⬇ |
-| B7   bubble sort       | **1.90** | 1.96 |  —  | **−3 %** ⬇ |
-| B8   insertion sort    | **0.95** | 0.99 |  —  | **−4 %** ⬇ |
-| B9   recursive fib(28) | 1.72 | **1.68** | 4.21 | +2 % ⬆ |
-| B10  matmul 50×50      | **1.60** | 1.87 |  —  | **−14 %** ⬇ |
+| B1   `1 pop`           | **0.91** | 1.31 | 1.96 | **−31 %** ⬇ |
+| B2   `1 1 add pop`     | **1.71** | 2.68 | 4.29 | **−36 %** ⬇ |
+| B2b  bound `{...}`     | 1.59 | **1.22** | 3.37 | +30 % ⬆ |
+| B3   nested for        | **1.50** | 2.57 | 4.24 | **−42 %** ⬇ |
+| B5   dict alloc+lookup | **1.41** | 2.48 | 4.30 | **−43 %** ⬇ |
+| B7   bubble sort       | **1.84** | 1.99 |  —  | **−8 %** ⬇ |
+| B8   insertion sort    | **0.97** | 1.00 |  —  | **−3 %** ⬇ |
+| B9   recursive fib(28) | **1.68** | 1.69 | 4.22 | **−1 %** ⬇ |
+| B10  matmul 50×50      | **1.61** | 1.88 |  —  | **−14 %** ⬇ |
 
-  Score vs gs: **7 wins, 2 losses** (run 8, commit `59d0ee8`). sli3 beats nest 2.5–3.0× across the board. The Phase 5 dispatcher cleanup (May 2026, commits `fa93310`..`59d0ee8`) flipped B7/B8 from losses to wins and brought B9 to parity. Key moves: convert all 11 iter-helper SLIFunction classes (loop, repeat, for, forall, forallindexed, parse, lookup, parsestdin, iterate) to TYPE markers handled inline by body_walk's `body_exhausted` switch (commits `88770bb`, `168d015`); demote the C++ Map family to pure SLI (`4c2bd10`); migrate all remaining old-ABI ops to new-ABI then retire the `uses_new_abi()` switch entirely (`242d2fb`); add a native C++ `/bind` ~50× faster than the SLI loop it replaced (`a765314`); remove the dead `call_depth_` / `step_mode` machinery (`59d0ee8`). B8 dropped from 1.39 to 0.95 s alone — the iter-helper conversion was a vindication of the whole cleanup arc. Two losses remain: B2b (bound tight loop, dispatcher inner-switch cost) and B9 (within run-to-run noise).
+  Score vs gs: **8 wins, 1 loss** (run 11, commit `880d795`). sli3 beats nest 2.5–3.0× across the board. The May 17 2026 cleanup arc (commits `b89f439`..`880d795`) brought B9 across the line from +2 % to −1 %: drop `SLIType::id_` and read the typeid from the pointer's top byte everywhere; refactor the type trie to store typeid tags instead of `SLIType*` (`b89f439`); normalise `put_d` usage in the vendored .sli files and fix a `/new_error`→`/newerror` typo in `/reset` (`bb847f4`); retire `put_d` (`009e236`) and then the rest of the type-specific `put_*` variants since `hot_op_put` already inlines every arm (`880d795`). One loss remains: B2b (bound tight loop, dispatcher inner-switch cost).
+
+  The prior cleanup (Phase 5, May 2026, commits `fa93310`..`59d0ee8`) flipped B7/B8 from losses to wins by converting all 11 iter-helper SLIFunction classes (loop, repeat, for, forall, forallindexed, parse, lookup, parsestdin, iterate) to TYPE markers handled inline by `body_walk`'s `body_exhausted` switch (`88770bb`, `168d015`); demoting the C++ Map family to pure SLI (`4c2bd10`); migrating all remaining old-ABI ops to new-ABI and retiring the `uses_new_abi()` switch (`242d2fb`); adding a native C++ `/bind` ~50× faster than the SLI loop it replaced (`a765314`); and removing the dead `call_depth_` / `step_mode` machinery (`59d0ee8`). B8 dropped from 1.39 to 0.95 s alone — the iter-helper conversion was a vindication of the whole cleanup arc.
 - Full plan in `implementation_spec.md`.
 
 ## Build
@@ -74,9 +76,10 @@ When adding a new test: drop `test_<thing>.cpp` next to the others, add a short 
 ## Key architectural choices
 
 - **Token is 16 bytes**: `SLIType*` + a POD `union value`. No vtable per datum — virtual dispatch lives on the `SLIType` object instead. Verified at runtime: `Token: 16`, `Dictionary: 32`.
+- **Typeid lives in the top byte of `Token::type_`.** `Token::tag()` is a pure shift; `SLIType` no longer carries a redundant `id_` field (kept only under `SLI3_NO_PTR_TAG` for sanitizer builds where pointers stay plain). `SLIInterpreter::types_[]` stores pre-tagged pointers from registration; `Token::pack_type(raw, id)` is the single tagging site, called from `init_types`; `Token::unpack_type` masks for `delete`.
 - **Reference counting on the type, not the token.** `SLIType::add_reference(Token&)` / `remove_reference(Token&)` — pointer-payload types (arrays, strings, dicts) override these; scalar types are no-ops.
-- **Dispatch is a single `switch` on `type_id`** in `SLIInterpreter::execute_dispatch_` (`sli_interpreter.cpp:634`). Hot opcodes — int/double/name/procedure/repeat/for/forall — are inlined into one big switch so the compiler can build a jump table. Some `case` arms use `goto` deliberately to keep the loop body tight; **don't "clean these up" without tests.**
-- **Three execution modes** in `execute()`: plain (`execute_`), debug (`execute_debug_`), dispatch (`execute_dispatch_`). `sli_main.cpp` hard-codes mode 2 (dispatch).
+- **Dispatch is a single `switch` on `type_id`** in `SLIInterpreter::execute_dispatch_` (`sli_interpreter.cpp:696`). Hot opcodes — int/double/name/procedure/repeat/for/forall — are inlined into one big switch so the compiler can build a jump table. Some `case` arms use `goto` deliberately to keep the loop body tight; **don't "clean these up" without tests.**
+- **Single execution mode**: `execute_dispatch_`. The pre-Phase-1 `execute_` (plain) and `execute_debug_` alternates have been retired; `sli_main.cpp` invokes `execute_dispatch_` directly. The legacy `int` parameter on `execute()` is kept for source compatibility but ignored.
 - **Type-economical SLIType polymorphism.** Many entries in the `sli_typeid` enum share the same underlying payload and differ only in execution semantics. The 16-byte Token holds the payload once; the `SLIType*` discriminates behaviour. Examples:
   - `proceduretype` / `litproceduretype` / `arraytype` — all `TokenArray*` payload. Literal procedures don't execute when moved to the estack.
   - `nametype` / `literaltype` / `symboltype` — all `Name` handle.
@@ -84,7 +87,7 @@ When adding a new test: drop `test_<thing>.cpp` next to the others, add a short 
   - `iiteratetype` / `irepeattype` / `ifortype` / `iforalltype` / `quittype` — operator markers, no payload.
 
   Don't introduce a concrete class per semantic variant; reuse storage, dispatch through `SLIType`.
-- **Procedure type-checking via `type_trie`** (`sli_type_trie.{h,cpp}`, `trietype`). SLI's main extension over PostScript. Part of the dispatcher; not optional.
+- **Procedure type-checking via `type_trie`** (`sli_type_trie.{h,cpp}`, `trietype`). SLI's main extension over PostScript. Part of the dispatcher; not optional. Each `TypeNode` stores an `unsigned int tag_` (sli3::nulltype = unset); `lookup` compares `Token::tag()` to `tag_` and treats `sli3::anytype` as the wildcard.
 - **Memory-locality goal.** A procedure is one allocation holding N contiguous Tokens — not N tiny heap allocations behind pointers (the NEST 2.x failure mode). Don't undo this when modernizing containers.
 - **Serialization is a first-class concern.** Every `SLIType` subclass implements `serialize(Token const&, Writer&)` / `deserialize(Reader&, Token&)`. The `sli_typeid` enum is a **permanent wire contract** (append-only). Pointer-payload types use the Writer/Reader object table for de-duplication and cycle handling. `Name` serializes as string + re-interns on load. `SLIFunction*` and trie tokens re-resolve by name on load. Streams are not serializable. Both binary (primary) and text (debugging) writers via the same `Writer`/`Reader` interface.
 
