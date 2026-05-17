@@ -223,8 +223,9 @@ systemdict begin
    object of the container will be replaced by the new one.
 
    Alternatives: Functions put_a for arrays, put_p for procedures,
-   put_lp for literal procedures, put_s for strings (all undocumented)
-   and put_d for dictionaries (SeeAlso)
+   put_lp for literal procedures, put_s for strings (all undocumented).
+   For dictionaries, use /put directly; the type-specific put_d was
+   retired in favour of the polymorphic /put.
    -> behaviour and synopsis are the same.
 
 
@@ -244,17 +245,17 @@ systemdict begin
  FirstVersion: ??
  Remarks: Commented Hehl April 21, 1999
 
- SeeAlso: get, put_d
+ SeeAlso: get
 
 */
 
 
 % sli3 Stage 9: /put bound in C++ to PutFunction. Switches on
 % (collection.tag, index.tag) and dispatches to put_a / put_a_a_t
-% / put_p / put_lp / put_s / put_d. The element-type arm of the
-% original trie is handled implicitly by the typed leaf (it
-% accepts anytype for the element slot). Typed leaves stay
-% registered.
+% / put_p / put_lp / put_s and an inline dict path. The
+% element-type arm of the original trie is handled implicitly by
+% the typed leaf (it accepts anytype for the element slot). Typed
+% leaves stay registered (except put_d, retired as redundant).
 
 
 

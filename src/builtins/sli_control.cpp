@@ -995,9 +995,9 @@ void RaiseerrorFunction::execute(SLIInterpreter *i) const
    errorname until this parameter is redefined.
 
  Examples:
-   errordict /errorname /MyError put_d
-   errordict /command /my_function put_d
-   errordict /message (Something went wrong.) put_d
+   errordict /errorname /MyError put
+   errordict /command /my_function put
+   errordict /message (Something went wrong.) put
    /my_function print_error
 
  Bugs:

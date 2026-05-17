@@ -6,7 +6,7 @@
 // Operators provided here:
 //   length_p / length_lp / length_a / length_s / length_d
 //   get_a / get_a_a / get_p / get_lp / get_s / get_d / get_d_a
-//   put_a / put_p / put_lp / put_s / put_d / put_a_a_t
+//   put_a / put_p / put_lp / put_s / put_a_a_t
 
 #include "sli_array.h"
 #include "sli_container_ops.h"
@@ -230,21 +230,6 @@ public:
     }
 };
 
-class PutDictFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        i->require_stack_load(3);
-        i->require_stack_type(2, sli3::dictionarytype);
-        i->require_stack_type(1, sli3::literaltype);
-        Dictionary* d = i->pick(2).data_.dict_val;
-        Name n(i->pick(1).data_.name_val);
-        d->insert(n, i->top());
-        i->pop(3);  // dict / key / value all consumed
-    }
-};
-
 // put_a_a_t — nested-array put: walks an index path into a nested array
 // and replaces the leaf. Mirrors the legacy NEST behaviour.
 class PutArrayArrayTokenFunction : public SLIFunction
@@ -312,7 +297,6 @@ PutArrayLikeFunction<sli3::arraytype>                 put_a_fn;
 PutArrayLikeFunction<sli3::proceduretype>             put_p_fn;
 PutArrayLikeFunction<sli3::litproceduretype>          put_lp_fn;
 PutStringFunction                                     put_s_fn;
-PutDictFunction                                       put_d_fn;
 PutArrayArrayTokenFunction                            put_a_a_t_fn;
 
 //------------------------------------------------------------------------
@@ -1600,7 +1584,6 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("put_p",     &put_p_fn);
     i->createcommand("put_lp",    &put_lp_fn);
     i->createcommand("put_s",     &put_s_fn);
-    i->createcommand("put_d",     &put_d_fn);
     i->createcommand("put_a_a_t", &put_a_a_t_fn);
 
     i->createcommand("join_s",        &join_s_fn);
@@ -1732,7 +1715,6 @@ void init_container_ops(SLIInterpreter* i)
     prepend_s_fn.set_new_abi();
     put_a_a_t_fn.set_new_abi();
     put_a_fn.set_new_abi();
-    put_d_fn.set_new_abi();
     put_fn.set_new_abi();
     put_fn.set_hot_op(HOP_PUT);
     put_lp_fn.set_new_abi();
