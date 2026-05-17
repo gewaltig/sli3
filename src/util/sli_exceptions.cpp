@@ -120,6 +120,13 @@ std::string StackUnderflow::message()
   return out.str();
 }
 
+std::string WriteProtected::message()
+{
+  if (what_.empty())
+    return "Attempted to modify a write-protected object.";
+  return "Attempted to modify a write-protected " + what_ + ".";
+}
+
 std::string IOError::message()
 {
   return std::string();

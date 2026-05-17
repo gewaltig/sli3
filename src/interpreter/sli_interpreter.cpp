@@ -1,5 +1,6 @@
 #include "sli_interpreter.h"
 #include "compose.hpp"
+#include "sli_access_ops.h"
 #include "sli_array_module.h"
 #include "sli_container_ops.h"
 #include "sli_control.h"
@@ -331,6 +332,7 @@ void SLIInterpreter::init_internal_functions(void) {
   init_container_ops(this);
   init_io_ops(this);
   init_state_ops(this);
+  init_access_ops(this);
   // GNUreadline / GNUaddhistory must be registered BEFORE sli-init.sli
   // loads — the script's /executive definition gates on
   // `systemdict /GNUreadline known` and only picks the line-editing

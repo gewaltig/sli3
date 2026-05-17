@@ -364,13 +364,19 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, tid_);
         i->require_stack_type(0, sli3::integertype);
+        TokenArray* arr = i->pick(1).data_.array_val;
+        if (!arr->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         long n = i->top().data_.long_val;
         if (n < 0)
         {
             i->raiseerror(i->PositiveIntegerExpectedError);
             return;
         }
-        i->pick(1).data_.array_val->reserve(static_cast<size_t>(n));
+        arr->reserve(static_cast<size_t>(n));
         i->pop();
     }
 };
@@ -383,13 +389,19 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
+        SLIString* sv = i->pick(1).data_.string_val;
+        if (!sv->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         long n = i->top().data_.long_val;
         if (n < 0)
         {
             i->raiseerror(i->PositiveIntegerExpectedError);
             return;
         }
-        i->pick(1).data_.string_val->str().reserve(static_cast<size_t>(n));
+        sv->str().reserve(static_cast<size_t>(n));
         i->pop();
     }
 };
@@ -507,6 +519,11 @@ public:
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::dictionarytype);
         Dictionary *dict = i->top().data_.dict_val;
+        if (!dict->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         // If this dict is on the dictstack, the dictstack's name
         // cache (and basecache, if dict is the base) holds raw
         // Token* pointers into the dict's TokenMap nodes. clearing
@@ -1350,6 +1367,14 @@ public:
     {
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::literaltype);
+        // undef mutates the dictstack's current dict; refuse if that
+        // dict is write-protected.
+        Dictionary* top = i->DStack().top();
+        if (top && !top->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         Name n(i->top().data_.name_val);
         i->pop();
         try { i->undef(n); } catch (UndefinedName&) { /* silent no-op */ }
@@ -1375,6 +1400,11 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, TID);
         TokenArray* arr = i->pick(1).data_.array_val;
+        if (!arr->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         arr->push_back(i->top());
         i->pop();  // drop value, leave container on top
     }
@@ -1388,8 +1418,13 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
-        std::string& s = i->pick(1).data_.string_val->str();
-        s.push_back(static_cast<char>(i->top().data_.long_val));
+        SLIString* sv = i->pick(1).data_.string_val;
+        if (!sv->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
+        sv->str().push_back(static_cast<char>(i->top().data_.long_val));
         i->pop();
     }
 };
@@ -1408,6 +1443,11 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, TID);
         TokenArray* arr = i->pick(1).data_.array_val;
+        if (!arr->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         arr->insert(0, i->top());
         i->pop();  // drop value, leave container on top
     }
@@ -1421,7 +1461,13 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
-        std::string& s = i->pick(1).data_.string_val->str();
+        SLIString* sv = i->pick(1).data_.string_val;
+        if (!sv->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
+        std::string& s = sv->str();
         s.insert(s.begin(), static_cast<char>(i->top().data_.long_val));
         i->pop();
     }

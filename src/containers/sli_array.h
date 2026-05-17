@@ -1,6 +1,7 @@
 #ifndef TOKENARRAY_H
 #define TOKENARRAY_H
 
+#include "sli_access.h"
 #include "sli_token.h"
 
 #include <algorithm>
@@ -99,6 +100,17 @@ public:
     bool operator==(TokenArray const& o) const    { return data_ == o.data_; }
     bool operator!=(TokenArray const& o) const    { return !(*this == o); }
 
+    // PostScript-style access. The field is on the payload so every
+    // sharer observes the same state. Default ACCESS_UNLIMITED;
+    // narrowing is monotonic (set_access(X) only succeeds when X is
+    // stricter than the current value). Mutation sites in the C++
+    // surface call require_writable() at entry; on readonly arrays
+    // those raise WriteProtected.
+    bool      is_writable() const                 { return access_ == ACCESS_UNLIMITED; }
+    bool      is_readable() const                 { return access_ <= ACCESS_READONLY; }
+    uint8_t   access()      const                 { return access_; }
+    void      set_access(uint8_t a)               { if (a > access_) access_ = a; }
+
     // Refcount protocol — called by ArrayType::add_reference / remove_reference.
     uint32_t add_reference()                      { return ++refs_; }
     uint32_t remove_reference()
@@ -123,6 +135,7 @@ public:
 private:
     std::vector<Token> data_;
     uint32_t refs_;
+    uint8_t  access_ = ACCESS_UNLIMITED;
 };
 
 std::ostream& operator<<(std::ostream&, TokenArray const&);

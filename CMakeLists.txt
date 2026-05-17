@@ -68,6 +68,7 @@ add_library(sli3_core STATIC
   src/builtins/sli_startup.cpp
   src/builtins/sli_readline.cpp
   src/builtins/sli_state_ops.cpp
+  src/builtins/sli_access_ops.cpp
 
   # trie / serialize / util
   src/trie/sli_type_trie.cpp
@@ -163,3 +164,4 @@ sli3_add_test(test_features            tests/test_features.cpp)
 sli3_add_test(test_state_ops           tests/test_state_ops.cpp)
 sli3_add_test(test_bind                tests/test_bind.cpp)
 sli3_add_test(test_dispatch_abi        tests/test_dispatch_abi.cpp)
+sli3_add_test(test_access              tests/test_access.cpp)

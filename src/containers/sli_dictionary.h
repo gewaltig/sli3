@@ -20,6 +20,7 @@
     SLI's dictionary class
 */
 
+#include "sli_access.h"
 #include "sli_name.h"
 #include "sli_token.h"
 #include "sli_exceptions.h"
@@ -146,6 +147,17 @@ public:
       }
     return references_;
   }
+
+  // PostScript-style access state. Independent from the per-entry
+  // DictToken::access_flag_ (which tracks read-once for debug audits).
+  // Cleared on construction to ACCESS_UNLIMITED; narrowing is
+  // monotonic. Dictionary-mutating ops (def, undef, cleardict, …)
+  // call require_writable() at entry; on readonly dicts those
+  // raise WriteProtected.
+  bool      is_writable() const          { return access_ == ACCESS_UNLIMITED; }
+  bool      is_readable() const          { return access_ <= ACCESS_READONLY; }
+  uint8_t   access()      const          { return access_; }
+  void      set_access(uint8_t a)        { if (a > access_) access_ = a; }
 
   using TokenMap::erase;
   using TokenMap::size;
@@ -280,6 +292,7 @@ public:
   mutable
     refcount_t references_;
   refcount_t refs_on_dictstack_;
+  uint8_t    access_ = ACCESS_UNLIMITED;
 
 };
 

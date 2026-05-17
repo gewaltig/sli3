@@ -1,6 +1,8 @@
 #ifndef SLI_STRING_H
 #define SLI_STRING_H
 
+#include "sli_access.h"
+
 #include <cstdint>
 #include <ostream>
 #include <string>
@@ -46,6 +48,15 @@ public:
     }
     uint32_t references() const { return refs_; }
 
+    // PostScript-style access. Default ACCESS_UNLIMITED; monotonic
+    // narrowing. String-mutating ops (put_s, append_s, replace_s, …)
+    // call require_writable() at entry; readonly strings raise
+    // WriteProtected on attempted mutation.
+    bool     is_writable() const { return access_ == ACCESS_UNLIMITED; }
+    bool     is_readable() const { return access_ <= ACCESS_READONLY; }
+    uint8_t  access()      const { return access_; }
+    void     set_access(uint8_t a) { if (a > access_) access_ = a; }
+
     std::string&       str()       { return data_; }
     std::string const& str() const { return data_; }
 
@@ -67,6 +78,7 @@ public:
 private:
     std::string data_;
     uint32_t    refs_;
+    uint8_t     access_ = ACCESS_UNLIMITED;
 };
 
 inline std::ostream& operator<<(std::ostream& out, SLIString const& s)

@@ -176,6 +176,14 @@ static inline void hot_op_def(SLIInterpreter* i)
 {
     i->require_stack_load(2);
     i->require_stack_type(1, sli3::literaltype);
+    // def mutates the current top-of-dictstack dict. Refuse if it
+    // has been narrowed to readonly (e.g. systemdict after bootstrap).
+    Dictionary* top = i->DStack().top();
+    if (top && !top->is_writable())
+    {
+        i->raiseerror(i->WriteProtectedError);
+        return;
+    }
     i->def(i->pick(1).data_.name_val, i->top());
     i->pop(2);
 }
@@ -390,6 +398,11 @@ static inline void hot_op_put(SLIInterpreter* i)
         && idx == sli3::integertype)
     {
         TokenArray* arr = i->pick(2).data_.array_val;
+        if (!arr->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         long k = resolve_index(i->pick(1).data_.long_val, arr->size());
         if (k < 0)
         {
@@ -427,6 +440,12 @@ static inline void hot_op_put(SLIInterpreter* i)
             }
             if (it + 1 == path->end())
             {
+                // Only the leaf is mutated — check writability there.
+                if (!cur->is_writable())
+                {
+                    i->raiseerror(i->WriteProtectedError);
+                    return;
+                }
                 (*cur)[static_cast<size_t>(k)] = i->top();
             }
             else
@@ -445,7 +464,13 @@ static inline void hot_op_put(SLIInterpreter* i)
     }
     if (coll == sli3::stringtype && idx == sli3::integertype)
     {
-        std::string& s = i->pick(2).data_.string_val->str();
+        SLIString* sv = i->pick(2).data_.string_val;
+        if (!sv->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
+        std::string& s = sv->str();
         long k = resolve_index(i->pick(1).data_.long_val, s.size());
         long c = i->top().data_.long_val;
         if (k < 0)
@@ -460,6 +485,11 @@ static inline void hot_op_put(SLIInterpreter* i)
     if (coll == sli3::dictionarytype && idx == sli3::literaltype)
     {
         Dictionary* d = i->pick(2).data_.dict_val;
+        if (!d->is_writable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         Name n(i->pick(1).data_.name_val);
         d->insert(n, i->top());
         i->pop(3);

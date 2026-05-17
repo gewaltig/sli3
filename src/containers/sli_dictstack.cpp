@@ -80,6 +80,12 @@ TokenArray *DictionaryStack::snapshot(SLIInterpreter &sli)
         // toArray.
         snapshot_ = new TokenArray();
         toArray(sli, *snapshot_);
+        // Mark the cached array readonly. The snapshot is shared
+        // with every /dictstack consumer until invalidated; a put
+        // or append on it would corrupt the cache (and any other
+        // consumer's view). With readonly, all such attempts raise
+        // WriteProtected instead of silently mutating.
+        snapshot_->set_access(ACCESS_READONLY);
     }
     // Hand out one ref to the caller (matches the implicit +1 that
     // `new TokenArray()` used to give the old DictstackFunction
