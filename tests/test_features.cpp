@@ -148,8 +148,9 @@ void test_dictstack(Harness& h)
 
     h.prime("3 dict begin /k 42 def cleardictstack countdictstack");
     h.run();
-    // cleardictstack pops every dict above systemdict + userdict.
-    CHECK(h.i.OStack().pick(0).data_.long_val == 2);
+    // cleardictstack restores the PS Level-2 permanents:
+    // systemdict / globaldict / userdict (3 entries, bottom→top).
+    CHECK(h.i.OStack().pick(0).data_.long_val == 3);
 
     // Regression: `currentdict` used to raw-assign the dict pointer
     // into a Token without bumping its refcount. The local Token's
@@ -164,13 +165,15 @@ void test_dictstack(Harness& h)
     // restoredstack: round-trip through dictstack. Snapshot a 2-deep
     // stack, push another two dicts on top, then restore the snapshot
     // and verify the dstack shrank back.
-    h.prime("3 dict begin 5 dict begin "
+    h.prime("cleardictstack "          // start from a known 3-deep base
+            "3 dict begin 5 dict begin "
             "dictstack /snap exch def "
             "3 dict begin 7 dict begin "
             "snap restoredstack countdictstack");
     h.run();
     long const after_snap = h.i.OStack().pick(0).data_.long_val;
-    CHECK(after_snap == 4);   // systemdict + userdict + 2 saved dicts
+    // 3 permanents (systemdict + globaldict + userdict) + 2 saved dicts.
+    CHECK(after_snap == 5);
 
     // restoredstack on a non-dict element raises ArgumentType and
     // leaves the dstack untouched (validation runs before mutation).

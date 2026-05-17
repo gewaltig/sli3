@@ -403,6 +403,51 @@ void test_errorname_distinguishes_read_vs_write(sli3::SLIInterpreter& i)
     check_errorname(i, "[1 2 3] readonly 99 append",  "WriteProtected");
 }
 
+// cleardictstack restores the canonical PS Level-2 layout:
+// bottom-to-top systemdict / globaldict / userdict. The previous
+// `while (size > 2) pop` rule was Level-1 (left only 2 entries),
+// which after Wave 2 dropped userdict and left
+// [globaldict, systemdict] — a layout no user code could write
+// into without `begin`-ing a fresh dict first.
+void test_cleardictstack_restores_permanents(sli3::SLIInterpreter& i)
+{
+    EVAL_CLEAR(i);
+    // Push a couple of scratch dicts, then reset.
+    eval(i, "<< /scratch_a 1 >> begin << >> begin cleardictstack");
+    EVAL_CLEAR(i);
+
+    // dictstack length == 3.
+    EVAL_INT(i, "countdictstack", 3);
+
+    // The bottom is systemdict; the middle is globaldict; the top
+    // is userdict. Probe by name: each binds to its dict via the
+    // /systemdict /globaldict /userdict slots in systemdict, and
+    // `eq` compares dict identity.
+    EVAL_BOOL(i, "dictstack 0 get systemdict eq", true);
+    EVAL_BOOL(i, "dictstack 1 get globaldict eq", true);
+    EVAL_BOOL(i, "dictstack 2 get userdict eq",   true);
+
+    // And the layout still accepts writes / reads (sanity: userdict
+    // is on top and writable, lookups find systemdict bindings).
+    EVAL_INT(i, "/cdtest 42 def /cdtest load", 42);
+    // `where` pushes (dict, true) on hit and (false) on miss. The
+    // top is what we check; the dict slot is just ostack noise.
+    EVAL_BOOL(i, "/systemdict where exch pop", true);
+    EVAL_CLEAR(i);
+
+    // Idempotent: a second cleardictstack from the canonical state
+    // is a no-op (size stays at 3, identities unchanged).
+    eval(i, "cleardictstack");
+    EVAL_INT(i, "countdictstack", 3);
+    EVAL_BOOL(i, "dictstack 0 get systemdict eq", true);
+    EVAL_CLEAR(i);
+
+    // If a local dict was begun and then cleared, the local is
+    // dropped (no leak): no operand references it from this point.
+    // We can't observe refcounts directly from SLI, but the ASAN
+    // build catches any UAF or leak on the local on shutdown.
+}
+
 }  // namespace
 
 int main()
@@ -434,6 +479,8 @@ int main()
     test_eq_blocked_on_executeonly_strings(i);
     test_executeonly_procedure_still_executes(i);
     test_errorname_distinguishes_read_vs_write(i);
+
+    test_cleardictstack_restores_permanents(i);
 
     std::cout << "test_access: all assertions passed\n";
     return 0;

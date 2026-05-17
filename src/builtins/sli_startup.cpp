@@ -356,15 +356,18 @@ public:
     }
 };
 
-// Pop every dict above systemdict + userdict (the two permanent
-// bottom entries).
+// Restore the canonical PS Level-2 dictstack: bottom-to-top
+// systemdict / globaldict / userdict. Any other dicts currently on
+// the stack (local frames from `begin` / `dict begin`, etc.) are
+// dropped. This is a stronger reset than just trimming the top —
+// it also restores the permanent layout if `end` had popped one
+// of the three default dicts off.
 class CleardictstackFunction : public SLIFunction
 {
 public:
     void execute(SLIInterpreter* i) const override
     {
-        while (i->DStack().size() > 2)
-            i->DStack().pop();
+        i->reset_dictstack();
     }
 };
 

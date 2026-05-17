@@ -87,6 +87,16 @@ namespace sli3
 	void init_internal_functions();
 
 	/**
+	 * Restore the canonical PostScript Level-2 dictionary stack:
+	 * bottom-to-top systemdict / globaldict / userdict. Every other
+	 * dict currently on the stack is dropped (with a paired
+	 * remove_reference, so any local dict whose only remaining owner
+	 * was the dictstack is deleted). The base dict is re-pinned to
+	 * systemdict. Bound to the SLI `cleardictstack` operator.
+	 */
+	void reset_dictstack();
+
+	/**
 	 * Initiates the interpreter's startup sequnce.
 	 */
 	int startup();

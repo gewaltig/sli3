@@ -198,6 +198,34 @@ void SLIInterpreter::init() {
   dictionary_stack_.push(dict);
   dict.data_.dict_val = user_dict_;
   dictionary_stack_.push(dict);
+  // The local `dict` carries no managed reference (its data_ slot
+  // was set by raw assignment). Suppress the destructor's
+  // unbalanced remove_reference on the last assigned payload —
+  // same pattern as init_dictionaries' epilogue.
+  dict.type_ = 0;
+}
+
+void SLIInterpreter::reset_dictstack() {
+  // Drop every entry. clear() pairs each push() with a
+  // remove_reference, so any local dict whose only owner was the
+  // dictstack is deleted; the permanent dicts (systemdict /
+  // globaldict / userdict) survive because the C++ field pointers
+  // and the entries in systemdict still keep their refcounts > 0.
+  // base_ is reset to nullptr — re-pinned below.
+  dictionary_stack_.clear();
+
+  // Re-push canonical layout (bottom → top). Same raw-assign
+  // pattern as init() / init_dictionaries; dict.type_ = 0 at the
+  // end suppresses the unbalanced destructor decrement.
+  Token dict(types_[sli3::dictionarytype]);
+  dict.data_.dict_val = system_dict_;
+  dictionary_stack_.push(dict);
+  dictionary_stack_.set_basedict();
+  dict.data_.dict_val = global_dict_;
+  dictionary_stack_.push(dict);
+  dict.data_.dict_val = user_dict_;
+  dictionary_stack_.push(dict);
+  dict.type_ = 0;
 }
 
 void SLIInterpreter::init_types() {
