@@ -222,11 +222,10 @@ systemdict begin
    put will call appropriate typedepending put operator. The indexed
    object of the container will be replaced by the new one.
 
-   Alternatives: Functions put_a for arrays, put_p for procedures,
-   put_lp for literal procedures, put_s for strings (all undocumented).
-   For dictionaries, use /put directly; the type-specific put_d was
-   retired in favour of the polymorphic /put.
-   -> behaviour and synopsis are the same.
+   The type-specific variants (put_a, put_p, put_lp, put_s, put_d)
+   that NEST 2.x exposed have been retired; /put is the single
+   polymorphic entry point. /put_a_a_t is also gone (nested path
+   put is handled by /put when the index is itself an array).
 
 
  Parameters:
@@ -251,11 +250,10 @@ systemdict begin
 
 
 % sli3 Stage 9: /put bound in C++ to PutFunction. Switches on
-% (collection.tag, index.tag) and dispatches to put_a / put_a_a_t
-% / put_p / put_lp / put_s and an inline dict path. The
-% element-type arm of the original trie is handled implicitly by
-% the typed leaf (it accepts anytype for the element slot). Typed
-% leaves stay registered (except put_d, retired as redundant).
+% (collection.tag, index.tag) and inlines every arm directly
+% (array/proc/litproc + integer; array + array path; string +
+% integer; dict + literal). The type-specific put_a / put_p /
+% put_lp / put_s / put_d / put_a_a_t variants are all gone.
 
 
 

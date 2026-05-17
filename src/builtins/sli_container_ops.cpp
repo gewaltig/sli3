@@ -6,7 +6,7 @@
 // Operators provided here:
 //   length_p / length_lp / length_a / length_s / length_d
 //   get_a / get_a_a / get_p / get_lp / get_s / get_d / get_d_a
-//   put_a / put_p / put_lp / put_s / put_a_a_t
+//   put (single polymorphic entry; type-specific put_* retired)
 
 #include "sli_array.h"
 #include "sli_container_ops.h"
@@ -179,106 +179,10 @@ public:
     }
 };
 
-//------------------------------------------------------------------------
-// put_*
-//------------------------------------------------------------------------
-
-template <unsigned int TID>
-class PutArrayLikeFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        // NEST 2.x convention: `array index value put_a -> array`.
-        // Consumes only the (idx, value) pair and leaves the array on
-        // top, so `bind`'s `2 copy ... put` pattern preserves the
-        // for-loop's [proc, i] state across iterations.
-        i->require_stack_load(3);
-        i->require_stack_type(2, TID);
-        i->require_stack_type(1, sli3::integertype);
-        TokenArray* arr = i->pick(2).data_.array_val;
-        long idx = resolve_index(i->pick(1).data_.long_val, arr->size());
-        if (idx < 0)
-        {
-            i->raiseerror(i->RangeCheckError);
-            return;
-        }
-        (*arr)[static_cast<size_t>(idx)] = i->top();
-        i->pop(2);
-    }
-};
-
-class PutStringFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        i->require_stack_load(3);
-        i->require_stack_type(2, sli3::stringtype);
-        i->require_stack_type(1, sli3::integertype);
-        i->require_stack_type(0, sli3::integertype);
-        std::string& s = i->pick(2).data_.string_val->str();
-        long idx = resolve_index(i->pick(1).data_.long_val, s.size());
-        long c = i->top().data_.long_val;
-        if (idx < 0)
-        {
-            i->raiseerror(i->RangeCheckError);
-            return;
-        }
-        s[static_cast<size_t>(idx)] = static_cast<char>(c);
-        i->pop(2);
-    }
-};
-
-// put_a_a_t — nested-array put: walks an index path into a nested array
-// and replaces the leaf. Mirrors the legacy NEST behaviour.
-class PutArrayArrayTokenFunction : public SLIFunction
-{
-public:
-    void execute(SLIInterpreter* i) const override
-    {
-        i->require_stack_load(3);
-        i->require_stack_type(2, sli3::arraytype);
-        i->require_stack_type(1, sli3::arraytype);
-        TokenArray* src = i->pick(2).data_.array_val;
-        TokenArray* path = i->pick(1).data_.array_val;
-        if (path->empty())
-        {
-            i->raiseerror(i->RangeCheckError);
-            return;
-        }
-        TokenArray* cur = src;
-        for (Token const* it = path->begin(); it != path->end(); ++it)
-        {
-            if (!it->is_of_type(sli3::integertype))
-            {
-                i->raiseerror(i->ArgumentTypeError);
-                return;
-            }
-            long k = resolve_index(it->data_.long_val, cur->size());
-            if (k < 0)
-            {
-                i->raiseerror(i->RangeCheckError);
-                return;
-            }
-            if (it + 1 == path->end())
-            {
-                (*cur)[static_cast<size_t>(k)] = i->top();
-            }
-            else
-            {
-                Token& next = (*cur)[static_cast<size_t>(k)];
-                if (!next.is_of_type(sli3::arraytype))
-                {
-                    i->raiseerror(i->ArgumentTypeError);
-                    return;
-                }
-                cur = next.data_.array_val;
-            }
-        }
-        i->pop(2);  // drop path + value, keep array
-    }
-};
+// The type-specific put variants (put_a / put_p / put_lp / put_s /
+// put_a_a_t) were retired: PutFunction → hot_op_put inlines every
+// (collection.tag, index.tag) arm directly. The dict arm replaced the
+// former put_d. /put is the single entry point.
 
 LengthArrayLikeFunction<sli3::proceduretype>          length_p_fn;
 LengthArrayLikeFunction<sli3::litproceduretype>       length_lp_fn;
@@ -293,11 +197,6 @@ GetArrayArrayFunction                                 get_a_a_fn;
 GetStringFunction                                     get_s_fn;
 GetDictFunction                                       get_d_fn;
 
-PutArrayLikeFunction<sli3::arraytype>                 put_a_fn;
-PutArrayLikeFunction<sli3::proceduretype>             put_p_fn;
-PutArrayLikeFunction<sli3::litproceduretype>          put_lp_fn;
-PutStringFunction                                     put_s_fn;
-PutArrayArrayTokenFunction                            put_a_a_t_fn;
 
 //------------------------------------------------------------------------
 // String ops
@@ -1580,12 +1479,6 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("get_s",     &get_s_fn);
     i->createcommand("get_d",     &get_d_fn);
 
-    i->createcommand("put_a",     &put_a_fn);
-    i->createcommand("put_p",     &put_p_fn);
-    i->createcommand("put_lp",    &put_lp_fn);
-    i->createcommand("put_s",     &put_s_fn);
-    i->createcommand("put_a_a_t", &put_a_a_t_fn);
-
     i->createcommand("join_s",        &join_s_fn);
     i->createcommand("search_s",      &search_s_fn);
     i->createcommand("search_a",      &search_a_fn);
@@ -1713,13 +1606,8 @@ void init_container_ops(SLIInterpreter* i)
     prepend_fn.set_new_abi();
     prepend_p_fn.set_new_abi();
     prepend_s_fn.set_new_abi();
-    put_a_a_t_fn.set_new_abi();
-    put_a_fn.set_new_abi();
     put_fn.set_new_abi();
     put_fn.set_hot_op(HOP_PUT);
-    put_lp_fn.set_new_abi();
-    put_p_fn.set_new_abi();
-    put_s_fn.set_new_abi();
     replace_a_fn.set_new_abi();
     replace_s_fn.set_new_abi();
     reserve_a_fn.set_new_abi();
