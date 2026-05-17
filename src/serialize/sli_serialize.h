@@ -17,7 +17,11 @@ class SLIInterpreter;
 
 // Wire-format constants. Append-only — see project_serialization memory.
 constexpr uint32_t kSerializeMagic = 0x33494C53;  // "SLI3" little-endian
-constexpr uint32_t kSerializeVersion = 1;
+// Version history:
+//   1 — initial release.
+//   2 — appended PostScript access byte (ACCESS_UNLIMITED / READONLY /
+//       EXECUTEONLY / NOACCESS) to TokenArray and SLIString bodies.
+constexpr uint32_t kSerializeVersion = 2;
 
 /**
  * Abstract sink for serialization. Concrete implementations:

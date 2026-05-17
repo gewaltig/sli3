@@ -56,17 +56,19 @@ namespace sli3
 
     std::ostream& ArrayType::print(std::ostream& out, const Token &t) const
     {
-	if (t.data_.array_val !=0)
-	{
-	    return out <<'[' << *t.data_.array_val <<']';
-	}
-	else
+	if (t.data_.array_val == 0)
 	    return out << "[\0]";
-
+	// PostScript spec: composites under executeonly / noaccess
+	// print as `--nostringval--` instead of exposing contents.
+	if (!t.data_.array_val->is_readable())
+	    return out << "--nostringval--";
+	return out <<'[' << *t.data_.array_val <<']';
     }
 
     std::ostream& ArrayType::pprint(std::ostream& out, const Token &t) const
     {
+	if (t.data_.array_val != 0 && !t.data_.array_val->is_readable())
+	    return out << "--nostringval--";
 	out << '[';
 	if (t.data_.array_val != 0)
 	    pprint_contents(out, *t.data_.array_val);
@@ -89,6 +91,8 @@ namespace sli3
 
     std::ostream& LitprocedureType::pprint(std::ostream& out, const Token &t) const
     {
+	if (t.data_.array_val != 0 && !t.data_.array_val->is_readable())
+	    return out << "--nostringval--";
 	out << "{{";
 	if (t.data_.array_val != 0)
 	    pprint_contents(out, *t.data_.array_val);
@@ -103,6 +107,8 @@ namespace sli3
 
     std::ostream& ProcedureType::pprint(std::ostream& out, const Token &t) const
     {
+	if (t.data_.array_val != 0 && !t.data_.array_val->is_readable())
+	    return out << "--nostringval--";
 	out << '{';
 	if (t.data_.array_val != 0)
 	    pprint_contents(out, *t.data_.array_val);

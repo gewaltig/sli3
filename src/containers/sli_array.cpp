@@ -135,6 +135,12 @@ void TokenArray::serialize_body(Writer& w) const
     w.write_u32(static_cast<uint32_t>(data_.size()));
     for (Token const& t : data_)
         write_token(t, w);
+    // Version-2 trailer: PostScript access state. Appended at the
+    // end so a reader that only knows version 1's body layout would
+    // still read the elements correctly (the reader's version check
+    // would reject the version mismatch anyway, but the layout is
+    // forward-extensible by design).
+    w.write_u8(access_);
 }
 
 void TokenArray::deserialize_body(Reader& r, SLIInterpreter& interp)
@@ -144,6 +150,7 @@ void TokenArray::deserialize_body(Reader& r, SLIInterpreter& interp)
     data_.reserve(n);
     for (uint32_t i = 0; i < n; ++i)
         data_.push_back(read_token(r, interp));
+    access_ = r.read_u8();
 }
 
 void TokenArray::info(std::ostream& out) const

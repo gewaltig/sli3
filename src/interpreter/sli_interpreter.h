@@ -481,6 +481,12 @@ namespace sli3
 	int verbosity_level_;
 
 	Dictionary *system_dict_;
+	Dictionary *global_dict_;  //!< PS-Level-2 global namespace; sits
+				 //!< between systemdict and userdict on the
+				 //!< dictstack. Writable by SLI code that
+				 //!< wants persistent state visible across
+				 //!< all callers (replaces the legacy NEST
+				 //!< habit of writing into systemdict).
 	Dictionary *user_dict_;
 	Dictionary *status_dict_;
 	Dictionary *error_dict_;

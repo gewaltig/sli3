@@ -171,6 +171,98 @@ void test_dictstack_snapshot_is_readonly(sli3::SLIInterpreter& i)
                  "append on dictstack snapshot");
 }
 
+// Wave 2: executeonly + noaccess setters, read-path gates,
+// --nostringval-- print suppression.
+
+void test_executeonly_blocks_reads(sli3::SLIInterpreter& i)
+{
+    // executeonly is stricter than readonly: rcheck is false, wcheck
+    // is false.
+    EVAL_BOOL(i, "[1 2 3] executeonly rcheck", false);
+    EVAL_BOOL(i, "[1 2 3] executeonly wcheck", false);
+    EVAL_BOOL(i, "<< /a 1 >> executeonly rcheck", false);
+    EVAL_BOOL(i, "(hi) executeonly rcheck", false);
+
+    // Reads against executeonly raise.
+    assert_stops(i, "[1 2 3] executeonly 0 get", "get on executeonly array");
+    assert_stops(i, "(hi) executeonly 0 get", "get on executeonly string");
+    assert_stops(i, "<< /a 1 >> executeonly /a get", "get on executeonly dict");
+    assert_stops(i, "<< /a 1 >> executeonly keys", "keys on executeonly dict");
+    assert_stops(i, "<< /a 1 >> executeonly values", "values on executeonly dict");
+    assert_stops(i, "<< /a 1 >> executeonly cva", "cva on executeonly dict");
+}
+
+void test_noaccess_blocks_reads(sli3::SLIInterpreter& i)
+{
+    EVAL_BOOL(i, "[1 2 3] noaccess rcheck", false);
+    EVAL_BOOL(i, "[1 2 3] noaccess wcheck", false);
+
+    assert_stops(i, "[1 2 3] noaccess 0 get", "get on noaccess array");
+    assert_stops(i, "(hi) noaccess 0 get", "get on noaccess string");
+    assert_stops(i, "<< /a 1 >> noaccess /a get", "get on noaccess dict");
+}
+
+void test_monotonic_narrowing(sli3::SLIInterpreter& i)
+{
+    // Once narrowed, can't widen. set_access only accepts strictly
+    // narrower targets, so applying /readonly to a noaccess object
+    // is a no-op (state stays noaccess) — the read should still fail.
+    assert_stops(i, "[1 2 3] noaccess readonly 0 get",
+                 "noaccess readonly stays noaccess");
+    assert_stops(i, "[1 2 3] executeonly readonly 0 get",
+                 "executeonly readonly stays executeonly");
+
+    // Narrowing further from readonly to noaccess works.
+    assert_stops(i, "[1 2 3] readonly noaccess 0 get",
+                 "readonly noaccess blocks read");
+}
+
+// PS Level-2 globaldict — between systemdict and userdict on the
+// dstack. Wave 2 adds it so future code (and any future systemdict
+// readonly seal) has a proper place for persistent globals.
+void test_globaldict_is_present(sli3::SLIInterpreter& i)
+{
+    // The dictstack snapshot lists every dict on the stack; on a
+    // fresh interpreter post-bootstrap we expect at minimum
+    // userdict, globaldict, systemdict — i.e. length >= 3. (sli-init
+    // also runs `userdict begin` without a matching end, pushing an
+    // extra userdict; that's a pre-existing quirk of the vendored
+    // file. We just check the floor.)
+    EVAL_CLEAR(i);
+    eval(i, "dictstack length 3 geq");
+    if (i.OStack().load() != 1
+        || !i.top().is_of_type(sli3::booltype)
+        || i.top().data_.bool_val != true)
+    {
+        std::cerr << "FAIL globaldict on dstack: length not >= 3\n";
+        std::exit(1);
+    }
+
+    // globaldict is a writable Dictionary, distinct from systemdict
+    // and userdict, and reachable by name via systemdict.
+    EVAL_BOOL(i, "globaldict wcheck", true);
+    // Writing into globaldict by name lookup followed by /put works,
+    // and the value can be retrieved by name (cache invalidation
+    // handles the def through the lookup path).
+    EVAL_INT(i, "globaldict /:wave2_test 99 put globaldict /:wave2_test get", 99);
+}
+
+// Print suppression for executeonly / noaccess composites. We can't
+// capture stdout via test_harness directly, but cvs (convert-to-string)
+// in misc_helpers.sli renders the value via the same pprint path,
+// so we test the resulting string instead.
+void test_nostringval_print(sli3::SLIInterpreter& i)
+{
+    // pcvs goes through pprint, which emits --nostringval-- for
+    // executeonly / noaccess composites.
+    EVAL_STRING(i, "[1 2 3] readonly pcvs",       "[1 2 3]");
+    EVAL_STRING(i, "[1 2 3] executeonly pcvs",    "--nostringval--");
+    EVAL_STRING(i, "[1 2 3] noaccess pcvs",       "--nostringval--");
+    EVAL_STRING(i, "(hi) executeonly pcvs",       "--nostringval--");
+    EVAL_STRING(i, "{1 2 add} executeonly pcvs",  "--nostringval--");
+    EVAL_STRING(i, "<< /a 1 >> executeonly pcvs", "--nostringval--");
+}
+
 }  // namespace
 
 int main()
@@ -188,6 +280,13 @@ int main()
     test_unaffected_paths_still_work(i);
     test_procedure_mutation_rejected(i);
     test_dictstack_snapshot_is_readonly(i);
+
+    // Wave 2 additions.
+    test_executeonly_blocks_reads(i);
+    test_noaccess_blocks_reads(i);
+    test_monotonic_narrowing(i);
+    test_globaldict_is_present(i);
+    test_nostringval_print(i);
 
     std::cout << "test_access: all assertions passed\n";
     return 0;

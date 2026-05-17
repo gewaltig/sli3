@@ -184,7 +184,17 @@ void SLIInterpreter::init() {
   init_message_tags();
   init_dictionaries();
   init_internal_functions();
+  // Dictstack layout after init() (top → bottom):
+  //   userdict   — scratch (current dict on entry to user code)
+  //   globaldict — PS Level-2 global namespace (writable, shared)
+  //   systemdict — built-ins (set as base by init_dictionaries)
+  // init_dictionaries already pushed systemdict and pinned it as
+  // base; the internal-functions setup runs with systemdict on top
+  // so createcommand registrations land there. After that we push
+  // globaldict, then userdict, in that order.
   Token dict(types_[sli3::dictionarytype]);
+  dict.data_.dict_val = global_dict_;
+  dictionary_stack_.push(dict);
   dict.data_.dict_val = user_dict_;
   dictionary_stack_.push(dict);
 }
@@ -277,6 +287,7 @@ void SLIInterpreter::init_message_tags() {
 
 void SLIInterpreter::init_dictionaries() {
   system_dict_ = new Dictionary();
+  global_dict_ = new Dictionary();
   error_dict_ = new Dictionary();
   user_dict_ = new Dictionary();
   status_dict_ = new Dictionary();
@@ -288,6 +299,8 @@ void SLIInterpreter::init_dictionaries() {
   dictionary_stack_.set_basedict();
   dict.data_.dict_val = error_dict_;
   system_dict_->insert(Name("errordict"), dict);
+  dict.data_.dict_val = global_dict_;
+  system_dict_->insert(Name("globaldict"), dict);
   dict.data_.dict_val = user_dict_;
   system_dict_->insert(Name("userdict"), dict);
   dict.data_.dict_val = status_dict_;
@@ -360,6 +373,14 @@ int SLIInterpreter::startup() {
     // e-stack) still counts as initialized; otherwise
     // is_initialized() would lie about the interpreter state.
     is_initialized_ = true;
+
+    // NOTE: PS-spec would seal systemdict readonly here, but the
+    // vendored NEST 2.20.2 .sli surface writes to systemdict at
+    // runtime (e.g. /tic does `systemdict begin /:tictime realtime
+    // def end`). Sealing breaks tic / toc / clock and any caller
+    // that uses systemdict as a scratch namespace. Deferred until
+    // either the vendored .sli files are audited or sli3 stops
+    // tracking NEST 2.x compatibility.
   }
   return exitcode;
 }

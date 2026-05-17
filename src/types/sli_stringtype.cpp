@@ -17,13 +17,13 @@ namespace sli3
 
     std::ostream& StringType::print(std::ostream& out, const Token &t) const
     {
-	if (t.data_.string_val !=0)
-	{
-	    return out << *t.data_.string_val;
-	}
-	else
+	if (t.data_.string_val == 0)
 	    return out;
-
+	// PostScript spec: executeonly / noaccess composites print as
+	// `--nostringval--` rather than exposing their contents. Wave 2.
+	if (!t.data_.string_val->is_readable())
+	    return out << "--nostringval--";
+	return out << *t.data_.string_val;
     }
 
     std::ostream& StringType::pprint(std::ostream& out, const Token &t) const
@@ -32,6 +32,8 @@ namespace sli3
 	// the bare content; `==` (Token::pprint) emits the literal
 	// SLI syntax form `( ... )` so the output round-trips through
 	// the parser.
+	if (t.data_.string_val != 0 && !t.data_.string_val->is_readable())
+	    return out << "--nostringval--";
 	out << '(';
 	if (t.data_.string_val != 0)
 	    out << *t.data_.string_val;
@@ -45,7 +47,13 @@ namespace sli3
 	auto [id, is_new] = w.intern_object(s);
 	w.write_u32(id);
 	if (is_new)
+	{
 	    w.write_string(s->str());
+	    // Version-2 trailer: access state. Only emitted on the
+	    // first sighting of a string (subsequent references share
+	    // the payload via id and inherit its state).
+	    w.write_u8(s->access());
+	}
     }
 
     void StringType::deserialize(Reader& r, Token& t) const
@@ -59,6 +67,7 @@ namespace sli3
 	else
 	{
 	    s = new SLIString(r.read_string());
+	    s->set_access(r.read_u8());
 	    r.register_object(id, s);
 	}
 	t.type_ = const_cast<StringType*>(this);

@@ -312,6 +312,11 @@ static inline void hot_op_get(SLIInterpreter* i)
         && key == sli3::integertype)
     {
         TokenArray* arr = i->pick(1).data_.array_val;
+        if (!arr->is_readable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         long idx = resolve_index(i->top().data_.long_val, arr->size());
         if (idx < 0)
         {
@@ -328,6 +333,11 @@ static inline void hot_op_get(SLIInterpreter* i)
         // array of indices -> array of elements.
         TokenArray* arr  = i->pick(1).data_.array_val;
         TokenArray* idxs = i->top().data_.array_val;
+        if (!arr->is_readable() || !idxs->is_readable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         TokenArray* out  = new TokenArray();
         out->reserve(idxs->size());
         for (Token const* t = idxs->begin(); t != idxs->end(); ++t)
@@ -353,7 +363,13 @@ static inline void hot_op_get(SLIInterpreter* i)
     }
     if (coll == sli3::stringtype && key == sli3::integertype)
     {
-        std::string& s = i->pick(1).data_.string_val->str();
+        SLIString* sv = i->pick(1).data_.string_val;
+        if (!sv->is_readable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
+        std::string& s = sv->str();
         long idx = resolve_index(i->top().data_.long_val, s.size());
         if (idx < 0)
         {
@@ -368,6 +384,11 @@ static inline void hot_op_get(SLIInterpreter* i)
     if (coll == sli3::dictionarytype && key == sli3::literaltype)
     {
         Dictionary* d = i->pick(1).data_.dict_val;
+        if (!d->is_readable())
+        {
+            i->raiseerror(i->WriteProtectedError);
+            return;
+        }
         Name n(i->top().data_.name_val);
         if (!d->known(n))
         {

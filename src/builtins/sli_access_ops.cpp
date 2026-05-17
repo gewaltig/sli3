@@ -1,7 +1,12 @@
-// PostScript-style access-state operators. The /readonly setter
-// narrows the access of an arraytype / proceduretype / litproceduretype
-// / dictionarytype / stringtype operand; the rcheck / wcheck / xcheck
-// predicates expose the state to SLI.
+// PostScript-style access-state operators. The /readonly / /executeonly
+// / /noaccess setters narrow the access state of an arraytype /
+// proceduretype / litproceduretype / dictionarytype / stringtype
+// operand; the rcheck / wcheck / xcheck predicates expose the state
+// to SLI.
+//
+// All setters share one body — they only differ in the target state.
+// PostScript spec: access can only narrow (monotonically), enforced
+// inside the payload's set_access().
 //
 // Each operator dispatches inline on the operand's tag (no trie)
 // because the surface is uniform across composite types and we want
@@ -26,11 +31,12 @@ namespace sli3
 namespace
 {
 
-// `obj  readonly  ->  obj` — narrow access to ACCESS_READONLY.
-// set_access is monotonic, so this is a no-op on objects already at
-// readonly or stricter. The Token stays on the stack with the same
-// payload pointer; only the payload's flag flips.
-class ReadonlyFunction : public SLIFunction
+// Narrow the top-of-stack composite's access to `target`. set_access
+// is monotonic — already-narrower objects are unaffected. The Token
+// stays on the stack with the same payload pointer; only the
+// payload's flag flips. Non-composite scalars raise ArgumentType.
+template <AccessState target>
+class NarrowAccessFunction : public SLIFunction
 {
 public:
     void execute(SLIInterpreter* i) const override
@@ -41,13 +47,13 @@ public:
         case sli3::arraytype:
         case sli3::proceduretype:
         case sli3::litproceduretype:
-            i->top().data_.array_val->set_access(ACCESS_READONLY);
+            i->top().data_.array_val->set_access(target);
             break;
         case sli3::dictionarytype:
-            i->top().data_.dict_val->set_access(ACCESS_READONLY);
+            i->top().data_.dict_val->set_access(target);
             break;
         case sli3::stringtype:
-            i->top().data_.string_val->set_access(ACCESS_READONLY);
+            i->top().data_.string_val->set_access(target);
             break;
         default:
             i->raiseerror(i->ArgumentTypeError);
@@ -139,7 +145,9 @@ public:
     }
 };
 
-ReadonlyFunction readonly_fn;
+NarrowAccessFunction<ACCESS_READONLY>    readonly_fn;
+NarrowAccessFunction<ACCESS_EXECUTEONLY> executeonly_fn;
+NarrowAccessFunction<ACCESS_NOACCESS>    noaccess_fn;
 RcheckFunction   rcheck_fn;
 WcheckFunction   wcheck_fn;
 XcheckFunction   xcheck_fn;
@@ -148,12 +156,16 @@ XcheckFunction   xcheck_fn;
 
 void init_access_ops(SLIInterpreter* i)
 {
-    i->createcommand("readonly", &readonly_fn);
-    i->createcommand("rcheck",   &rcheck_fn);
-    i->createcommand("wcheck",   &wcheck_fn);
-    i->createcommand("xcheck",   &xcheck_fn);
+    i->createcommand("readonly",    &readonly_fn);
+    i->createcommand("executeonly", &executeonly_fn);
+    i->createcommand("noaccess",    &noaccess_fn);
+    i->createcommand("rcheck",      &rcheck_fn);
+    i->createcommand("wcheck",      &wcheck_fn);
+    i->createcommand("xcheck",      &xcheck_fn);
 
     readonly_fn.set_new_abi();
+    executeonly_fn.set_new_abi();
+    noaccess_fn.set_new_abi();
     rcheck_fn.set_new_abi();
     wcheck_fn.set_new_abi();
     xcheck_fn.set_new_abi();

@@ -15,6 +15,10 @@ namespace sli3
     {
 	assert(t.type_);
 	if (t.data_.dict_val == 0) return out << "<<null>>";
+	// PostScript spec: executeonly / noaccess dicts print as
+	// `--nostringval--` instead of dumping contents. Wave 2.
+	if (!t.data_.dict_val->is_readable())
+	    return out << "--nostringval--";
 	return out << (*t.data_.dict_val);
     }
 
@@ -22,6 +26,8 @@ namespace sli3
     {
 	assert(t.type_);
 	if (t.data_.dict_val == 0) return out << "<<null>>";
+	if (!t.data_.dict_val->is_readable())
+	    return out << "--nostringval--";
 	return out << "<<...>>";
     }
 }
