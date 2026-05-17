@@ -61,12 +61,16 @@ Date:      18.11.95
 namespace sli3
 {
     class SLIInterpreter;
-    
-    typedef std::vector<SLIType *> TypeArray;
-    
+
+    // The trie matches stack arguments by typeid. Each parameter slot
+    // is recorded as the typeid tag the dispatcher would read off the
+    // argument's Token via tag(); we compare numeric tags rather than
+    // dereferencing SLIType* through a chained load.
+    typedef std::vector<unsigned int> TypeArray;
+
     class TypeNode
     {
-	
+
     public:
 	TypeNode(Name const &n);
 
@@ -78,8 +82,8 @@ namespace sli3
 	bool operator == (const TypeNode &) const;
 	bool equals(unsigned int , unsigned int) const;
 
-	void toTokenArray(TokenArray &) const;
-	void info(std::ostream &) const;
+	void toTokenArray(SLIInterpreter *sli, TokenArray &) const;
+	void info(SLIInterpreter *sli, std::ostream &) const;
 
 	// Inverse of toTokenArray: reconstruct a trie from the
 	// array form emitted by cva_t. The root carries `name`;
@@ -90,16 +94,16 @@ namespace sli3
 	static TypeNode *from_token_array(SLIInterpreter *sli,
 					  Name const &name,
 					  TokenArray const &a);
-	
-	
+
+
 	refcount_t add_reference(void);
 	refcount_t remove_reference(void);
 	refcount_t references() const;
-	
+
 	Name const & get_name() const;
 
     private:
-	TypeNode(SLIType *);
+	TypeNode(unsigned int tag);
 	TypeNode(const TypeNode &);
 
 	// Recursive helper for from_token_array; builds an inner node
@@ -108,39 +112,39 @@ namespace sli3
 				    TokenArray const &a);
 
 	//    TypeNode operator=(const TypeNode &){}; // disable this operator
-	TypeNode * get_alternative(TypeNode *, SLIType *);
-	void info( std::ostream &, std::deque<TypeNode const *> &) const;
-	
-	refcount_t refs_;         //!< number of references to this Node
-	Name       name_;        //!< Name of the trie (only for root)
+	TypeNode * get_alternative(TypeNode *, unsigned int);
+	void info(SLIInterpreter *sli, std::ostream &, std::deque<TypeNode const *> &) const;
 
-	SLIType    *type_;        //!< expected type at this stack level
-	Token       func_;        //!< Object stored (only for leaf).
-	
-	TypeNode    *alt_;         //!< alternative parameter at this level
+	refcount_t   refs_;         //!< number of references to this Node
+	Name         name_;         //!< Name of the trie (only for root)
+
+	unsigned int tag_;          //!< expected typeid at this stack level; sli3::nulltype = unset
+	Token        func_;         //!< Object stored (only for leaf).
+
+	TypeNode    *alt_;          //!< alternative parameter at this level
 	TypeNode    *next_;         //!< next stack level
-	
+
     };
-    
-    inline 
+
+    inline
     TypeNode::TypeNode(Name const &name)
 	: refs_(1),
 	  name_(name),
-	  type_(NULL),
+	  tag_(sli3::nulltype),
 	  func_(),
 	  alt_(NULL),
 	  next_(NULL){}
-    
-    inline 
-    TypeNode::TypeNode(SLIType* t)
-      : refs_(1), name_(), type_(t), func_(), alt_(NULL),next_(NULL) 
+
+    inline
+    TypeNode::TypeNode(unsigned int tag)
+      : refs_(1), name_(), tag_(tag), func_(), alt_(NULL), next_(NULL)
     {}
-    
-    inline 
+
+    inline
     TypeNode::TypeNode(const TypeNode &node)
 	:refs_(1),
 	 name_(node.name_),
-	 type_(node.type_),
+	 tag_(node.tag_),
 	 func_(node.func_),
 	 alt_(node.alt_),
 	 next_(node.next_)
@@ -212,26 +216,25 @@ namespace sli3
 
       while (pos->next_ != NULL)
         {
-          // Empty / partial trie node: type_ unset but a next_ link
-          // exists. Treat as no-match so callers see a typed error
-          // instead of a segfault on `pos->type_->get_typeid()`.
-          if (pos->type_ == NULL)
+          // Empty / partial trie node: tag unset but a next_ link
+          // exists. Treat as no-match so callers see a typed error.
+          if (pos->tag_ == sli3::nulltype)
             throw ArgumentType(level);
 
           if (level >= load)
             throw StackUnderflow(level + 1, load);
 
-          const SLIType *find_type = st.pick(level).type_;
+          const unsigned int find_tag = st.pick(level).tag();
           // Walk the alt-list looking for either an exact match or
           // an anytype wildcard (always at the tail of the alt-list
           // by construction in get_alternative). On no match, throw.
-          while (pos->type_ != find_type
-                 && pos->type_->get_typeid() != sli3::anytype)
+          while (pos->tag_ != find_tag
+                 && pos->tag_ != sli3::anytype)
             {
               if (pos->alt_ == NULL)
                 throw ArgumentType(level);
               pos = pos->alt_;
-              if (pos == NULL || pos->type_ == NULL)
+              if (pos == NULL || pos->tag_ == sli3::nulltype)
                 throw ArgumentType(level);
             }
           ++level;

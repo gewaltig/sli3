@@ -6,11 +6,11 @@ namespace sli3
 {
 
 
-    Token::operator TokenArray&() 
+    Token::operator TokenArray&()
     {
   	if( not is_valid())
 	    throw InvalidToken();
-	unsigned int id=type_->get_typeid();
+	unsigned int id=tag();
 	if(id==sli3::arraytype or
 	   id==sli3::proceduretype or
 	   id==sli3::litproceduretype)
@@ -67,8 +67,8 @@ namespace sli3
 	// stream pointer matches. operator==(Name) (below) already
 	// does this for the Name family — keep the two equality
 	// flavours symmetric.
-	const auto a = type_->get_typeid();
-	const auto b = t.type_->get_typeid();
+	const auto a = tag();
+	const auto b = t.tag();
 
 	auto in_name_class = [](unsigned int id) {
 	    return id == sli3::nametype
@@ -97,32 +97,32 @@ namespace sli3
 
     bool Token::operator==(int i) const
     {
-	return type_ and type_->get_typeid()==sli3::integertype and data_.long_val==i;
+	return type_ and tag()==sli3::integertype and data_.long_val==i;
     }
 
     bool Token::operator==(unsigned int i) const
     {
-	return type_ and type_->get_typeid()==sli3::integertype and static_cast<unsigned int>(data_.long_val)==i;
+	return type_ and tag()==sli3::integertype and static_cast<unsigned int>(data_.long_val)==i;
     }
 
     bool Token::operator==(long l) const
     {
-	return type_ and type_->get_typeid()==sli3::integertype and data_.long_val==l;
+	return type_ and tag()==sli3::integertype and data_.long_val==l;
     }
 
     bool Token::operator==(unsigned long l) const
     {
-	return type_ and type_->get_typeid()==sli3::integertype and static_cast<unsigned long>(data_.long_val)==l;
+	return type_ and tag()==sli3::integertype and static_cast<unsigned long>(data_.long_val)==l;
     }
 
     bool Token::operator==(double d) const
     {
-	return type_ and type_->get_typeid()==sli3::doubletype and data_.double_val==d;
+	return type_ and tag()==sli3::doubletype and data_.double_val==d;
     }
 
     bool Token::operator==(bool b) const
     {
-	return type_ and type_->get_typeid()==sli3::booltype and data_.bool_val==b;
+	return type_ and tag()==sli3::booltype and data_.bool_val==b;
     }
 
     bool Token::operator==(Name n) const
@@ -135,7 +135,7 @@ namespace sli3
 	// comparison always false, so cst's tokenize loop never
 	// terminated.
 	if (!type_) return false;
-	const auto tid = type_->get_typeid();
+	const auto tid = tag();
 	return (tid == sli3::nametype
 	        || tid == sli3::literaltype
 	        || tid == sli3::symboltype)

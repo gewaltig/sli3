@@ -1,10 +1,30 @@
 #ifndef SLI_TYPE_H
+#include <cstdint>
 #include <string>
 #define SLI_TYPE_H
 #include "sli_name.h"
 
+// Sanitizer-aware pointer tagging. When SLI3_NO_PTR_TAG is defined,
+// SLIType pointers are stored untagged: sanitizers instrument loads
+// in a way that does not honor TBI, so a tagged pointer is flagged
+// as out-of-bounds. The fallback path keeps id_ on SLIType and reads
+// the typeid through it; the production path encodes the typeid in
+// the top byte and recovers it via reinterpret_cast<uintptr_t>(p).
+#if defined(__has_feature)
+#  if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer) || __has_feature(memory_sanitizer)
+#    define SLI3_NO_PTR_TAG 1
+#  endif
+#endif
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#  define SLI3_NO_PTR_TAG 1
+#endif
+
 namespace sli3
 {
+
+  inline constexpr unsigned PTR_TAG_SHIFT = 56;
+  inline constexpr std::uintptr_t PTR_TAG_MASK  = std::uintptr_t(0xFF) << PTR_TAG_SHIFT;
+  inline constexpr std::uintptr_t PTR_ADDR_MASK = ~PTR_TAG_MASK;
 
   /**
    * Class SLIType provides the virtual interface to all Datum operations. 
@@ -136,21 +156,33 @@ namespace sli3
     {
       return name_;
     }
-    
+
 
     bool is_type(unsigned int id) const
     {
-      return id_ == id;
+      return get_typeid() == id;
     }
 
+    /**
+     * Recover the typeid this instance was registered with. Under the
+     * pointer-tagging scheme the typeid lives in the top byte of any
+     * pointer that addresses *this — we read it back out of `this`.
+     * Under SLI3_NO_PTR_TAG (sanitizer builds), the pointer is plain,
+     * so we keep id_ as a stored fallback.
+     */
     unsigned int get_typeid() const
     {
+#ifdef SLI3_NO_PTR_TAG
       return id_;
+#else
+      return static_cast<unsigned int>(
+          reinterpret_cast<std::uintptr_t>(this) >> PTR_TAG_SHIFT);
+#endif
     }
 
     void require_type(unsigned int id)
     {
-      if(id != id_)
+      if(id != get_typeid())
 	raise_type_mismatch_(id);
     }
 
@@ -186,7 +218,9 @@ namespace sli3
 
     SLIInterpreter *sli_;
     Name name_;
+#ifdef SLI3_NO_PTR_TAG
     unsigned int id_;
+#endif
     bool executable_;
     bool needs_refcount_ = false;
   };

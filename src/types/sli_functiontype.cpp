@@ -43,7 +43,7 @@ namespace sli3
   void FunctionType::deserialize(Reader& r, Token& t) const
   {
     std::string n = r.read_string();
-    t.type_ = Token::pack_type(const_cast<FunctionType*>(this));
+    t.type_ = const_cast<FunctionType*>(this);
     if (n.empty()) { t.data_.func_val = nullptr; return; }
     // Re-resolve the operator by name in the loading interpreter.
     Token resolved;

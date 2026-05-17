@@ -324,10 +324,10 @@ public:
             // Axis I bundle step 4: /Sort frame already popped.
             return;
         }
-        unsigned int type_id = src->begin()->type_->get_typeid();
+        unsigned int type_id = src->begin()->tag();
         for (Token const* t = src->begin(); t != src->end(); ++t)
         {
-            if (!t->type_ || t->type_->get_typeid() != type_id)
+            if (!t->type_ || t->tag() != type_id)
             {
                 i->raiseerror(i->ArgumentTypeError);
                 return;
@@ -536,7 +536,7 @@ public:
             i->raiseerror(i->RangeCheckError);
             return;
         }
-        unsigned int t_id = arr->begin()->type_->get_typeid();
+        unsigned int t_id = arr->begin()->tag();
         if (t_id == sli3::integertype)
         {
             long m = arr->begin()->data_.long_val;

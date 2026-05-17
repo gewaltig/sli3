@@ -156,7 +156,7 @@ void write_token(Token const& t, Writer& w)
         w.write_u16(static_cast<uint16_t>(sli3::nulltype));
         return;
     }
-    uint16_t tid = static_cast<uint16_t>(t.type_->get_typeid());
+    uint16_t tid = static_cast<uint16_t>(t.tag());
     w.write_u16(tid);
     t.type_->serialize(t, w);
 }

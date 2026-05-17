@@ -34,7 +34,7 @@ namespace sli3
 
     void LiteralType::deserialize(Reader& r, Token& t) const
     {
-        t.type_ = Token::pack_type(const_cast<LiteralType*>(this));
+        t.type_ = const_cast<LiteralType*>(this);
         std::string s = r.read_string();
         t.data_.name_val = Name(s).toIndex();
     }

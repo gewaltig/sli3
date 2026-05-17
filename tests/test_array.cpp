@@ -215,7 +215,7 @@ void test_serialize_array(SLIInterpreter& interp)
     Token out = read_token(r, interp);
 
     CHECK(out.is_valid());
-    CHECK(out.type_->get_typeid() == sli3::arraytype);
+    CHECK(out.tag() == sli3::arraytype);
     TokenArray* loaded = out.data_.array_val;
     CHECK(loaded != nullptr);
     CHECK(loaded != original);  // distinct heap object

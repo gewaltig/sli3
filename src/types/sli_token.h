@@ -139,31 +139,22 @@ namespace sli3
 	 * need to mask before access. tag() reads the typeid via a
 	 * pure shift, no second memory load through SLIType::id_.
 	 *
+	 * SLIInterpreter::types_[] stores already-tagged pointers,
+	 * so every SLIType* that flows into Token::type_ already
+	 * carries its tag in the top byte. Callers do not need to
+	 * pack on the fly; pack_type is reserved for the single
+	 * registration site in init_types.
+	 *
 	 * On x86-64 this scheme requires LAM (Linear Address
 	 * Masking) to dereference a tagged pointer; without LAM,
-	 * a tag-aware accessor would mask. This is why every
-	 * non-zero SLIType* that lands in type_ goes through
-	 * Token::pack_type() first; users do not write raw SLIType*
-	 * into type_ and read it back without masking.
-	 *
-	 * Sanitizers (ASAN/TSAN/MSAN) instrument loads and stores
-	 * with a path that does NOT honor TBI -- they see the raw
-	 * 64-bit pointer including our tag bits and treat it as an
-	 * out-of-range address. Disable tagging under sanitizers;
-	 * fall back to reading typeid via the pointed-to SLIType.
+	 * a tag-aware accessor would mask. Sanitizers (ASAN/TSAN/
+	 * MSAN) instrument loads and stores with a path that does
+	 * NOT honor TBI -- they see the raw 64-bit pointer
+	 * including our tag bits and treat it as an out-of-range
+	 * address. Under SLI3_NO_PTR_TAG (defined by sli_type.h
+	 * when a sanitizer is active) we keep pointers untagged
+	 * and fall back to reading typeid via SLIType::id_.
 	 */
-#if defined(__has_feature)
-#  if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer) || __has_feature(memory_sanitizer)
-#    define SLI3_NO_PTR_TAG 1
-#  endif
-#endif
-#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
-#  define SLI3_NO_PTR_TAG 1
-#endif
-
-	static constexpr unsigned TAG_SHIFT = 56;
-	static constexpr uintptr_t TAG_MASK  = uintptr_t(0xFF) << TAG_SHIFT;
-	static constexpr uintptr_t ADDR_MASK = ~TAG_MASK;
 
 	/** Return the typeid encoded in the top byte of type_. */
 	unsigned tag() const
@@ -172,12 +163,39 @@ namespace sli3
 	    return type_ ? type_->get_typeid() : 0;
 #else
 	    return static_cast<unsigned>(
-	        reinterpret_cast<uintptr_t>(type_) >> TAG_SHIFT);
+	        reinterpret_cast<std::uintptr_t>(type_) >> sli3::PTR_TAG_SHIFT);
 #endif
 	}
 
-	/** Pack a raw SLIType* into a tagged pointer. */
-	static inline SLIType* pack_type(SLIType* raw);
+	/**
+	 * Apply the typeid tag to a freshly-allocated SLIType* once,
+	 * at registration time. After this, the pointer carries the
+	 * typeid in its top byte and can be used anywhere a tagged
+	 * SLIType* is expected (Token::type_, types_[id]).
+	 */
+	static inline SLIType* pack_type(SLIType* raw, unsigned int id)
+	{
+#ifdef SLI3_NO_PTR_TAG
+	    (void)id;
+	    return raw;
+#else
+	    if (!raw) return nullptr;
+	    return reinterpret_cast<SLIType*>(
+	        reinterpret_cast<std::uintptr_t>(raw)
+	        | (static_cast<std::uintptr_t>(id) << sli3::PTR_TAG_SHIFT));
+#endif
+	}
+
+	/** Strip the tag for safe `delete` etc. */
+	static inline SLIType* unpack_type(SLIType* tagged)
+	{
+#ifdef SLI3_NO_PTR_TAG
+	    return tagged;
+#else
+	    return reinterpret_cast<SLIType*>(
+	        reinterpret_cast<std::uintptr_t>(tagged) & ~(std::uintptr_t(0xFF) << sli3::PTR_TAG_SHIFT));
+#endif
+	}
 
 	SLIType *type_; //!< Tagged SLIType*; top byte = typeid (TBI). NULL when unused.
 	union value
@@ -201,27 +219,20 @@ namespace sli3
 
 
     inline
-    SLIType* Token::pack_type(SLIType* raw)
-    {
-#ifdef SLI3_NO_PTR_TAG
-	return raw;
-#else
-	if (!raw) return nullptr;
-	uintptr_t a = reinterpret_cast<uintptr_t>(raw);
-	uintptr_t tag = static_cast<uintptr_t>(raw->get_typeid()) << TAG_SHIFT;
-	return reinterpret_cast<SLIType*>(a | tag);
-#endif
-    }
-
-    inline
     Token::Token()
 	:type_(0), data_()
     {}
 
     inline
     Token::Token(SLIType *t)
-	:type_(pack_type(t)), data_()
-    {}
+	:type_(t), data_()
+    {
+	// t is expected to be a tagged pointer (from
+	// SLIInterpreter::types_[] or a method's `this`). Untagged
+	// roots only ever live for the duration of pack_type's call
+	// during init_types; nothing else hands a raw SLIType* to
+	// the Token constructor.
+    }
 
     inline
     Token::Token(Token const& s)
@@ -388,7 +399,7 @@ namespace sli3
     inline
     bool Token::is_of_type(unsigned int id) const
     {
-	return type_ and type_->is_type(id);
+	return type_ and tag() == id;
     }
 
     inline

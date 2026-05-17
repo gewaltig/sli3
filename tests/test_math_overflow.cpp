@@ -88,7 +88,7 @@ void expect_int(SLIInterpreter& i, char const* src, long expected)
     if (!t.is_of_type(sli3::integertype))
     {
         std::cerr << "FAIL `" << src << "` ostack[0] not int (typeid="
-                  << (t.type_ ? t.type_->get_typeid() : 0) << ", load="
+                  << t.tag() << ", load="
                   << i.OStack().load() << ")\n";
         std::exit(1);
     }

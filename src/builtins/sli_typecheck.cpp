@@ -45,7 +45,7 @@ void TrieFunction::execute(SLIInterpreter *i) const
     i->require_stack_load(1);
     i->require_stack_type(0,sli3::literaltype);
 
-    TypeNode *trie= new TypeNode(i->top().data_.name_val);
+    TypeNode *trie= new TypeNode(Name(i->top().data_.name_val));
     Token tmp(i->get_type(sli3::trietype));
     tmp.data_.trie_val=trie;
     i->push(tmp);
@@ -112,7 +112,7 @@ void AddtotrieFunction::execute(SLIInterpreter *i) const
 	    return;
 	}
 	long type_val=i->baselookup(t.data_.name_val);
-	a.push_back(i->get_type(type_val));
+	a.push_back(static_cast<unsigned int>(type_val));
     }
 
     trie->insert(a, i->top());
@@ -173,8 +173,8 @@ void Cva_tFunction::execute(SLIInterpreter *i) const
     i->require_stack_type(0,sli3::trietype);
 
     TypeNode *trie=i->top().data_.trie_val;
-    TokenArray *array = new TokenArray();  
-    trie->toTokenArray(*array);
+    TokenArray *array = new TokenArray();
+    trie->toTokenArray(i, *array);
     i->top()=i->new_token<sli3::literaltype>(trie->get_name());
     i->push(i->new_token<sli3::arraytype>(array));
 }
@@ -188,7 +188,7 @@ void TrieInfoFunction::execute(SLIInterpreter *i) const
     std::ostream *out = i->pick(1).data_.ostream_val->get();
 
     TypeNode *trie= i->top().data_.trie_val;
-    trie->info(*out);
+    trie->info(i, *out);
     i->pop(2);
 }
 

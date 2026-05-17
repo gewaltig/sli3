@@ -116,7 +116,7 @@ int main()
         Token out = read_token(r, interp);
 
         CHECK(out.is_valid());
-        CHECK(out.type_->get_typeid() == sli3::stringtype);
+        CHECK(out.tag() == sli3::stringtype);
         CHECK(out.data_.string_val != nullptr);
         CHECK(out.data_.string_val != in.data_.string_val);  // distinct alloc
         CHECK(out.data_.string_val->str() == "hello world");

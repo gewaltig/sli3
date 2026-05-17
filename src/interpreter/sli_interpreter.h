@@ -284,13 +284,11 @@ namespace sli3
 
 	SLIType* get_type(unsigned int id) const
 	{
-	  // Returns the SLIType* with the typeid pre-packed into
-	  // the top byte (see Token::pack_type / Token::tag). All
-	  // sites that store the result into Token::type_ get a
-	  // tagged pointer for free; the dispatcher's switch reads
-	  // the typeid via Token::tag() (one shift) instead of
-	  // Token::type_->get_typeid() (a chained load).
-	  return Token::pack_type(types_[id]);
+	  // types_[] is populated with typeid-tagged pointers in
+	  // init_types(); the top byte already carries the tag, so
+	  // Token::tag() and SLIType::get_typeid() recover it via a
+	  // pure shift rather than chasing through SLIType::id_.
+	  return types_[id];
 	}
 
 	bool is_initialized()

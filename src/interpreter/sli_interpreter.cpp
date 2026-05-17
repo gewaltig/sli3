@@ -171,8 +171,11 @@ SLIInterpreter::~SLIInterpreter() {
 
   // Types must be deleted *after* all tokens are deleted.
   // otherwhise the Token desctructor will crash.
+  // types_[] holds typeid-tagged pointers; strip the tag for `delete`
+  // (passing a tagged pointer to operator delete is UB on x86-64
+  // and a noise source for sanitizers).
   for (size_t t = 0; t < types_.size(); ++t)
-    delete types_[t];
+    delete Token::unpack_type(types_[t]);
 }
 
 void SLIInterpreter::init() {
@@ -191,63 +194,71 @@ void SLIInterpreter::init_types() {
     The order in which these types are created must match the
     order in which the lables in the enum typeid (sli_type.h) are
     defined.
+
+    Each freshly-allocated SLIType* is tagged with its typeid (top
+    byte) before storage. Downstream code reads the tag via
+    Token::tag() / SLIType::get_typeid(); only the destructor strips
+    it back off for delete.
   */
-  types_[sli3::nulltype] = (new OperatorType<sli3::nulltype>(this, "nulltype"));
-  types_[sli3::anytype] = (new OperatorType<sli3::anytype>(this, "anytype"));
-  types_[sli3::integertype] =
-      (new IntegerType(this, "integertype", sli3::integertype));
-  types_[sli3::doubletype] =
-      (new DoubleType(this, "doubletype", sli3::doubletype));
-  types_[sli3::booltype] = (new BoolType(this, "booltype", sli3::booltype));
-  types_[sli3::literaltype] =
-      (new LiteralType(this, "literaltype", sli3::literaltype));
-  types_[sli3::marktype] = (new MarkType(this, "marktype", sli3::marktype));
-  types_[sli3::nametype] = (new NameType(this, "nametype", sli3::nametype));
-  types_[sli3::symboltype] =
-      (new SymbolType(this, "symboltype", sli3::symboltype));
-  types_[sli3::stringtype] =
-      (new StringType(this, "stringtype", sli3::stringtype));
-  types_[sli3::arraytype] = (new ArrayType(this, "arraytype", sli3::arraytype));
+  auto reg = [this](sli_typeid id, SLIType* raw) {
+    types_[id] = Token::pack_type(raw, id);
+  };
+  reg(sli3::nulltype, new OperatorType<sli3::nulltype>(this, "nulltype"));
+  reg(sli3::anytype, new OperatorType<sli3::anytype>(this, "anytype"));
+  reg(sli3::integertype,
+      new IntegerType(this, "integertype", sli3::integertype));
+  reg(sli3::doubletype,
+      new DoubleType(this, "doubletype", sli3::doubletype));
+  reg(sli3::booltype, new BoolType(this, "booltype", sli3::booltype));
+  reg(sli3::literaltype,
+      new LiteralType(this, "literaltype", sli3::literaltype));
+  reg(sli3::marktype, new MarkType(this, "marktype", sli3::marktype));
+  reg(sli3::nametype, new NameType(this, "nametype", sli3::nametype));
+  reg(sli3::symboltype,
+      new SymbolType(this, "symboltype", sli3::symboltype));
+  reg(sli3::stringtype,
+      new StringType(this, "stringtype", sli3::stringtype));
+  reg(sli3::arraytype, new ArrayType(this, "arraytype", sli3::arraytype));
   // Name "literalproceduretype" matches what NEST 2.x's
   // typeinit.sli / sli-init.sli use when keying type tries.
-  types_[sli3::litproceduretype] = (new LitprocedureType(
-      this, "literalproceduretype", sli3::litproceduretype));
-  types_[sli3::proceduretype] =
-      (new ProcedureType(this, "proceduretype", sli3::proceduretype));
-  types_[sli3::dictionarytype] =
-      (new DictionaryType(this, "dictionarytype", sli3::dictionarytype));
-  types_[sli3::functiontype] =
-      (new FunctionType(this, "functiontype", sli3::functiontype));
-  types_[sli3::iiteratetype] =
-      (new OperatorType<sli3::iiteratetype>(this, "proc_continue"));
-  types_[sli3::irepeattype] =
-      (new OperatorType<sli3::irepeattype>(this, "repeat_continue"));
-  types_[sli3::ifortype] =
-      (new OperatorType<sli3::ifortype>(this, "for_continue"));
-  types_[sli3::quittype] = (new OperatorType<sli3::quittype>(this, "quit"));
-  types_[sli3::iforalltype] =
-      (new OperatorType<sli3::iforalltype>(this, "forall_continue"));
+  reg(sli3::litproceduretype,
+      new LitprocedureType(this, "literalproceduretype", sli3::litproceduretype));
+  reg(sli3::proceduretype,
+      new ProcedureType(this, "proceduretype", sli3::proceduretype));
+  reg(sli3::dictionarytype,
+      new DictionaryType(this, "dictionarytype", sli3::dictionarytype));
+  reg(sli3::functiontype,
+      new FunctionType(this, "functiontype", sli3::functiontype));
+  reg(sli3::iiteratetype,
+      new OperatorType<sli3::iiteratetype>(this, "proc_continue"));
+  reg(sli3::irepeattype,
+      new OperatorType<sli3::irepeattype>(this, "repeat_continue"));
+  reg(sli3::ifortype,
+      new OperatorType<sli3::ifortype>(this, "for_continue"));
+  reg(sli3::quittype, new OperatorType<sli3::quittype>(this, "quit"));
+  reg(sli3::iforalltype,
+      new OperatorType<sli3::iforalltype>(this, "forall_continue"));
   // Phase 5: five iter helpers converted to TYPE markers (parallel
   // to iiteratetype / ifortype / iforalltype). body_walk handles
   // them inline; their entry ops push the type instead of a function
   // token, and the SLIFunction classes were deleted.
-  types_[sli3::ilooptype] =
-      (new OperatorType<sli3::ilooptype>(this, "loop_continue"));
-  types_[sli3::iparsetype] =
-      (new OperatorType<sli3::iparsetype>(this, "parse_continue"));
-  types_[sli3::iforallstringtype] =
-      (new OperatorType<sli3::iforallstringtype>(this, "forallstring_continue"));
-  types_[sli3::iforallindexedarraytype] =
-      (new OperatorType<sli3::iforallindexedarraytype>(this, "forallindexedarray_continue"));
-  types_[sli3::iforallindexedstringtype] =
-      (new OperatorType<sli3::iforallindexedstringtype>(this, "forallindexedstring_continue"));
-  types_[sli3::trietype] = (new TrieType(this, "trietype", sli3::trietype));
-  types_[sli3::istreamtype] =
-      (new IstreamType(this, "istreamtype", sli3::istreamtype));
-  types_[sli3::xistreamtype] =
-      (new XIstreamType(this, "xistreamtype", sli3::xistreamtype));
-  types_[sli3::ostreamtype] =
-      (new OstreamType(this, "ostreamtype", sli3::ostreamtype));
+  reg(sli3::ilooptype,
+      new OperatorType<sli3::ilooptype>(this, "loop_continue"));
+  reg(sli3::iparsetype,
+      new OperatorType<sli3::iparsetype>(this, "parse_continue"));
+  reg(sli3::iforallstringtype,
+      new OperatorType<sli3::iforallstringtype>(this, "forallstring_continue"));
+  reg(sli3::iforallindexedarraytype,
+      new OperatorType<sli3::iforallindexedarraytype>(this, "forallindexedarray_continue"));
+  reg(sli3::iforallindexedstringtype,
+      new OperatorType<sli3::iforallindexedstringtype>(this, "forallindexedstring_continue"));
+  reg(sli3::trietype, new TrieType(this, "trietype", sli3::trietype));
+  reg(sli3::istreamtype,
+      new IstreamType(this, "istreamtype", sli3::istreamtype));
+  reg(sli3::xistreamtype,
+      new XIstreamType(this, "xistreamtype", sli3::xistreamtype));
+  reg(sli3::ostreamtype,
+      new OstreamType(this, "ostreamtype", sli3::ostreamtype));
 }
 
 void SLIInterpreter::init_message_tags() {
@@ -505,9 +516,9 @@ void SLIInterpreter::raiseerror(Name cmd, Name err) {
           std::cerr << "\n   [" << k << "] ";
           Token const &t = operand_stack_.pick(k);
           t.pprint(std::cerr);
-          if (t.type_ && (t.type_->get_typeid() == sli3::nametype ||
-                          t.type_->get_typeid() == sli3::literaltype ||
-                          t.type_->get_typeid() == sli3::symboltype)) {
+          if (t.type_ && (t.tag() == sli3::nametype ||
+                          t.tag() == sli3::literaltype ||
+                          t.tag() == sli3::symboltype)) {
             std::cerr << " = " << Name(t.data_.name_val).toString();
           }
         }
@@ -520,13 +531,13 @@ void SLIInterpreter::raiseerror(Name cmd, Name err) {
           Token const &t = execution_stack_.pick(k);
           t.pprint(std::cerr);
           // Resolve name handle to its string for readability.
-          if (t.type_ && (t.type_->get_typeid() == sli3::nametype ||
-                          t.type_->get_typeid() == sli3::literaltype ||
-                          t.type_->get_typeid() == sli3::symboltype)) {
+          if (t.type_ && (t.tag() == sli3::nametype ||
+                          t.tag() == sli3::literaltype ||
+                          t.tag() == sli3::symboltype)) {
             std::cerr << " = " << Name(t.data_.name_val).toString();
           } else if (t.type_ &&
-                     (t.type_->get_typeid() == sli3::proceduretype ||
-                      t.type_->get_typeid() == sli3::litproceduretype) &&
+                     (t.tag() == sli3::proceduretype ||
+                      t.tag() == sli3::litproceduretype) &&
                      t.data_.array_val) {
             std::cerr << " body: ";
             t.print(std::cerr);

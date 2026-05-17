@@ -7,9 +7,15 @@ namespace sli3
     SLIType::SLIType(SLIInterpreter *sli, char const name[], sli_typeid id, bool exec)
 	: sli_(sli),
 	  name_(name),
+#ifdef SLI3_NO_PTR_TAG
 	  id_(id),
+#endif
 	  executable_(exec)
-    {}
+    {
+#ifndef SLI3_NO_PTR_TAG
+	(void)id;  // typeid lives in the pointer top byte; init_types tags it.
+#endif
+    }
 
   void SLIType::clear(Token& t) const
     {
@@ -22,7 +28,8 @@ namespace sli3
 
     void SLIType::deserialize(Reader&, Token& t) const
     {
-        t.type_ = Token::pack_type(const_cast<SLIType*>(this));
+        // `this` already carries the tagged pointer the caller dispatched on.
+        t.type_ = const_cast<SLIType*>(this);
         // Subclasses with payload override this method. The base
         // default applies only to marker types (mark, iiterate,
         // ifor, etc.) whose payload is unused; force the union to

@@ -178,7 +178,7 @@ void test_typeid_coverage(SLIInterpreter& i, bool run_xfail)
         {
             Token out = roundtrip(i, in);
             CHECK(out.type_ != nullptr);
-            CHECK(out.type_->get_typeid() == c.id);
+            CHECK(out.tag() == c.id);
             // For pointer-payload types the equality check is
             // pointer-identity-based (per *Type::compare), which
             // would fail for a fresh-allocated round-trip. We
@@ -230,7 +230,7 @@ void test_alias_string(SLIInterpreter& i)
 
     Token loaded = roundtrip(i, outer);
     CHECK(loaded.is_valid());
-    CHECK(loaded.type_->get_typeid() == sli3::arraytype);
+    CHECK(loaded.tag() == sli3::arraytype);
 
     auto* la = loaded.data_.array_val;
     CHECK(la->size() == 2);
