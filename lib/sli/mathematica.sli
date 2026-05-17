@@ -361,7 +361,7 @@ SeeAlso: Set, AppendTo, MergeDictionary
  join      % l d av
  exch      % l av d
  rollu     % d l av
- put_d
+ put
 } def
 
 /JoinTo_d
@@ -449,7 +449,7 @@ def
  append    % l d av
  exch      % l av d
  rollu     % d l av
- put_d
+ put
 } def
 
 
@@ -3659,14 +3659,14 @@ def
  in empty not
  {
   First
-  cdict /in in Rest put_d
+  cdict /in in Rest put
  } if
 } def
 
 /match
 {
  /lookahead load eq         % avoid immediate lookup of identifier
- {cdict /lookahead gettoken put_d}
+ {cdict /lookahead gettoken put}
  { /match /SyntaxError raiseerror }
  ifelse
 } def
@@ -3733,7 +3733,7 @@ def
      append /out cdict                   % v l d  (8)
      exch                                % v d l
      rolld                               % d l v
-     put_d
+     put
 
   end
 

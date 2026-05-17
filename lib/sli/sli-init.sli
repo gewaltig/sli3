@@ -263,15 +263,15 @@ systemdict begin
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 /init_errordict
 {
-  errordict /recordstacks true  put_d %% Enable stack snapshot on error
-  errordict /newerror     false put_d %% Initialize
-  errordict /commandname    () put_d
-  errordict /oldcommandname () put_d
-  errordict /olderrorname   () put_d
-  errordict /oldestack      () put_d
-  errordict /estack [ ] put_d
-  errordict /dstack [ ] put_d
-  errordict /ostack [ ] put_d
+  errordict /recordstacks true  put %% Enable stack snapshot on error
+  errordict /newerror     false put %% Initialize
+  errordict /commandname    () put
+  errordict /oldcommandname () put
+  errordict /olderrorname   () put
+  errordict /oldestack      () put
+  errordict /estack [ ] put
+  errordict /dstack [ ] put
+  errordict /ostack [ ] put
 } def
 
 init_errordict
@@ -729,7 +729,7 @@ def
 
 /reset
 {
-  errordict /new_error false put_d
+  errordict /newerror false put
   init_errordict
   clear % operand stack
   cleardictstack
