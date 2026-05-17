@@ -179,7 +179,7 @@ static inline void hot_op_def(SLIInterpreter* i)
     // def mutates the current top-of-dictstack dict. Refuse if it
     // has been narrowed to readonly (e.g. systemdict after bootstrap).
     Dictionary* top = i->DStack().top();
-    if (top && !top->is_writable())
+    if (__builtin_expect(top && !top->is_writable(), 0))
     {
         i->raiseerror(i->WriteProtectedError);
         return;
@@ -312,7 +312,7 @@ static inline void hot_op_get(SLIInterpreter* i)
         && key == sli3::integertype)
     {
         TokenArray* arr = i->pick(1).data_.array_val;
-        if (!arr->is_readable())
+        if (__builtin_expect(!arr->is_readable(), 0))
         {
             i->raiseerror(i->WriteProtectedError);
             return;
@@ -333,7 +333,7 @@ static inline void hot_op_get(SLIInterpreter* i)
         // array of indices -> array of elements.
         TokenArray* arr  = i->pick(1).data_.array_val;
         TokenArray* idxs = i->top().data_.array_val;
-        if (!arr->is_readable() || !idxs->is_readable())
+        if (__builtin_expect(!arr->is_readable() || !idxs->is_readable(), 0))
         {
             i->raiseerror(i->WriteProtectedError);
             return;
@@ -364,7 +364,7 @@ static inline void hot_op_get(SLIInterpreter* i)
     if (coll == sli3::stringtype && key == sli3::integertype)
     {
         SLIString* sv = i->pick(1).data_.string_val;
-        if (!sv->is_readable())
+        if (__builtin_expect(!sv->is_readable(), 0))
         {
             i->raiseerror(i->WriteProtectedError);
             return;
@@ -384,7 +384,7 @@ static inline void hot_op_get(SLIInterpreter* i)
     if (coll == sli3::dictionarytype && key == sli3::literaltype)
     {
         Dictionary* d = i->pick(1).data_.dict_val;
-        if (!d->is_readable())
+        if (__builtin_expect(!d->is_readable(), 0))
         {
             i->raiseerror(i->WriteProtectedError);
             return;
@@ -419,7 +419,7 @@ static inline void hot_op_put(SLIInterpreter* i)
         && idx == sli3::integertype)
     {
         TokenArray* arr = i->pick(2).data_.array_val;
-        if (!arr->is_writable())
+        if (__builtin_expect(!arr->is_writable(), 0))
         {
             i->raiseerror(i->WriteProtectedError);
             return;
@@ -462,7 +462,7 @@ static inline void hot_op_put(SLIInterpreter* i)
             if (it + 1 == path->end())
             {
                 // Only the leaf is mutated — check writability there.
-                if (!cur->is_writable())
+                if (__builtin_expect(!cur->is_writable(), 0))
                 {
                     i->raiseerror(i->WriteProtectedError);
                     return;
@@ -486,7 +486,7 @@ static inline void hot_op_put(SLIInterpreter* i)
     if (coll == sli3::stringtype && idx == sli3::integertype)
     {
         SLIString* sv = i->pick(2).data_.string_val;
-        if (!sv->is_writable())
+        if (__builtin_expect(!sv->is_writable(), 0))
         {
             i->raiseerror(i->WriteProtectedError);
             return;
@@ -506,7 +506,7 @@ static inline void hot_op_put(SLIInterpreter* i)
     if (coll == sli3::dictionarytype && idx == sli3::literaltype)
     {
         Dictionary* d = i->pick(2).data_.dict_val;
-        if (!d->is_writable())
+        if (__builtin_expect(!d->is_writable(), 0))
         {
             i->raiseerror(i->WriteProtectedError);
             return;
