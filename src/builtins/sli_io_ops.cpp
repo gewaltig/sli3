@@ -316,17 +316,6 @@ void init_io_ops(SLIInterpreter* i)
     i->createcommand("ostrstream", &ostrstream_fn);
     i->createcommand("str",        &str_fn);
     i->createcommand("CopyFile",   &copyfile_fn);
-
-    // Axis I bundle step 3f: io_ops trailing ops new ABI.
-    copyfile_fn.set_new_abi();
-    cvx_f_fn.set_new_abi();
-    eof_fn.set_new_abi();
-    getline_is_fn.set_new_abi();
-    ifstream_fn.set_new_abi();
-    ofstream_fn.set_new_abi();
-    ostrstream_fn.set_new_abi();
-    str_fn.set_new_abi();
-    close_fn.set_new_abi();  // Phase 5
 }
 
 }  // namespace sli3

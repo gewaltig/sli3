@@ -2164,83 +2164,24 @@ void  init_slicontrol(SLIInterpreter *i)
     // raiseerror / raiseagain; iter dispatchers ForallFunction,
     // ForallindexedFunction, DefDispatchFunction) all manipulate
     // their own e-stack slot mid-body and stay old ABI.
-    backtrace_onfunction.set_new_abi();
-    backtrace_offfunction.set_new_abi();
-    deffunction.set_new_abi();
     // Axis II step 2: hot-op tag for inline dispatcher path.
     deffunction.set_hot_op(HOP_DEF);
-    setfunction.set_new_abi();
-    loadfunction.set_new_abi();
-    printerrorfunction.set_new_abi();
-    casefunction.set_new_abi();
-    sleep_ifunction.set_new_abi();
-    sleep_dfunction.set_new_abi();
-    setguardfunction.set_new_abi();
-    removeguardfunction.set_new_abi();
-    debugonfunction.set_new_abi();
-    debugofffunction.set_new_abi();
-    debugfunction.set_new_abi();
-    setverbosityfunction.set_new_abi();
-    messagefunction.set_new_abi();
-    noopfunction.set_new_abi();
     // Axis I bundle step 4: conditionals converted by dropping
     // their mid-body pop-self (dispatcher now pre-pops).
-    iffunction.set_new_abi();
     // Axis II step 2: hot-op tag for inline dispatcher path.
     iffunction.set_hot_op(HOP_IF);
-    ifelsefunction.set_new_abi();
-    loopfunction.set_new_abi();
-    repeatfunction.set_new_abi();
-    stoppedfunction.set_new_abi();
-    forfunction.set_new_abi();
     // Phase 2a/2b: exit + stop + exec migrated to new-ABI. Exit/stop
     // scan the estack from pick(0); exec moves the ostack top onto
     // the estack via swap-out. All three rely on the dispatcher
     // having pre-popped the call slot.
-    exitfunction.set_new_abi();
-    stopfunction.set_new_abi();
-    execfunction.set_new_abi();
-    bindfunction.set_new_abi();
     // Phase 5: the last old-ABI ops in this file.
-    closeinputfunction.set_new_abi();
-    startfunction.set_new_abi();
-    forall_afunction.set_new_abi();
-    forall_sfunction.set_new_abi();
-    forallindexed_afunction.set_new_abi();
-    forallindexed_sfunction.set_new_abi();
-    forallfunction.set_new_abi();
-    forallindexedfunction.set_new_abi();
-    defdispatchfunction.set_new_abi();
     // Axis I bundle step 4 (second batch): trailing-pop ops and
     // the switch/case family. SwitchFunction / SwitchdefaultFunction
     // also had their recover/restore dance removed (dispatcher
     // already popped /switch, so there is nothing to put back).
-    switchfunction.set_new_abi();
-    switchdefaultfunction.set_new_abi();
-    casefunction.set_new_abi();
-    counttomarkfunction.set_new_abi();
-    pclocksfunction.set_new_abi();
-    ptimesfunction.set_new_abi();
-    typeinfofunction.set_new_abi();
     // Axis I bundle step 4 (third batch): one-pop-self at body
     // start / body end. Each had a single trailing-style pop on
     // the success path -- removed and marked new-ABI.
-    ostackdumpfunction.set_new_abi();
-    estackdumpfunction.set_new_abi();
-    currentnamefunction.set_new_abi();
-    lookupfunction.set_new_abi();
-    cyclesfunction.set_new_abi();
-    pclockspersecfunction.set_new_abi();
-    pgetrusagefunction.set_new_abi();
-    timefunction.set_new_abi();
-    realtimefunction.set_new_abi();
-    token_sfunction.set_new_abi();
-    token_isfunction.set_new_abi();
-    symbol_sfunction.set_new_abi();
-    verbosityfunction.set_new_abi();
-    raiseerrorfunction.set_new_abi();
-    raiseagainfunction.set_new_abi();
-    call_member_fn.set_new_abi();
 }
 
 }

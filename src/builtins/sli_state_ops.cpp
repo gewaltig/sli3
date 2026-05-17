@@ -124,8 +124,6 @@ void init_state_ops(SLIInterpreter* i)
     i->createcommand("restorestate", &restorestate_fn);
 
     // Axis I bundle step 4: dispatcher pre-pop contract.
-    savestate_fn.set_new_abi();
-    restorestate_fn.set_new_abi();
 }
 
 }  // namespace sli3

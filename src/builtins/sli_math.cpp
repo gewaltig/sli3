@@ -2009,126 +2009,16 @@ void init_slimath(SLIInterpreter *i)
     i->createcommand("min_i_d", &min_i_dfunction);
     i->createcommand("min_i_i", &min_i_ifunction);
 
-    // Axis I bundle step 3c: every math op converted to new ABI.
-    // All math ops follow the "pop self then operate on ostack"
-    // pattern; under new ABI the dispatcher pops the fn slot
-    // after execute() returns (via the post-check that compares
-    // top.func_val to fn). No mid-body push-to-estack to disrupt.
-    abs_dfunction.set_new_abi();
-    abs_ifunction.set_new_abi();
-    acos_dfunction.set_new_abi();
-    acosfunction.set_new_abi();
-    add_ddfunction.set_new_abi();
-    add_difunction.set_new_abi();
-    add_idfunction.set_new_abi();
-    add_iifunction.set_new_abi();
-    // Axis II step 1+2: hot-op tags.
+    // Axis II hot-op tags: dispatcher inlines the body for tagged ops.
     add_iifunction.set_hot_op(HOP_ADD_II);
-    addfunction.set_new_abi();
     addfunction.set_hot_op(HOP_ADD);
-    and_iifunction.set_new_abi();
-    andpolyfunction.set_new_abi();
-    asin_dfunction.set_new_abi();
-    asinfunction.set_new_abi();
-    ceil_dfunction.set_new_abi();
-    cos_dfunction.set_new_abi();
-    cosfunction.set_new_abi();
-    dexp_ifunction.set_new_abi();
-    div_ddfunction.set_new_abi();
-    div_difunction.set_new_abi();
-    div_idfunction.set_new_abi();
-    div_iifunction.set_new_abi();
-    divfunction.set_new_abi();
-    doublefunction.set_new_abi();
-    eqfunction.set_new_abi();
     eqfunction.set_hot_op(HOP_EQ);
-    exp_dfunction.set_new_abi();
-    expfunction.set_new_abi();
-    floor_dfunction.set_new_abi();
-    frexp_dfunction.set_new_abi();
-    geq_ddfunction.set_new_abi();
-    geq_difunction.set_new_abi();
-    geq_idfunction.set_new_abi();
-    geq_iifunction.set_new_abi();
-    geqfunction.set_new_abi();
     geqfunction.set_hot_op(HOP_GEQ);
-    gt_ddfunction.set_new_abi();
-    gt_difunction.set_new_abi();
-    gt_idfunction.set_new_abi();
-    gt_iifunction.set_new_abi();
-    gt_ssfunction.set_new_abi();
-    gtfunction.set_new_abi();
     gtfunction.set_hot_op(HOP_GT);
-    integerfunction.set_new_abi();
-    inv_dfunction.set_new_abi();
-    ldexp_difunction.set_new_abi();
-    leq_ddfunction.set_new_abi();
-    leq_difunction.set_new_abi();
-    leq_idfunction.set_new_abi();
-    leq_iifunction.set_new_abi();
-    leqfunction.set_new_abi();
     leqfunction.set_hot_op(HOP_LEQ);
-    ln_dfunction.set_new_abi();
-    lnfunction.set_new_abi();
-    log_dfunction.set_new_abi();
-    logfunction.set_new_abi();
-    lt_ddfunction.set_new_abi();
-    lt_difunction.set_new_abi();
-    lt_idfunction.set_new_abi();
-    lt_iifunction.set_new_abi();
-    lt_ssfunction.set_new_abi();
-    ltfunction.set_new_abi();
     ltfunction.set_hot_op(HOP_LT);
-    max_d_dfunction.set_new_abi();
-    max_d_ifunction.set_new_abi();
-    max_i_dfunction.set_new_abi();
-    max_i_ifunction.set_new_abi();
-    maxfunction.set_new_abi();
-    min_d_dfunction.set_new_abi();
-    min_d_ifunction.set_new_abi();
-    min_i_dfunction.set_new_abi();
-    min_i_ifunction.set_new_abi();
-    minfunction.set_new_abi();
-    mod_iifunction.set_new_abi();
-    modf_dfunction.set_new_abi();
-    mul_ddfunction.set_new_abi();
-    mul_difunction.set_new_abi();
-    mul_idfunction.set_new_abi();
-    mul_iifunction.set_new_abi();
-    mulfunction.set_new_abi();
-    neg_dfunction.set_new_abi();
-    neg_ifunction.set_new_abi();
-    neqfunction.set_new_abi();
     neqfunction.set_hot_op(HOP_NEQ);
-    not_bfunction.set_new_abi();
-    not_ifunction.set_new_abi();
-    notpolyfunction.set_new_abi();
-    or_bbfunction.set_new_abi();
-    or_iifunction.set_new_abi();
-    orpolyfunction.set_new_abi();
-    pow_ddfunction.set_new_abi();
-    pow_difunction.set_new_abi();
-    powfunction.set_new_abi();
-    round_dfunction.set_new_abi();
-    sin_dfunction.set_new_abi();
-    sinfunction.set_new_abi();
-    sqr_dfunction.set_new_abi();
-    sqrfunction.set_new_abi();
-    sqrt_dfunction.set_new_abi();
-    sqrtfunction.set_new_abi();
-    sub_ddfunction.set_new_abi();
-    sub_difunction.set_new_abi();
-    sub_idfunction.set_new_abi();
-    sub_iifunction.set_new_abi();
-    subfunction.set_new_abi();
     subfunction.set_hot_op(HOP_SUB);
-    unitstep_dafunction.set_new_abi();
-    unitstep_dfunction.set_new_abi();
-    unitstep_iafunction.set_new_abi();
-    unitstep_ifunction.set_new_abi();
-    xor_bbfunction.set_new_abi();
-    xor_iifunction.set_new_abi();
-    xorpolyfunction.set_new_abi();
 }
 
 }

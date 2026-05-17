@@ -106,13 +106,6 @@ namespace sli3
       HotOpId hot_op() const { return hot_op_id_; }
       void set_hot_op(HotOpId id) { hot_op_id_ = id; }
 
-      // Phase 5: legacy uses_new_abi() / set_new_abi() are gone.
-      // The dispatcher always pre-pops the fn slot before running
-      // execute(); every op is new-ABI. Keep set_new_abi() as a
-      // no-op stub so any external module that still calls it
-      // compiles. Remove after a deprecation cycle.
-      void set_new_abi() {}
-
   private:
       Name name_;
       HotOpId hot_op_id_ = HOP_NONE;

@@ -331,10 +331,6 @@ void SLIInterpreter::init_internal_functions(void) {
   system_dict_->insert(iforallindexedstring_name, Token(types_[sli3::iforallindexedstringtype]));
   createcommand("]", &arraycreatefunction);
   createcommand(">>", &dictconstructfunction);
-  // Phase 5: both moved to new-ABI (their bodies were updated to
-  // drop the trailing self-pop).
-  arraycreatefunction.set_new_abi();
-  dictconstructfunction.set_new_abi();
 
   createdouble(pi_name, numerics::pi);
   createdouble(e_name, numerics::e);

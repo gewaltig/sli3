@@ -527,22 +527,6 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     i->createcommand("cleardictstack", &cleardictstack_fn);
     i->createcommand("restoredstack",  &restoredstack_fn);
 
-    // Axis I bundle step 3f: startup trailing ops new ABI.
-    begin_fn.set_new_abi();
-    cleardictstack_fn.set_new_abi();
-    countdictstack_fn.set_new_abi();
-    currentdict_fn.set_new_abi();
-    dict_fn.set_new_abi();
-    dictstack_fn.set_new_abi();
-    end_fn.set_new_abi();
-    restoredstack_fn.set_new_abi();
-    getenv_fn.set_new_abi();
-    endl_fn.set_new_abi();
-    flush_fn.set_new_abi();
-    write_fn.set_new_abi();
-    pwrite_fn.set_new_abi();
-    evalstring_fn.set_new_abi();  // Phase 5
-
     // 2b. Stubs for unimplemented operators that typeinit.sli /
     //     mathematica.sli / etc. reference via `<X> load addtotrie`.
     //     The trie can be built; calling a stubbed op at runtime

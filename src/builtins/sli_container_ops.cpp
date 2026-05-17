@@ -1601,83 +1601,8 @@ void init_container_ops(SLIInterpreter* i)
     i->createcommand("prepend_p", &prepend_p_fn);
     i->createcommand("prepend_s", &prepend_s_fn);
 
-    // Axis I bundle step 3d: every container op converted to new ABI.
-    // Dispatchers (LengthFunction, GetFunction, ...) and typed
-    // leaves (length_a_fn, get_a_fn, ...) convert together: the
-    // leaves no longer self-pop the dispatcher's slot, and the
-    // dispatcher main-case post-check pops it instead. CvaFunction's
-    // pop+push pattern on the trietype arm still works -- the
-    // dispatcher's post-check sees the baselooked-up op on top
-    // (not CvaFunction) and skips the pop.
-    append_a_fn.set_new_abi();
-    append_fn.set_new_abi();
-    append_lp_fn.set_new_abi();
-    append_p_fn.set_new_abi();
-    append_s_fn.set_new_abi();
-    cleardict_fn.set_new_abi();
-    clonedict_fn.set_new_abi();
-    cva_d_fn.set_new_abi();
-    cva_fn.set_new_abi();
-    cvd_s_fn.set_new_abi();
-    cvi_s_fn.set_new_abi();
-    empty_a_fn.set_new_abi();
-    empty_d_fn.set_new_abi();
-    empty_fn.set_new_abi();
-    empty_s_fn.set_new_abi();
-    erase_a_fn.set_new_abi();
-    erase_p_fn.set_new_abi();
-    erase_s_fn.set_new_abi();
-    get_a_a_fn.set_new_abi();
-    get_a_fn.set_new_abi();
-    get_d_fn.set_new_abi();
-    get_fn.set_new_abi();
     get_fn.set_hot_op(HOP_GET);
-    get_lp_fn.set_new_abi();
-    get_p_fn.set_new_abi();
-    get_s_fn.set_new_abi();
-    getinterval_a_fn.set_new_abi();
-    getinterval_fn.set_new_abi();
-    getinterval_s_fn.set_new_abi();
-    info_d_fn.set_new_abi();
-    info_ds_fn.set_new_abi();
-    insert_a_fn.set_new_abi();
-    insert_s_fn.set_new_abi();
-    insertelement_a_fn.set_new_abi();
-    insertelement_fn.set_new_abi();
-    insertelement_s_fn.set_new_abi();
-    join_a_fn.set_new_abi();
-    join_fn.set_new_abi();
-    join_p_fn.set_new_abi();
-    join_s_fn.set_new_abi();
-    keys_fn.set_new_abi();
-    known_fn.set_new_abi();
-    length_a_fn.set_new_abi();
-    length_d_fn.set_new_abi();
-    length_fn.set_new_abi();
-    length_lp_fn.set_new_abi();
-    length_p_fn.set_new_abi();
-    length_s_fn.set_new_abi();
-    prepend_a_fn.set_new_abi();
-    prepend_fn.set_new_abi();
-    prepend_p_fn.set_new_abi();
-    prepend_s_fn.set_new_abi();
-    put_fn.set_new_abi();
     put_fn.set_hot_op(HOP_PUT);
-    replace_a_fn.set_new_abi();
-    replace_s_fn.set_new_abi();
-    reserve_a_fn.set_new_abi();
-    reserve_fn.set_new_abi();
-    reserve_s_fn.set_new_abi();
-    search_a_fn.set_new_abi();
-    search_fn.set_new_abi();
-    search_s_fn.set_new_abi();
-    size_a_fn.set_new_abi();
-    size_fn.set_new_abi();
-    size_s_fn.set_new_abi();
-    topinfo_d_fn.set_new_abi();
-    undef_fn.set_new_abi();
-    values_fn.set_new_abi();
-    where_fn.set_new_abi();
 }
 
 }  // namespace sli3

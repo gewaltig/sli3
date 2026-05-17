@@ -102,10 +102,6 @@ void init_sli_readline(SLIInterpreter* i)
     i->createcommand("GNUreadline",   &gnureadline_fn);
     i->createcommand("GNUaddhistory", &gnuaddhistory_fn);
 
-    // Axis I bundle step 3f: trailing-pop readline ops to new ABI.
-    gnuaddhistory_fn.set_new_abi();
-    gnureadline_fn.set_new_abi();
-
     // Configure the linenoise history ring before loading: the cap
     // applies to both the in-memory ring and the saved file.
     linenoiseHistorySetMaxLen(kHistoryMaxLen);

@@ -662,28 +662,7 @@ void init_sliarray(SLIInterpreter* i)
 
     // Phase 5: Map / MapIndexed_a / MapThread_a moved to SLI (see
     // sli-init.sli). The C++ entries + their ::Map / ::MapIndexed /
-    // ::MapThread iterator helpers have been removed; the ABI
-    // cleanup that follows assumes no remaining old-ABI ops here.
-    //
-    // Axis I bundle step 3f: trailing-pop array_module ops to new ABI.
-    array_fn.set_new_abi();
-    arraystore_fn.set_new_abi();
-    finiteq_d_fn.set_new_abi();
-    flatten_fn.set_new_abi();
-    partition_fn.set_new_abi();
-    range_fn.set_new_abi();
-    reverse_fn.set_new_abi();
-    rotate_fn.set_new_abi();
-    sort_fn.set_new_abi();
-    transpose_fn.set_new_abi();
-    valid_fn.set_new_abi();
-    // Axis I bundle step 4 audit: bodies have no e-stack pop --
-    // they relied on the step 3 post-check (which only fires for
-    // new-ABI ops). Mark them so step 4's pre-pop applies and the
-    // iiterate fast path doesn't push a sentinel that nobody pops.
-    arrayload_fn.set_new_abi();
-    getmax_fn.set_new_abi();
-    getmin_fn.set_new_abi();
+    // ::MapThread iterator helpers have been removed.
 }
 
 }  // namespace sli3

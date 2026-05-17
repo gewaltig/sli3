@@ -163,12 +163,6 @@ void init_access_ops(SLIInterpreter* i)
     i->createcommand("wcheck",      &wcheck_fn);
     i->createcommand("xcheck",      &xcheck_fn);
 
-    readonly_fn.set_new_abi();
-    executeonly_fn.set_new_abi();
-    noaccess_fn.set_new_abi();
-    rcheck_fn.set_new_abi();
-    wcheck_fn.set_new_abi();
-    xcheck_fn.set_new_abi();
 }
 
 }  // namespace sli3

@@ -374,34 +374,9 @@ void  init_slistack(SLIInterpreter *i)
     i->createcommand("restoreostack",&restoreostackfunction);
     i->createcommand("operandstack",&operandstackfunction);
 
-    // Axis I bundle step 3: ops in sli_stack.cpp converted to new ABI.
-    // Phase 5: restoreestack joins them. Under new-ABI the dispatcher
-    // pre-pops the /restoreestack slot before the body runs; the body
-    // then overwrites the estack with the supplied array. Either ABI
-    // produces the same result; new-ABI is consistent with the rest.
-    restoreestackfunction.set_new_abi();
-    clearfunction.set_new_abi();
-    copyfunction.set_new_abi();
-    countfunction.set_new_abi();
-    dupfunction.set_new_abi();
-    exchfunction.set_new_abi();
-    execstackfunction.set_new_abi();
-    indexfunction.set_new_abi();
-    npopfunction.set_new_abi();
-    operandstackfunction.set_new_abi();
-    overfunction.set_new_abi();
-    popfunction.set_new_abi();
-    restoreostackfunction.set_new_abi();
-    rolldfunction.set_new_abi();
-    rollfunction.set_new_abi();
-    rollufunction.set_new_abi();
-    rotfunction.set_new_abi();
-
-    // Axis II step 1: hot-op tags for the dispatcher's inline path.
-    // Bodies of these ops are inlined in the body-walk hot path
-    // via sli_op_bodies.h (single source of truth -- the bodies
-    // here remain authoritative; the dispatcher's inline arm
-    // calls the same static helper).
+    // Axis II hot-op tags: dispatcher inlines pop / dup / exch
+    // via sli_op_bodies.h. The bodies here remain authoritative;
+    // the dispatcher's inline arm calls the same static helper.
     popfunction.set_hot_op(HOP_POP);
     dupfunction.set_hot_op(HOP_DUP);
     exchfunction.set_hot_op(HOP_EXCH);

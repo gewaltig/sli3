@@ -584,29 +584,6 @@ void init_slitypecheck(SLIInterpreter *i)
     i->createcommand("cvd",       &cvdfunction);
     i->createcommand("cvlit",     &cvlitfunction);
     i->createcommand("cvn",       &cvnfunction);
-
-    // Axis I bundle step 3f: typecheck trailing ops new ABI.
-    addtotriefunction.set_new_abi();
-    cva_tfunction.set_new_abi();
-    cvlit_nfunction.set_new_abi();
-    cvlit_pfunction.set_new_abi();
-    cvn_lfunction.set_new_abi();
-    cvt_afunction.set_new_abi();
-    cvx_a_fn.set_new_abi();
-    cvx_lpfunction.set_new_abi();
-    triefunction.set_new_abi();
-    trieinfofunction.set_new_abi();
-    typefunction.set_new_abi();
-    // Stage 9 cv* dispatchers: arms call new-ABI leaves directly
-    // (cvx_a_fn / integerfunction / doublefunction / cvlit_nfunction
-    // / cvlit_pfunction / cvn_lfunction) and the baselookup-push
-    // arms work under step-4 because the dispatcher pre-popped
-    // /cv* already; the body just pushes the next exec frame.
-    cvxfunction.set_new_abi();
-    cvifunction.set_new_abi();
-    cvdfunction.set_new_abi();
-    cvlitfunction.set_new_abi();
-    cvnfunction.set_new_abi();
 }
 
 }
