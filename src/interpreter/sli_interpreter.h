@@ -361,7 +361,13 @@ namespace sli3
 
 	unsigned long cycles(void) const
 	    {
-		return cycle_count_;
+		// While the dispatcher is running, live_cycles_ points at
+		// its register-allocated `local_cycles` counter; we read
+		// that to see the up-to-the-instruction count. When the
+		// dispatcher isn't running, cycle_count_ holds the
+		// most-recently-synced value (synced on error and at
+		// dispatcher exit).
+		return live_cycles_ ? *live_cycles_ : cycle_count_;
 	    }
 	
 	  /**
@@ -488,7 +494,17 @@ namespace sli3
 	bool cycle_guard_;
 
 	size_t cycle_count_;
-	size_t cycle_restriction_; 
+	// While execute_dispatch_ is on the C++ stack this points at its
+	// register-allocated `local_cycles` counter; otherwise nullptr.
+	// cycles() reads through it so SLI-level `cycles` sees the live
+	// count, not the stale `cycle_count_` member that is only synced
+	// back at error / dispatcher-exit boundaries. nullptr-safe
+	// because cycles() falls back to cycle_count_ when no loop is
+	// running (which only happens from C++ code calling cycles()
+	// directly, e.g. from a test harness, where the cached value is
+	// the right answer).
+	size_t* live_cycles_ = nullptr;
+	size_t cycle_restriction_;
 	int verbosity_level_;
 
 	Dictionary *system_dict_;

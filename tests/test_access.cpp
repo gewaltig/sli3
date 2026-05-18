@@ -467,6 +467,27 @@ void test_globaldict_state_survives_seal(sli3::SLIInterpreter& i)
                 "(/tmp/_seal_test) addpath "
                 "path length n sub_ii", 1);
     EVAL_CLEAR(i);
+
+    // /clic + /cloc — uses the `cycles` operator to measure outer-
+    // dispatch ticks between two points. cycles() reads through
+    // live_cycles_ (a pointer to the dispatcher's register-allocated
+    // cycle counter) while the dispatcher is running; without that
+    // hook, cycles() returns the stale cycle_count_ member that's
+    // only synced at error / exit boundaries, so /cloc on any real
+    // workload would report 0 or a negative diff vs. calibration.
+    eval(i, "clic 200 { 1 1 add pop } repeat cloc");
+    if (i.OStack().load() < 1 || !i.top().is_of_type(sli3::integertype)
+        || i.top().data_.long_val <= 0)
+    {
+        std::cerr << "FAIL clic/cloc post-seal: expected positive "
+                     "cycle count, got "
+                  << (i.OStack().load() >= 1
+                      ? std::to_string(i.top().data_.long_val)
+                      : std::string("(empty stack)"))
+                  << "\n";
+        std::exit(1);
+    }
+    EVAL_CLEAR(i);
 }
 
 // cleardictstack restores the canonical PS Level-2 layout:

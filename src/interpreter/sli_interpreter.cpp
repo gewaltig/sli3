@@ -758,6 +758,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   }
 
   size_t local_cycles = cycle_count_;
+  live_cycles_ = &local_cycles;
   try {
     do {
       try {
@@ -1131,6 +1132,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
 
 exit_interpreter:
   cycle_count_ = local_cycles;
+  live_cycles_ = nullptr;
 
   if (status_dict_) {
     Token exit_tk = (*status_dict_)["exitcode"];
