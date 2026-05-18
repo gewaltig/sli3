@@ -280,11 +280,13 @@ class EndFunction : public SLIFunction
 public:
     void execute(SLIInterpreter* i) const override
     {
-        if (i->DStack().size() <= 2)
+        if (i->DStack().size() <= 3)
         {
-            // The bottom two dictionaries (systemdict, userdict) are
-            // the permanent base — refuse to pop them per PostScript
-            // semantics.
+            // PostScript Level-2 protects the 3 permanent base dicts
+            // (bottom→top: systemdict, globaldict, userdict). The
+            // dictionarystackunderflow condition is raised here as
+            // KernelError to match the rest of the runtime's error
+            // taxonomy; PLRM names it `dictstackunderflow`.
             i->raiseerror(i->KernelError);
             return;
         }

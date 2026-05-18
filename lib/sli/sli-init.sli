@@ -33,6 +33,7 @@
 % At startup, two dictionaries are to be on the dictionary stack:
 %
 % userdict   <----
+% globaldict
 % systemdict
 %
 % The interpreter first pushes the system dictionary. Since all
@@ -46,7 +47,6 @@
 % After userdict has been pushed, we have to activate
 % systemdict in order to have all new operators defined in there.
 %
-userdict begin    % initialize DictStack. This begin has NO end!!
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 systemdict begin
 
@@ -606,7 +606,7 @@ def
 */
 /tic
 {
- systemdict begin
+ globaldict begin
    /:tictime realtime def
  end
 } bind def
@@ -624,7 +624,7 @@ def
 */
 /toc
 {
- systemdict begin
+ globaldict begin
   realtime :tictime sub_dd
  end
 } bind def
@@ -695,7 +695,7 @@ def
 */
 /clic
 {
- systemdict begin
+ globaldict begin
   /:cliccycles cycles def
  end
 } bind def
@@ -707,14 +707,18 @@ def
 
 /cloc
 {
- systemdict begin
+ globaldict begin
   cycles :cliccycles sub_ii :clicclocs sub_ii
  end
 } bind def
 
-%% Calibrate offset imposed by clic/cloc
-/:clicclocs 0 def
-/:clicclocs clic cloc def
+%% Calibrate offset imposed by clic/cloc.
+%% Lives in globaldict so /clic /cloc can mutate it after the
+%% systemdict-readonly seal at the end of this file.
+globaldict begin
+  /:clicclocs 0 def
+  /:clicclocs clic cloc def
+end
 
 /** @BeginDocumentation
  Name: reset - Reset the SLI interpreter
@@ -964,9 +968,13 @@ begin
 end
 
 
-/SLISearchPath
-  [ statusdict /prgdatadir get_d (/sli) join_s ]
-def
+%% Bootstrap default. Lives in globaldict so /addpath and /setpath
+%% can mutate it at runtime after systemdict is sealed.
+globaldict begin
+  /SLISearchPath
+    [ statusdict /prgdatadir get (/sli) join_s ]
+  def
+end
 
 
 /** @BeginDocumentation
@@ -1327,7 +1335,7 @@ SeeAlso: First, Last, Most
 
 /addpath trie [/stringtype]
 {
-  systemdict begin
+  globaldict begin
   SLISearchPath
   exch_ append_a
   /SLISearchPath exch_ def_
@@ -1342,7 +1350,7 @@ SeeAlso: First, Last, Most
 % (string) patharray setpath
 % Prepend string to patharray
 %
-% Side Effects: sets SLISeachPath in systemdict.
+% Side Effects: sets SLISearchPath in globaldict.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 /** @BeginDocumentation
  Name: setpath -  Append string to path array
@@ -1352,19 +1360,19 @@ SeeAlso: First, Last, Most
 /setpath trie
 [/arraytype /stringtype]
 {
-  systemdict begin
+  globaldict begin
   append_a /SLISearchPath exch_ def
   end
 } bind addtotrie
 [/stringtype /arraytype]
 {
-  systemdict begin
+  globaldict begin
   exch_ prepend_a /SLISearchPath exch_ def
   end
 } bind addtotrie
 [/arraytype /arraytype]
 {
-  systemdict begin
+  globaldict begin
   join /SLISearchPath exch_ def
   end
 } bind addtotrie
@@ -1377,7 +1385,7 @@ def
 
 /path
 {
-  systemdict /SLISearchPath get_d
+  globaldict /SLISearchPath get
 } bind def
 
 %%%%%%%%%%%%%%%%%%% Error Handling %%%%%%%%%%%%%%%%%%%%%
@@ -1787,10 +1795,15 @@ Description: After the startup process of the interpreter is
 SeeAlso: nestrc
 */
 
-/:warnings {} def % little helper to display warnings AFTER the welcome message.
+%% Welcome-message warning accumulator. Lives in globaldict so
+%% /:addwarnings can mutate it after systemdict is sealed.
+globaldict begin
+  /:warnings {} def
+end
+
 /:addwarnings % add a piece of code to the /:warnings procedure
 {
-  systemdict begin
+  globaldict begin
     /:warnings load
     exch append
     /:warnings Set
@@ -1944,7 +1957,7 @@ SeeAlso: nestrc
 */
 /:commandline
 {
-  systemdict begin
+  globaldict begin
   /scripterror statusdict /exitcodes get /scripterror get def
   end
   statusdict /argv get Rest
@@ -2272,6 +2285,7 @@ SeeAlso: statusdict
 
 end % systemdict
 
+
 (SLIUSER) :pathlist path setpath % prepend user directories
 (.) path setpath                % prepend current directory
 
@@ -2281,3 +2295,9 @@ end % systemdict
 % benign-looking but state-polluting error output before the prompt.
 % Not on the interactive-prompt path. Re-enable once we ship examples.
 % evalrcfile
+
+% Seal systemdict against further runtime mutation. Every runtime
+% `systemdict begin /:foo ... def end` in this file was migrated to
+% `globaldict begin ...` for exactly this purpose. The bind/def of
+% new system-level operators must happen above this line.
+systemdict readonly pop

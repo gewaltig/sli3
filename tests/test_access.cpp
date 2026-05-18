@@ -403,6 +403,72 @@ void test_errorname_distinguishes_read_vs_write(sli3::SLIInterpreter& i)
     check_errorname(i, "[1 2 3] readonly 99 append",  "WriteProtected");
 }
 
+// The last command in sli-init.sli is `systemdict readonly pop` —
+// after bootstrap the systemdict is sealed against further writes.
+// Reads and exec are still allowed (readonly is one step narrower
+// than executeonly / noaccess).
+void test_systemdict_sealed_after_bootstrap(sli3::SLIInterpreter& i)
+{
+    EVAL_BOOL(i, "systemdict wcheck", false);
+    EVAL_BOOL(i, "systemdict rcheck", true);
+    // Direct writes raise WriteProtected.
+    check_errorname(i, "systemdict /test_seal 1 put",  "WriteProtected");
+    // `def` into the current dict — userdict is on top, so this
+    // succeeds; only an explicit systemdict-targeted write fails.
+    EVAL_INT(i, "/seal_userdict_def 99 def "
+                 "/seal_userdict_def load", 99);
+    EVAL_CLEAR(i);
+    // Trying to def into systemdict via begin/end raises.
+    check_errorname(i, "systemdict begin /seal_attempt 1 def end",
+                    "WriteProtected");
+}
+
+// PS Level-2 `end` refuses to pop any of the 3 permanent dicts
+// off the dictstack (sli-init.sli relies on userdict staying on
+// top for /def, /addpath, etc.).
+void test_end_protects_three_permanents(sli3::SLIInterpreter& i)
+{
+    EVAL_CLEAR(i);
+    eval(i, "cleardictstack");
+    EVAL_CLEAR(i);
+
+    EVAL_INT(i, "countdictstack", 3);
+
+    // 1 `begin` then 1 `end` — back to 3, no raise.
+    EVAL_INT(i, "<< /scratch 1 >> begin end countdictstack", 3);
+
+    // Bare `end` on the canonical 3-deep stack raises.
+    check_errorname(i, "end", "KernelError");
+    // And leaves the stack at 3 (the gate is at top of EndFunction).
+    EVAL_CLEAR(i);
+    eval(i, "cleardictstack");
+    EVAL_CLEAR(i);
+    EVAL_INT(i, "countdictstack", 3);
+}
+
+// The migration of /tic /toc /clic /cloc /addpath /setpath /:warnings
+// /scripterror state from systemdict to globaldict is what makes the
+// seal viable. Post-seal these procedures must still work.
+void test_globaldict_state_survives_seal(sli3::SLIInterpreter& i)
+{
+    EVAL_CLEAR(i);
+    // tic + toc — writes :tictime into globaldict, reads it back.
+    eval(i, "tic 0.001 sleep toc");
+    if (i.OStack().load() < 1 || !i.top().is_of_type(sli3::doubletype)
+        || i.top().data_.double_val < 0.0)
+    {
+        std::cerr << "FAIL tic/toc post-seal: expected positive double\n";
+        std::exit(1);
+    }
+    EVAL_CLEAR(i);
+
+    // addpath / path — writes SLISearchPath into globaldict.
+    EVAL_INT(i, "path length /n exch def "
+                "(/tmp/_seal_test) addpath "
+                "path length n sub_ii", 1);
+    EVAL_CLEAR(i);
+}
+
 // cleardictstack restores the canonical PS Level-2 layout:
 // bottom-to-top systemdict / globaldict / userdict. The previous
 // `while (size > 2) pop` rule was Level-1 (left only 2 entries),
@@ -481,6 +547,9 @@ int main()
     test_errorname_distinguishes_read_vs_write(i);
 
     test_cleardictstack_restores_permanents(i);
+    test_systemdict_sealed_after_bootstrap(i);
+    test_end_protects_three_permanents(i);
+    test_globaldict_state_survives_seal(i);
 
     std::cout << "test_access: all assertions passed\n";
     return 0;
