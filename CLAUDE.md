@@ -39,17 +39,17 @@ Previously done work is described in ChangeLog.md
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
 |---|---:|---:|---:|---:|
-| B1   `1 pop`           | **1.00** | 1.32 | 1.98 | **−24 %** ⬇ |
-| B2   `1 1 add pop`     | **1.89** | 2.70 | 4.31 | **−30 %** ⬇ |
-| B2b  bound `{...}`     | 1.76 | **1.24** | 3.40 | +42 % ⬆ |
-| B3   nested for        | **1.58** | 2.61 | 4.28 | **−40 %** ⬇ |
-| B5   dict alloc+lookup | **1.05** | 2.46 | 4.28 | **−57 %** ⬇ |
-| B7   bubble sort       | **1.91** | 2.00 |  —  | **−5 %** ⬇ |
-| B8   insertion sort    | **0.99** | 1.01 |  —  | **−2 %** ⬇ |
-| B9   recursive fib(28) | **1.68** | 1.70 | 4.24 | **−1 %** ⬇ |
-| B10  matmul 50×50      | **1.71** | 1.87 |  —  | **−9 %** ⬇ |
+| B1   `1 pop`           | **0.88** | 1.32 | 1.97 | **−33 %** ⬇ |
+| B2   `1 1 add pop`     | **1.65** | 2.69 | 4.34 | **−39 %** ⬇ |
+| B2b  bound `{...}`     | 1.54 | **1.23** | 3.39 | +25 % ⬆ |
+| B3   nested for        | **1.50** | 2.58 | 4.27 | **−42 %** ⬇ |
+| B5   dict alloc+lookup | **1.12** | 2.46 | 4.27 | **−55 %** ⬇ |
+| B7   bubble sort       | **2.02** | 2.19 |  —  | **−8 %** ⬇ |
+| B8   insertion sort    | **1.10** | 1.32 |  —  | **−17 %** ⬇ |
+| B9   recursive fib(28) | 2.28 | **2.12** | 5.71 | +8 % ⬆ |
+| B10  matmul 50×50      | **2.02** | 2.30 |  —  | **−12 %** ⬇ |
 
-  Score vs gs: **8 wins, 1 loss** (run 28, commit `c6c0170` — pool allocator on Dictionary / std::map nodes / TokenArray / SLIString). sli3 beats nest 2.0–3.0× across the board. The pool allocator (NEST 2.20.2's `sli::pool` pattern, brought back into `src/util/sli_allocator.h`) is the big lever for dict-scope code: **B5 (`<< … >> begin … end x 10M`) gained 26 %** (1.42 → 1.05 s), bringing its margin vs gs from −43 % to −57 %. The user's specific scratch-dict bench (`10M { << /a 1 /b 2 >> begin a b add ; end } bind repeat`) is **−28 %** in matched isolation (1.45 → 1.05 s). The std::map-node allocator change does most of the work; the Dictionary header pool is the smaller contributor. Trade-off: tight dispatcher benches (B1 / B2 / B2b / B3) regressed 6–15 % vs run 26 because the PoolAllocator template propagates through every TU that includes `sli_dictionary.h` — the lookup-path code grew slightly. B2b widened from +25 % → +42 % vs gs (it was already the only loss). The dictstack save/restore microbenchmark stays at 0.45 s.
+  Score vs gs: **8 wins, 1 loss** (run 31, commit `20b9a1b` — pool allocator, contained version with std::pmr for map nodes). sli3 beats nest 2.0–3.0× across the board. The pool allocator (NEST 2.20.2's `sli::pool` pattern, in `src/util/sli_allocator.h`) is the big lever for dict-scope code: **B5 (`<< … >> begin … end x 10M`) gained 21 %** (1.42 → 1.12 s), bringing its margin vs gs from −43 % to −55 %. The user's scratch-dict bench (`10M { << /a 1 /b 2 >> begin a b add ; end } bind repeat`) is **−23 %** in matched isolation (1.45 → 1.12 s). Two coupled changes: (a) class-static `Pool` on `Dictionary` / `TokenArray` / `SLIString` via per-class `operator new` / `operator delete` (pools the heap-allocated headers, NEST-faithful); (b) `TokenMap` now uses `std::pmr::map` with a class-static `unsynchronized_pool_resource` (pools the std::map RB-tree nodes). The pmr route keeps the std::map template instantiation uniform across every TU that includes `sli_dictionary.h` — no per-TU template ripple, no regression on dispatcher-heavy benches. (An earlier attempt with `PoolAllocator<T>` as the std::map allocator template parameter — commit `c6c0170` — won bigger on dict-scope but regressed B1/B2/B2b/B3 by 6–15 % due to template propagation; the pmr-based variant in run 31 captures most of the win without the cost.) B9 ran hot on run 31 (gs also regressed there 1.70 → 2.12, so machine load, not sli3). Dictionary header grew 40 → 48 B for the pmr allocator pointer; the dictstack save/restore microbenchmark stays at 0.45 s.
 
   The prior cleanup (Phase 5, May 2026, commits `fa93310`..`59d0ee8`) flipped B7/B8 from losses to wins by converting all 11 iter-helper SLIFunction classes (loop, repeat, for, forall, forallindexed, parse, lookup, parsestdin, iterate) to TYPE markers handled inline by `body_walk`'s `body_exhausted` switch (`88770bb`, `168d015`); demoting the C++ Map family to pure SLI (`4c2bd10`); migrating all remaining old-ABI ops to new-ABI and retiring the `uses_new_abi()` switch (`242d2fb`); adding a native C++ `/bind` ~50× faster than the SLI loop it replaced (`a765314`); and removing the dead `call_depth_` / `step_mode` machinery (`59d0ee8`). B8 dropped from 1.39 to 0.95 s alone — the iter-helper conversion was a vindication of the whole cleanup arc.
 - Full plan in `implementation_spec.md`.
