@@ -1046,16 +1046,6 @@ void RaiseagainFunction::execute(SLIInterpreter *i) const
 }
 
 /*BeginDocumentation
-Name: cycles - return the number of elapsed interpreter cycles
-Synopsis: cycles -> n
-*/
-void CyclesFunction::execute(SLIInterpreter *i) const
-{
-    // Axis I bundle step 4: dispatcher pre-popped /cycles.
-    i->push(i->cycles());
-}
-
-/*BeginDocumentation
 Name: quit - leave the SLI interpreter, optionally return exit code
 
 Synopsis:
@@ -1773,54 +1763,6 @@ void  Symbol_sFunction::execute(SLIInterpreter *i) const
 
 
 
-/* BeginDocumentation
- Name: setguard - limit the number of interpreter cycles
- Synopsis:  n setguard -> --
- Description: This command forces the interpreter to stop after
-   it has performed n cycles. setguard is useful for testing programs
-   with long running loops.
-
- Parameters: n : an integer argument greater than zero
- Examples:
- Bugs:
- Author: Gewaltig
- FirstVersion: ?
- Remarks: not part of PostScript
- References:
- SeeAlso: removeguard
-*/
-
-void SetGuardFunction::execute(SLIInterpreter *i) const
-{
-  i->require_stack_load(1);
-  i->require_stack_type(0,sli3::integertype);
-  long count= i->top().data_.long_val;
-  i->setcycleguard(count);
-  i->pop();
-}
-
-
-/* BeginDocumentation
- Name: removeguard - removes the limit on the number of interpreter cycles
- Synopsis:  removeguard -> --
- Description: This command removes the restriction on the number
-   of possible interpreter cycles, imposed by setguard.
-
- Parameters: none
- Examples:
- Bugs:
- Author: Gewaltig
- FirstVersion: ?
- Remarks: not part of PostScript
- References:
- SeeAlso: setguard
-*/
-void RemoveGuardFunction::execute(SLIInterpreter *i) const
-{
-  i->removecycleguard();
-}
-
-
 /*
 BeginDocumentation
 Name: debugon - Start SLI level debugger.
@@ -1987,8 +1929,6 @@ void NoopFunction::execute(SLIInterpreter *i) const
 }
 
 
- SetGuardFunction setguardfunction;
- RemoveGuardFunction removeguardfunction;
 
 
  Backtrace_onFunction      backtrace_onfunction;
@@ -2021,7 +1961,6 @@ void NoopFunction::execute(SLIInterpreter *i) const
  PrinterrorFunction       printerrorfunction;
  RaiseagainFunction       raiseagainfunction;
 
- CyclesFunction           cyclesfunction;
  ExecFunction             execfunction;
  BindFunction             bindfunction;
  TypeinfoFunction         typeinfofunction;
@@ -2120,7 +2059,6 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("raiseerror",&raiseerrorfunction);
   i->createcommand("print_error",&printerrorfunction);
   i->createcommand("raiseagain",&raiseagainfunction);
-  i->createcommand("cycles",&cyclesfunction);
   i->createcommand("exec",&execfunction);
   // Phase 4: native /bind. The SLI definition in sli-init.sli will
   // redefine /bind in userdict; we expose this C++ leaf as /bind_
@@ -2145,8 +2083,6 @@ void  init_slicontrol(SLIInterpreter *i)
 
   i->createcommand("symbol_s",     &symbol_sfunction);
 
-  i->createcommand("setguard", &setguardfunction);
-  i->createcommand("removeguard", &removeguardfunction);
   i->createcommand("setverbosity_i", &setverbosityfunction);
   i->createcommand("verbosity", &verbosityfunction);
   i->createcommand("message_", &messagefunction);

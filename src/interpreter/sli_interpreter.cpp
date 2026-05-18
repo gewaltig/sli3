@@ -145,13 +145,12 @@ SLIInterpreter::SLIInterpreter()
       DivisionByZeroError("DivisionByZero"), RangeCheckError("RangeCheck"),
       PositiveIntegerExpectedError("PositiveIntegerExpected"),
       BadIOError("BadIO"), StringStreamExpectedError("StringStreamExpected"),
-      CycleGuardError("AllowedCyclesExceeded"), SystemSignal("SystemSignal"),
+      SystemSignal("SystemSignal"),
       BadErrorHandler("BadErrorHandler"), KernelError("KernelError"),
       InternalKernelError("InternalKernelError"), is_initialized_(false),
       debug_mode_(false), show_stack_(false), show_backtrace_(false),
-      catch_errors_(false), opt_tailrecursion_(true), cycle_guard_(false),
-      cycle_count_(0),
-      cycle_restriction_(0), verbosity_level_(M_INFO), system_dict_(0),
+      catch_errors_(false), opt_tailrecursion_(true),
+      verbosity_level_(M_INFO), system_dict_(0),
       user_dict_(0), status_dict_(0), error_dict_(0), parser_(0),
       operand_stack_(1000), execution_stack_(1000), types_() {
   parser_ = new Parser();
@@ -757,13 +756,10 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
     return sli3::unknown_error;
   }
 
-  size_t local_cycles = cycle_count_;
-  live_cycles_ = &local_cycles;
   try {
     do {
       try {
         while (execution_stack_.load() > exitlevel) {
-          ++local_cycles;
 
         switch (execution_stack_.top().tag()) {
         case sli3::integertype:
@@ -1110,20 +1106,16 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         }
         }
       } catch (std::exception &exc) {
-        cycle_count_ = local_cycles;
         raiseerror(exc);
-        local_cycles = cycle_count_;
       }
     } while (execution_stack_.load() > exitlevel);
   } catch (std::exception &e) {
-    cycle_count_ = local_cycles;
     message(M_FATAL, "SLIInterpreter", "A C++ library exception occured.");
     operand_stack_.dump(std::cerr);
     execution_stack_.dump(std::cerr);
     message(M_FATAL, "SLIInterpreter", e.what());
     terminate(sli3::exception);
   } catch (...) {
-    cycle_count_ = local_cycles;
     message(M_FATAL, "SLIInterpreter", "An unknown C++ exception occured.");
     operand_stack_.dump(std::cerr);
     execution_stack_.dump(std::cerr);
@@ -1131,9 +1123,6 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   }
 
 exit_interpreter:
-  cycle_count_ = local_cycles;
-  live_cycles_ = nullptr;
-
   if (status_dict_) {
     Token exit_tk = (*status_dict_)["exitcode"];
     if (exit_tk.is_of_type(sli3::integertype))

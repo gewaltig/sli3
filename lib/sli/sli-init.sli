@@ -620,7 +620,7 @@ def
 
  Author: Hans Ekkehard Plesser
  FirstVersion: 2003-07-29
- SeeAlso: tic, realtime, ptimes, pclockspersec, clic, cloc
+ SeeAlso: tic, realtime, ptimes, pclockspersec
 */
 /toc
 {
@@ -651,7 +651,7 @@ def
   5 sleep %wait for 5 seconds
   tic 2.75 sleep toc = %should print 2.75
  Author: Schrader
- SeeAlso: realtime, tic, toc, ptimes, pclockspersec, clic, cloc
+ SeeAlso: realtime, tic, toc, ptimes, pclockspersec
 */
 
 /sleep trie
@@ -680,45 +680,11 @@ def
  end
 } bind def
 
-%% clic/cloc can be used to measure the number of
-%% milliseconds per interpreter cycle.
-%% The result includes also the cycles taken up by the
-%% involved routines.
-
-/** @BeginDocumentation
-  Name: clic - Start measuring interpreter cycles.
-  Description:
-  clic/cloc can be used to measure the number of
-  milliseconds per interpreter cycle.
-  The result includes also the cycles taken up by the
-  SeeAlso: cloc, tic, toc
-*/
-/clic
-{
- globaldict begin
-  /:cliccycles cycles def
- end
-} bind def
-
-/** @BeginDocumentation
- Name: cloc - Return elapsed interpreter cycles since clic was called.
- SeeAlso: clic, tic, toc
-*/
-
-/cloc
-{
- globaldict begin
-  cycles :cliccycles sub_ii :clicclocs sub_ii
- end
-} bind def
-
-%% Calibrate offset imposed by clic/cloc.
-%% Lives in globaldict so /clic /cloc can mutate it after the
-%% systemdict-readonly seal at the end of this file.
-globaldict begin
-  /:clicclocs 0 def
-  /:clicclocs clic cloc def
-end
+%% sli3 scope cut: interpreter-cycle counting (`cycles`, `clic`,
+%% `cloc`, `setguard`, `removeguard`) was removed. The counter
+%% required a memory increment per primitive in body_walk that the
+%% rest of the runtime did not need. Use /tic /toc for wall-clock
+%% timing.
 
 /** @BeginDocumentation
  Name: reset - Reset the SLI interpreter

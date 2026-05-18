@@ -270,13 +270,6 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
   
-  class CyclesFunction: public SLIFunction
-  {
-  public:
-    CyclesFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
   class ExecFunction: public SLIFunction
   {
   public:
@@ -524,20 +517,6 @@ namespace sli3
   {
   public:
     Symbol_sFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
-  class SetGuardFunction: public SLIFunction
-  {
-  public:
-    SetGuardFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
-  class RemoveGuardFunction: public SLIFunction
-  {
-  public:
-    RemoveGuardFunction() {}
     void execute(SLIInterpreter *) const;
   };
   
