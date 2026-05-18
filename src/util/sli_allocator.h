@@ -55,7 +55,6 @@ public:
      */
     Pool(size_t el_size, size_t initial = 1024, size_t growth = 1)
       : el_size_(el_size < sizeof(Link) ? sizeof(Link) : el_size),
-        initial_block_(initial),
         growth_factor_(growth),
         block_size_(initial) {}
 
@@ -114,7 +113,6 @@ private:
     }
 
     size_t  el_size_;
-    size_t  initial_block_;
     size_t  growth_factor_;
     size_t  block_size_;
     size_t  instantiations_ = 0;
@@ -122,97 +120,6 @@ private:
     Chunk*  chunks_         = nullptr;
     Link*   head_           = nullptr;
 };
-
-/**
- * STL-compatible allocator that routes single-element allocations
- * through a per-T `Pool` (multi-element falls back to global new).
- * Suitable as the allocator template parameter for node-based
- * containers — std::map / std::set / std::list — where every node
- * is one rebind<_NodeT> allocate(1). Use as e.g.:
- *
- *     using NodeMap = std::map<Name, DictToken,
- *                              std::less<Name>,
- *                              PoolAllocator<std::pair<const Name,
- *                                                      DictToken>>>;
- *
- * libc++/libstdc++ will rebind to the internal node type, so the
- * pool ends up sized for the actual heap allocation. Each (T) gets
- * its own pool via the rebind chain.
- */
-template <class T>
-class PoolAllocator
-{
-public:
-    using value_type = T;
-
-    PoolAllocator() noexcept = default;
-    template <class U>
-    PoolAllocator(PoolAllocator<U> const&) noexcept {}
-
-    template <class U> struct rebind { using other = PoolAllocator<U>; };
-
-    T* allocate(std::size_t n)
-    {
-#ifdef SLI3_SANITIZE
-        return static_cast<T*>(::operator new(n * sizeof(T)));
-#else
-        if (n != 1)
-            return static_cast<T*>(::operator new(n * sizeof(T)));
-        return static_cast<T*>(pool().alloc());
-#endif
-    }
-
-    void deallocate(T* p, std::size_t n) noexcept
-    {
-#ifdef SLI3_SANITIZE
-        ::operator delete(p);
-#else
-        if (n != 1) { ::operator delete(p); return; }
-        pool().free(p);
-#endif
-    }
-
-    template <class U>
-    bool operator==(PoolAllocator<U> const&) const noexcept { return true; }
-    template <class U>
-    bool operator!=(PoolAllocator<U> const&) const noexcept { return false; }
-
-private:
-    static Pool& pool()
-    {
-        static Pool p(sizeof(T));
-        return p;
-    }
-};
-
-// Helper macro: declare class-static pool + operator new/delete for
-// fixed-size class T. Drop into the class body (public:) — the
-// pool's storage is defined inline in the header.
-//
-// Under SLI3_SANITIZE the override defers to global new/delete so
-// ASan can attribute UAFs precisely.
-#ifdef SLI3_SANITIZE
-#define SLI3_POOLED_NEW(...) /* sanitizer build: default heap */
-#else
-#define SLI3_POOLED_NEW(CLASS)                                          \
-    static ::sli3::Pool& memory_pool_()                                 \
-    {                                                                   \
-        static ::sli3::Pool p(sizeof(CLASS));                           \
-        return p;                                                       \
-    }                                                                   \
-    static void* operator new(std::size_t sz)                           \
-    {                                                                   \
-        if (sz != sizeof(CLASS))                                        \
-            return ::operator new(sz);                                  \
-        return memory_pool_().alloc();                                  \
-    }                                                                   \
-    static void operator delete(void* p, std::size_t sz) noexcept       \
-    {                                                                   \
-        if (p == nullptr) return;                                       \
-        if (sz != sizeof(CLASS)) { ::operator delete(p); return; }      \
-        memory_pool_().free(p);                                         \
-    }
-#endif
 
 }  // namespace sli3
 

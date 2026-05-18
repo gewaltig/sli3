@@ -42,8 +42,11 @@ class TokenArray
 public:
     // Pool allocator for the TokenArray header (the std::vector
     // element buffer is still on the global heap; this pools only
-    // the wrapper). Same pattern as Dictionary.
-    SLI3_POOLED_NEW(TokenArray)
+    // the wrapper). One pool shared across all TokenArray
+    // instances; bodies in sli_array.cpp.
+    static Pool memory_pool_;
+    static void* operator new(std::size_t sz);
+    static void operator delete(void* p, std::size_t sz) noexcept;
 
     static size_t allocations;  // diagnostic counter
 

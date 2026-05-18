@@ -11,6 +11,31 @@ namespace sli3
 
 size_t TokenArray::allocations = 0;
 
+Pool TokenArray::memory_pool_(sizeof(TokenArray));
+
+void* TokenArray::operator new(std::size_t sz)
+{
+#ifdef SLI3_SANITIZE
+    return ::operator new(sz);
+#else
+    if (sz != sizeof(TokenArray))
+        return ::operator new(sz);
+    return memory_pool_.alloc();
+#endif
+}
+
+void TokenArray::operator delete(void* p, std::size_t sz) noexcept
+{
+#ifdef SLI3_SANITIZE
+    ::operator delete(p);
+    (void)sz;
+#else
+    if (p == nullptr) return;
+    if (sz != sizeof(TokenArray)) { ::operator delete(p); return; }
+    memory_pool_.free(p);
+#endif
+}
+
 TokenArray::TokenArray()
     : data_(), refs_(1)
 {

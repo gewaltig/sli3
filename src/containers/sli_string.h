@@ -32,8 +32,33 @@ class SLIString
 public:
     // Pool allocator for the SLIString header (the std::string's
     // own SBO / heap buffer is unaffected; only the wrapper is
-    // pooled).
-    SLI3_POOLED_NEW(SLIString)
+    // pooled). One shared pool across all SLIString instances;
+    // class incomplete here, so the inline static is defined
+    // below the class body.
+    static Pool memory_pool_;
+
+    static void* operator new(std::size_t sz)
+    {
+#ifdef SLI3_SANITIZE
+        return ::operator new(sz);
+#else
+        if (sz != sizeof(SLIString))
+            return ::operator new(sz);
+        return memory_pool_.alloc();
+#endif
+    }
+
+    static void operator delete(void* p, std::size_t sz) noexcept
+    {
+#ifdef SLI3_SANITIZE
+        ::operator delete(p);
+        (void)sz;
+#else
+        if (p == nullptr) return;
+        if (sz != sizeof(SLIString)) { ::operator delete(p); return; }
+        memory_pool_.free(p);
+#endif
+    }
 
     SLIString() : refs_(1) {}
     explicit SLIString(std::string s) : data_(std::move(s)), refs_(1) {}
@@ -91,6 +116,8 @@ inline std::ostream& operator<<(std::ostream& out, SLIString const& s)
 {
     return out << s.str();
 }
+
+inline Pool SLIString::memory_pool_(sizeof(SLIString));
 
 }  // namespace sli3
 

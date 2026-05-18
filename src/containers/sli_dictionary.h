@@ -27,6 +27,7 @@
 #include "sli_exceptions.h"
 
 #include <map>
+#include <memory_resource>
 namespace sli3
 {
 
@@ -78,15 +79,17 @@ namespace sli3
 	bool access_flag_;
   };
 
-// PoolAllocator: each std::map node (Name + DictToken + RB-tree
-// links) is allocated from a sli3::Pool sized for the node type.
-// libstdc++/libc++ rebind the template parameter to their internal
-// _Rb_tree_node<T>, which gives every node-type its own pool. For
-// `<< /a 1 /b 2 >> begin ... end` (a 2-entry dict) this turns the
-// 2 per-iteration tree-node mallocs into freelist pops.
-typedef std::map<Name, DictToken, std::less<Name>,
-                 PoolAllocator<std::pair<const Name, DictToken>>>
-        TokenMap;
+// std::pmr::map of (Name → DictToken). The allocator type is
+// std::pmr::polymorphic_allocator<value_type> — a SINGLE template
+// instantiation across the program, regardless of which underlying
+// memory_resource each Dictionary uses. That keeps the std::map's
+// method footprint constant in every TU that includes this
+// header. The pool itself (a node-sized freelist) is owned by
+// Dictionary as a class-static memory_resource; all Dictionary
+// instances share one pool for their TokenMap nodes, matching the
+// shared-pool semantics of the Dictionary header allocator above
+// and NEST 2.20.2's `static sli::pool memory` pattern.
+typedef std::pmr::map<Name, DictToken, std::less<Name>> TokenMap;
 
 inline bool operator==(const TokenMap & x, const TokenMap &y)
 {
@@ -125,19 +128,31 @@ class Dictionary :private TokenMap
   
 public:
   // Pool allocator: short-lived local-scope dicts
-  // (`<< /a 1 /b 2 >> begin … end`) re-use the same Dictionary heap
-  // object across iterations instead of round-tripping through
-  // malloc/free. Lineage: NEST 2.20.2's per-class pool pattern.
-  SLI3_POOLED_NEW(Dictionary)
+  // (`<< /a 1 /b 2 >> begin ... end`) re-use the same Dictionary
+  // heap object across iterations instead of round-tripping
+  // through malloc/free. Lineage: NEST 2.20.2's per-class pool
+  // pattern (sli/dict.h + dict.cc). One pool shared across all
+  // Dictionary instances; bodies in sli_dictionary.cpp.
+  static Pool memory_pool_;
+  static void* operator new(std::size_t sz);
+  static void operator delete(void* p, std::size_t sz) noexcept;
+
+  // Shared memory_resource for the TokenMap's RB-tree nodes
+  // across every Dictionary instance. Same shared-pool semantics
+  // as memory_pool_ above; std::pmr keeps the std::map template
+  // instantiation uniform across TUs (no per-TU template ripple).
+  // The resource is an unsynchronized_pool_resource — single-
+  // threaded by design (HAVE_PTHREADS removed in Stage 2).
+  static std::pmr::memory_resource* map_resource();
 
  Dictionary():
-     TokenMap(),
+     TokenMap(map_resource()),
      references_(1),
      refs_on_dictstack_(0)
     {}
 
  Dictionary(const Dictionary &d)
-   : TokenMap(d),
+   : TokenMap(d, map_resource()),
    references_(1),
    refs_on_dictstack_(0) {}
   ~Dictionary();

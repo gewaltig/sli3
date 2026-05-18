@@ -25,6 +25,49 @@
 namespace sli3
 {
 
+// One shared Pool across every Dictionary instance. Class-static
+// matches NEST 2.20.2's `static sli::pool memory;` on each Datum
+// class. Under SLI3_SANITIZE both overrides fall through to
+// global new/delete so ASan still attributes UAFs.
+Pool Dictionary::memory_pool_(sizeof(Dictionary));
+
+// One shared memory_resource for all TokenMap nodes. Function-
+// local static guarantees lazy, well-defined construction order.
+// Under SLI3_SANITIZE we route to the default new/delete resource
+// so each map-node allocation is visible to the sanitizer.
+std::pmr::memory_resource* Dictionary::map_resource()
+{
+#ifdef SLI3_SANITIZE
+    return std::pmr::new_delete_resource();
+#else
+    static std::pmr::unsynchronized_pool_resource res;
+    return &res;
+#endif
+}
+
+void* Dictionary::operator new(std::size_t sz)
+{
+#ifdef SLI3_SANITIZE
+    return ::operator new(sz);
+#else
+    if (sz != sizeof(Dictionary))
+        return ::operator new(sz);
+    return memory_pool_.alloc();
+#endif
+}
+
+void Dictionary::operator delete(void* p, std::size_t sz) noexcept
+{
+#ifdef SLI3_SANITIZE
+    ::operator delete(p);
+    (void)sz;
+#else
+    if (p == nullptr) return;
+    if (sz != sizeof(Dictionary)) { ::operator delete(p); return; }
+    memory_pool_.free(p);
+#endif
+}
+
 Dictionary::~Dictionary()
 {
     clear();
