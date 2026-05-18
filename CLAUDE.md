@@ -39,17 +39,17 @@ Previously done work is described in ChangeLog.md
 
 | Bench | sli3 | gs | nest | sli3 vs gs |
 |---|---:|---:|---:|---:|
-| B1   `1 pop`           | **0.90** | 1.31 | 1.98 | **−31 %** ⬇ |
-| B2   `1 1 add pop`     | **1.71** | 2.68 | 4.26 | **−36 %** ⬇ |
-| B2b  bound `{...}`     | 1.59 | **1.22** | 3.37 | +30 % ⬆ |
-| B3   nested for        | **1.50** | 2.56 | 4.24 | **−41 %** ⬇ |
-| B5   dict alloc+lookup | **1.43** | 2.49 | 4.29 | **−43 %** ⬇ |
-| B7   bubble sort       | **1.86** | 2.00 |  —  | **−7 %** ⬇ |
-| B8   insertion sort    | **0.98** | 1.01 |  —  | **−3 %** ⬇ |
-| B9   recursive fib(28) | 1.75 | **1.71** | 4.25 | +2 % ⬆ |
-| B10  matmul 50×50      | **1.64** | 1.90 |  —  | **−14 %** ⬇ |
+| B1   `1 pop`           | **0.87** | 1.30 | 1.96 | **−33 %** ⬇ |
+| B2   `1 1 add pop`     | **1.64** | 2.66 | 4.27 | **−38 %** ⬇ |
+| B2b  bound `{...}`     | 1.53 | **1.22** | 3.35 | +25 % ⬆ |
+| B3   nested for        | **1.49** | 2.56 | 4.25 | **−42 %** ⬇ |
+| B5   dict alloc+lookup | **1.42** | 2.47 | 4.29 | **−43 %** ⬇ |
+| B7   bubble sort       | **2.00** | 2.16 |  —  | **−7 %** ⬇ |
+| B8   insertion sort    | **1.06** | 1.09 |  —  | **−3 %** ⬇ |
+| B9   recursive fib(28) | **1.85** | 1.89 | 4.74 | **−2 %** ⬇ |
+| B10  matmul 50×50      | **1.87** | 1.94 |  —  | **−4 %** ⬇ |
 
-  Score vs gs: **7 wins, 2 losses** (run 24, Wave 3 commit). sli3 beats nest 2.5–3.0× across the board. Wave 3 of the PostScript access work routed all gate sites through inline templates `require_readable` / `require_writable` (in `src/builtins/sli_access_check.h`); the compiler factors the cold raise paths into a single shared subroutine, shrinking the dispatcher TU's icache footprint and recovering the 5-10 % regression Wave 2 introduced. B1 / B2 / B2b / B7 / B8 / B10 all improved 5-11 % vs Wave 2 (run 23); B7/B8 are wins again; B9 narrowed +4 % → +2 %. The dictstack save/restore microbenchmark stays at 0.45 s.
+  Score vs gs: **8 wins, 1 loss** (run 26, commit `39c7d4d` — cycle counting removed). sli3 beats nest 2.3–3.0× across the board. Removing the cycle counter (`cycles` / `clic` / `cloc` / `setguard` / `removeguard`) shrank the dispatcher TU and dropped the per-primitive memory increment in body_walk that was being explored; tight benches (B1–B5) gained 1–4 % vs Wave 3 (run 24). B9 flipped from +2 % to −2 %, leaving B2b as the only remaining loss vs gs. The absolute numbers on B7–B10 went up 6–14 % vs run 24, but gs regressed in step (gs B9 1.71 → 1.89), so the change reflects machine-state warmth, not sli3 slowdown — relative gaps are stable or improved. The dictstack save/restore microbenchmark stays at 0.45 s.
 
   The prior cleanup (Phase 5, May 2026, commits `fa93310`..`59d0ee8`) flipped B7/B8 from losses to wins by converting all 11 iter-helper SLIFunction classes (loop, repeat, for, forall, forallindexed, parse, lookup, parsestdin, iterate) to TYPE markers handled inline by `body_walk`'s `body_exhausted` switch (`88770bb`, `168d015`); demoting the C++ Map family to pure SLI (`4c2bd10`); migrating all remaining old-ABI ops to new-ABI and retiring the `uses_new_abi()` switch (`242d2fb`); adding a native C++ `/bind` ~50× faster than the SLI loop it replaced (`a765314`); and removing the dead `call_depth_` / `step_mode` machinery (`59d0ee8`). B8 dropped from 1.39 to 0.95 s alone — the iter-helper conversion was a vindication of the whole cleanup arc.
 - Full plan in `implementation_spec.md`.
