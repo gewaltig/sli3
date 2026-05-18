@@ -2,6 +2,7 @@
 #define TOKENARRAY_H
 
 #include "sli_access.h"
+#include "sli_allocator.h"
 #include "sli_token.h"
 
 #include <algorithm>
@@ -39,6 +40,11 @@ class Writer;
 class TokenArray
 {
 public:
+    // Pool allocator for the TokenArray header (the std::vector
+    // element buffer is still on the global heap; this pools only
+    // the wrapper). Same pattern as Dictionary.
+    SLI3_POOLED_NEW(TokenArray)
+
     static size_t allocations;  // diagnostic counter
 
     TokenArray();

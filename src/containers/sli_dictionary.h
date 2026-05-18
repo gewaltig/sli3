@@ -16,11 +16,12 @@
 
 #ifndef SLI_DICTIONARY_H
 #define SLI_DICTIONARY_H
-/* 
+/*
     SLI's dictionary class
 */
 
 #include "sli_access.h"
+#include "sli_allocator.h"
 #include "sli_name.h"
 #include "sli_token.h"
 #include "sli_exceptions.h"
@@ -77,8 +78,15 @@ namespace sli3
 	bool access_flag_;
   };
 
-  //typedef  std::map<Name, DictToken, std::less<Name> > TokenMap;
-typedef  std::map<Name, DictToken, std::less<Name> > TokenMap;
+// PoolAllocator: each std::map node (Name + DictToken + RB-tree
+// links) is allocated from a sli3::Pool sized for the node type.
+// libstdc++/libc++ rebind the template parameter to their internal
+// _Rb_tree_node<T>, which gives every node-type its own pool. For
+// `<< /a 1 /b 2 >> begin ... end` (a 2-entry dict) this turns the
+// 2 per-iteration tree-node mallocs into freelist pops.
+typedef std::map<Name, DictToken, std::less<Name>,
+                 PoolAllocator<std::pair<const Name, DictToken>>>
+        TokenMap;
 
 inline bool operator==(const TokenMap & x, const TokenMap &y)
 {
@@ -116,15 +124,21 @@ class Dictionary :private TokenMap
   };
   
 public:
+  // Pool allocator: short-lived local-scope dicts
+  // (`<< /a 1 /b 2 >> begin … end`) re-use the same Dictionary heap
+  // object across iterations instead of round-tripping through
+  // malloc/free. Lineage: NEST 2.20.2's per-class pool pattern.
+  SLI3_POOLED_NEW(Dictionary)
+
  Dictionary():
      TokenMap(),
-     references_(1), 
+     references_(1),
      refs_on_dictstack_(0)
     {}
 
- Dictionary(const Dictionary &d) 
-   : TokenMap(d), 
-   references_(1), 
+ Dictionary(const Dictionary &d)
+   : TokenMap(d),
+   references_(1),
    refs_on_dictstack_(0) {}
   ~Dictionary();
   

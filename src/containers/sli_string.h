@@ -2,6 +2,7 @@
 #define SLI_STRING_H
 
 #include "sli_access.h"
+#include "sli_allocator.h"
 
 #include <cstdint>
 #include <ostream>
@@ -29,6 +30,11 @@ namespace sli3
 class SLIString
 {
 public:
+    // Pool allocator for the SLIString header (the std::string's
+    // own SBO / heap buffer is unaffected; only the wrapper is
+    // pooled).
+    SLI3_POOLED_NEW(SLIString)
+
     SLIString() : refs_(1) {}
     explicit SLIString(std::string s) : data_(std::move(s)), refs_(1) {}
     explicit SLIString(char const* s) : data_(s), refs_(1) {}
