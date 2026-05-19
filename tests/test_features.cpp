@@ -374,6 +374,26 @@ void test_print_pprint_contract(Harness& h)
 
 }  // namespace
 
+// `/type` on a null Token returns `/nulltoken` (matching
+// Token::print's convention) rather than raising ArgumentType.
+// SLI code that walks heterogeneous snapshots (e.g. the /trace
+// debug op iterating errordict /estack) hits null slots in
+// loop-counter positions and uninitialised frames; making /type
+// total for these tokens lets such code use straightforward type
+// dispatch instead of wrapping every call in `stopped`.
+void test_type_on_null(Harness& h)
+{
+    // Hand-craft a null Token on the operand stack (no SLI literal
+    // produces one). prime() clears OStack, so seed AFTER it.
+    h.prime("type");
+    h.i.OStack().push(sli3::Token{});  // default ctor: type_ == nullptr
+    h.run();
+    CHECK(h.i.OStack().load() == 1);
+    CHECK(h.i.OStack().pick(0).is_of_type(sli3::literaltype));
+    CHECK(sli3::Name(h.i.OStack().pick(0).data_.name_val).toString()
+          == "nulltoken");
+}
+
 int main()
 {
     Harness h;
@@ -383,6 +403,7 @@ int main()
     test_file_ops(h);
     test_time(h);
     test_print_pprint_contract(h);
+    test_type_on_null(h);
 
     // Trie refcount preservation under heavy dispatch.
     //

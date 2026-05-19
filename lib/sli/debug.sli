@@ -174,13 +174,11 @@ systemdict begin
 
         %% is_top: most-recent op (failing call). is_iter: this
         %% slot is a continuation marker (::proc_continue, etc).
-        %% Screen nulls via cvs -- type crashes on null Tokens.
+        %% `type` returns /nulltoken for null slots, which is
+        %% never a frame-head key -- no extra screening needed.
         /:t_is_top /:t_idx load /:t_top load eq def
         /:t_is_iter
-          /:t_elem load cvs (/nulltoken) eq
-            { false }
-            { /:t_elem load type :trace_frame_heads exch known }
-            ifelse
+          /:t_elem load type :trace_frame_heads exch known
           def
 
         /:t_is_top load /:t_is_iter load or
@@ -197,19 +195,19 @@ systemdict begin
         {
           /:t_arr load /:t_idx load 1 sub get /:t_pos  exch def
           /:t_arr load /:t_idx load 2 sub get /:t_body exch def
-          %% Guard: both slots must be non-null (type crashes on
-          %% null Tokens), pos a positive integer, body a
-          %% procedure/array. Loops with a /nulltoken counter slot
-          %% (e.g. ::loop_continue) bail out here.
-          /:t_pos  load cvs (/nulltoken) eq not
-          /:t_body load cvs (/nulltoken) eq not and
+          %% Guard: type-check first so the `geq` below only fires
+          %% when pos is actually an integer. `and` does not short-
+          %% circuit -- both arms evaluate -- and `1 geq` on a
+          %% /nulltoken slot (e.g. ::loop_continue's counter) would
+          %% raise. Frames with a non-array body or non-integer pos
+          %% silently skip annotation.
+          /:t_pos  load type /integertype eq
+          /:t_body load type /proceduretype eq
+            /:t_body load type /arraytype eq
+            or
+          and
           {
-            /:t_pos load type /integertype eq
-            /:t_pos load 1 geq and
-            /:t_body load type /proceduretype eq
-              /:t_body load type /arraytype eq
-              or
-            and
+            /:t_pos load 1 geq
             {
               ( calling ) =only
               /:t_body load /:t_pos load 1 sub get =only

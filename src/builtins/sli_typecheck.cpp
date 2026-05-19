@@ -299,16 +299,21 @@ CvxAFunction cvx_a_fn;
 
 void TypeFunction::execute(SLIInterpreter *i) const
 {
+    static const Name nulltoken_name("nulltoken");
     SLIType *literal_t=i->get_type(sli3::literaltype);
 
     i->require_stack_load(1);
     Token &top=i->top();
     if (top.type_ == nullptr)
     {
-        // A null-typed Token has slipped onto the operand stack from
-        // some upstream bug. Surface it as a proper error rather than
-        // crashing on a vtable read in tmp.type_->get_typename().
-        i->raiseerror(i->ArgumentTypeError);
+        // Null Token (default-constructed, payload-less): mirror
+        // Token::print's `/nulltoken` convention so SLI code can
+        // /type its way through snapshots and stacks that may
+        // legitimately contain empty slots (uninitialised loop
+        // counters, half-built tries, etc.) without having to
+        // wrap every call in `stopped`.
+        top.type_ = literal_t;
+        top.data_.name_val = nulltoken_name.toIndex();
         return;
     }
     Token tmp;
