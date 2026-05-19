@@ -881,8 +881,12 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             // Single-level TCO: only for iiterate
             // (control_flow_spec.md §3.3). irepeat/ifor/iforall
             // need their proc slot preserved across iterations.
+            // Disabled when show_backtrace_ is set so /trace can
+            // see the full call chain (toggled via /backtrace_on);
+            // costs one bool compare per body dispatch when off.
             if (not proc->index_is_valid(*pos_p)
-                && execution_stack_.pick(0).tag() == sli3::iiteratetype) {
+                && execution_stack_.pick(0).tag() == sli3::iiteratetype
+                && not show_backtrace_) {
               proc->add_reference();
               execution_stack_.pick(2) = t;
               proc->remove_reference();

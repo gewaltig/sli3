@@ -40,6 +40,9 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <sstream>
+#include <iostream>
+#include <vector>
+#include <unordered_set>
 
 namespace sli3
 {
@@ -1023,6 +1026,470 @@ void PrinterrorFunction::execute(SLIInterpreter *i) const
 }
 
 /* BeginDocumentation
+ Name: trace - pretty-print the errordict /estack snapshot.
+
+ Synopsis: trace -> -
+
+ Description:
+   trace reads the /estack entry stored in errordict by the most
+   recent raiseerror and prints one line per execution-stack
+   *frame* (rather than per slot). Each frame is decoded by its
+   continuation-marker tag — proc, repeat, for, forall, loop, etc.
+   — and annotated with the operator that was last dispatched
+   (`body[pos-1]`).
+
+   The innermost frame (the one that holds the failing op) is
+   prefixed with `=>`; the rest are indented. Bottom-of-stack
+   frames whose body matches the cached `/executive` proc body
+   are collapsed into a single trailing `... <REPL>` line.
+
+   If errordict has no /estack snapshot (recordstacks is off or
+   no error has fired), trace prints a short notice and returns.
+
+   By default the dispatcher tail-call-optimizes the last slot of a
+   procedure body, so a chain like `power -> signedfactor -> ifelse
+   -> unsignedfactor -> JoinTo` collapses to whichever frames had
+   non-last-slot dispatches. To keep every frame for /trace, call
+   /backtrace_on once *before* triggering the error; /backtrace_off
+   restores the default. Cost: one bool compare per body dispatch.
+
+ Examples:
+   backtrace_on   %% keep full call chain on the next error
+   (s) (t) add    %% raises ArgumentType, snapshots estack
+   trace
+
+ SeeAlso: raiseerror, resume, errordict, backtrace_on, backtrace_off
+*/
+
+namespace {
+
+// Cache for REPL-baseline proc-body pointers. Seeded lazily from the
+// `executive` and `start` procedures (and anything reachable from
+// them — nested {…} procs are all bound before /trace is ever called),
+// then used to recognize and trim baseline frames in the snapshot.
+struct BaselineCache {
+  std::unordered_set<TokenArray*> bodies;
+  bool initialized = false;
+};
+
+BaselineCache &baseline_cache() {
+  static BaselineCache c;
+  return c;
+}
+
+void collect_proc_bodies(TokenArray *body, std::unordered_set<TokenArray*> &out) {
+  if (!body || out.count(body)) return;
+  out.insert(body);
+  for (size_t k = 0; k < body->size(); ++k) {
+    const Token &s = (*body)[k];
+    if (!s.type_) continue;
+    unsigned int tag = s.tag();
+    if ((tag == sli3::proceduretype || tag == sli3::litproceduretype) &&
+        s.data_.array_val) {
+      collect_proc_bodies(s.data_.array_val, out);
+    }
+  }
+}
+
+void prime_baseline_cache(SLIInterpreter *i) {
+  BaselineCache &c = baseline_cache();
+  if (c.initialized) return;
+  c.initialized = true;
+  for (const char *seed : { "executive", "start" }) {
+    Token t;
+    if (!i->lookup(Name(seed), t)) continue;
+    unsigned int tag = t.tag();
+    if (tag != sli3::proceduretype && tag != sli3::litproceduretype) continue;
+    collect_proc_bodies(t.data_.array_val, c.bodies);
+  }
+}
+
+// Print a Token's value compactly. nametype/literaltype/symboltype
+// resolve to their string; arrays/procs truncate to a body excerpt.
+// Mirrors the diagnostic style in raiseerror (sli_interpreter.cpp:580+).
+void print_token_compact(std::ostream &os, const Token &t) {
+  if (!t.type_) { os << "/nulltoken"; return; }
+  unsigned int tag = t.tag();
+  if (tag == sli3::nametype) {
+    os << Name(t.data_.name_val).toString();
+    return;
+  }
+  if (tag == sli3::literaltype || tag == sli3::symboltype) {
+    os << "/" << Name(t.data_.name_val).toString();
+    return;
+  }
+  t.pprint(os);
+}
+
+// Print one token, capped at `max_chars`. Tokens longer than the cap
+// (typically nested proc/array literals) collapse to a short form
+// like `{...}` or `[...]` to keep the surrounding line scannable.
+void print_token_capped(std::ostream &os, const Token &t, size_t max_chars) {
+  std::ostringstream tmp;
+  print_token_compact(tmp, t);
+  std::string s = tmp.str();
+  if (s.size() <= max_chars) { os << s; return; }
+  // Short collapse for compound literals.
+  if (!s.empty() && s.front() == '{') { os << "{...}"; return; }
+  if (!s.empty() && s.front() == '[') { os << "[...]"; return; }
+  os << s.substr(0, max_chars) << "...";
+}
+
+// Print a body window: up to `before` ops preceding the focused slot,
+// the focused slot, then up to `after` ops after. `...` marks elided
+// content on either side. `focus < 0` falls back to slot 0.
+void print_body_window(std::ostream &os, TokenArray *body, long focus,
+                       long before, long after) {
+  if (!body) { os << "<null>"; return; }
+  long n = static_cast<long>(body->size());
+  if (n == 0) return;
+  if (focus < 0) focus = 0;
+  if (focus >= n) focus = n - 1;
+  long start = std::max<long>(0, focus - before);
+  long end   = std::min<long>(n, focus + after + 1);
+  if (start > 0) os << "... ";
+  for (long k = start; k < end; ++k) {
+    if (k > start) os << ' ';
+    print_token_capped(os, (*body)[k], /*max_chars=*/20);
+  }
+  if (end < n) os << " ...";
+}
+
+// A decoded frame ready to print. `proc==nullptr` marks a stray
+// (non-grouped) token that we print verbatim.
+struct Frame {
+  unsigned int marker_tag = sli3::nulltype;
+  TokenArray *body = nullptr;
+  long pos = 0;
+  // Per-marker state, filled only for the kinds that carry it.
+  bool has_loop_count = false;  long loop_count = 0;
+  bool has_for_state  = false;  long for_counter = 0, for_lim = 0, for_inc = 0;
+  bool has_idx        = false;  long idx = 0;        long idx_lim = 0;
+  TokenArray *forall_array = nullptr;        // for iforalltype / indexed array
+  SLIString *forall_string = nullptr;        // for forallstring / indexed string
+  bool is_parse = false;
+  // For "stray" (ungrouped) snapshot slots.
+  bool is_stray = false;
+  Token stray;
+  // Snapshot index of the marker token (or stray slot). Lets the
+  // branch-detection pass find the iter frame directly above this
+  // one in the original stack order.
+  long marker_idx = -1;
+};
+
+// Walk the snapshot from top (idx = length-1) to bottom (0), grouping
+// continuation-marker frames with their sub-slots. Returns frames in
+// most-recent-first order.
+std::vector<Frame> decode_snapshot(const TokenArray &snap) {
+  std::vector<Frame> frames;
+  long k = static_cast<long>(snap.size()) - 1;
+  while (k >= 0) {
+    const Token &top = snap[k];
+    unsigned int tag = top.type_ ? top.tag() : sli3::nulltype;
+
+    auto need = [&](long depth) -> bool { return k >= depth; };
+
+    Frame f;
+    f.marker_tag = tag;
+    f.marker_idx = k;
+
+    switch (tag) {
+      case sli3::iiteratetype:
+      case sli3::ilooptype:
+        if (need(2)) {
+          f.pos  = snap[k - 1].data_.long_val;
+          f.body = snap[k - 2].data_.array_val;
+          k -= 3;
+          frames.push_back(f);
+          continue;
+        }
+        break;
+      case sli3::irepeattype:
+        if (need(3)) {
+          f.pos  = snap[k - 1].data_.long_val;
+          f.body = snap[k - 2].data_.array_val;
+          f.has_loop_count = true;
+          f.loop_count = snap[k - 3].data_.long_val;
+          k -= 4;
+          frames.push_back(f);
+          continue;
+        }
+        break;
+      case sli3::ifortype:
+        if (need(5)) {
+          f.pos  = snap[k - 1].data_.long_val;
+          f.body = snap[k - 2].data_.array_val;
+          f.has_for_state = true;
+          f.for_counter = snap[k - 3].data_.long_val;
+          f.for_lim     = snap[k - 4].data_.long_val;
+          f.for_inc     = snap[k - 5].data_.long_val;
+          k -= 6;
+          frames.push_back(f);
+          continue;
+        }
+        break;
+      case sli3::iforalltype:
+        if (need(4)) {
+          f.pos  = snap[k - 1].data_.long_val;
+          f.body = snap[k - 2].data_.array_val;
+          f.has_idx = true;
+          f.idx = snap[k - 3].data_.long_val;
+          f.forall_array = snap[k - 4].data_.array_val;
+          if (f.forall_array) f.idx_lim = static_cast<long>(f.forall_array->size());
+          k -= 5;
+          frames.push_back(f);
+          continue;
+        }
+        break;
+      case sli3::iforallstringtype:
+        if (need(4)) {
+          f.pos  = snap[k - 1].data_.long_val;
+          f.body = snap[k - 2].data_.array_val;
+          f.has_idx = true;
+          f.idx = snap[k - 3].data_.long_val;
+          f.forall_string = snap[k - 4].data_.string_val;
+          if (f.forall_string) f.idx_lim = static_cast<long>(f.forall_string->str().size());
+          k -= 5;
+          frames.push_back(f);
+          continue;
+        }
+        break;
+      case sli3::iforallindexedarraytype:
+        if (need(5)) {
+          f.pos  = snap[k - 1].data_.long_val;
+          f.body = snap[k - 2].data_.array_val;
+          f.has_idx = true;
+          f.idx     = snap[k - 3].data_.long_val;
+          f.idx_lim = snap[k - 4].data_.long_val;
+          f.forall_array = snap[k - 5].data_.array_val;
+          k -= 6;
+          frames.push_back(f);
+          continue;
+        }
+        break;
+      case sli3::iforallindexedstringtype:
+        if (need(5)) {
+          f.pos  = snap[k - 1].data_.long_val;
+          f.body = snap[k - 2].data_.array_val;
+          f.has_idx = true;
+          f.idx     = snap[k - 3].data_.long_val;
+          f.idx_lim = snap[k - 4].data_.long_val;
+          f.forall_string = snap[k - 5].data_.string_val;
+          k -= 6;
+          frames.push_back(f);
+          continue;
+        }
+        break;
+      case sli3::iparsetype:
+        f.is_parse = true;
+        k -= 2;  // [xistream, marker]
+        frames.push_back(f);
+        continue;
+      default:
+        break;
+    }
+
+    // Unknown / unexpected slot: emit as a stray.
+    Frame s;
+    s.is_stray = true;
+    s.stray = top;
+    s.marker_idx = k;
+    frames.push_back(s);
+    --k;
+  }
+  return frames;
+}
+
+// If `f` is calling `if` or `ifelse` and the directly-adjacent frame
+// above it (in the original stack) has a body that matches one of
+// the literal procs preceding the call slot, return a short label
+// ("true branch", "false branch", "branch taken"). Empty string =
+// no branch info available (TCO collapsed the chosen frame, the
+// procs are not literal, or this isn't an if/ifelse caller).
+std::string detect_branch(const Frame &f, const std::vector<Frame> &frames,
+                          size_t my_index) {
+  if (!f.body || f.pos < 1 || f.pos > static_cast<long>(f.body->size()))
+    return "";
+  long focus = f.pos - 1;
+  const Token &called = (*f.body)[static_cast<size_t>(focus)];
+  if (called.tag() != sli3::nametype) return "";
+  std::string name = Name(called.data_.name_val).toString();
+  bool is_if     = (name == "if");
+  bool is_ifelse = (name == "ifelse");
+  if (!is_if && !is_ifelse) return "";
+
+  // Find the iter-marker frame directly above `f` in stack order:
+  // largest marker_idx less than f.marker_idx. In our most-recent-
+  // first list that's the frame with the smallest (frames[].index)
+  // whose marker_idx > f.marker_idx... but the very next neighbour
+  // in stack order is the smallest such marker_idx. Scan all earlier
+  // entries (which are higher on the stack) and pick the closest.
+  const Frame *above = nullptr;
+  for (size_t k = 0; k < my_index; ++k) {
+    const Frame &c = frames[k];
+    if (c.is_stray || c.is_parse || !c.body) continue;
+    if (c.marker_idx <= f.marker_idx) continue;
+    if (!above || c.marker_idx < above->marker_idx) above = &c;
+  }
+  if (!above) return "";
+
+  TokenArray *chosen = above->body;
+  if (!chosen) return "";
+
+  auto slot_proc_matches = [&](long idx) -> bool {
+    if (idx < 0 || idx >= static_cast<long>(f.body->size())) return false;
+    const Token &p = (*f.body)[static_cast<size_t>(idx)];
+    if (p.tag() != sli3::proceduretype && p.tag() != sli3::litproceduretype)
+      return false;
+    return p.data_.array_val == chosen;
+  };
+
+  if (is_if) {
+    return slot_proc_matches(focus - 1) ? "branch taken" : "";
+  }
+  // ifelse: in `<cond> {T} {F} ifelse`, body[focus-2] = {T}, body[focus-1] = {F}.
+  if (slot_proc_matches(focus - 2)) return "true branch";
+  if (slot_proc_matches(focus - 1)) return "false branch";
+  return "";
+}
+
+bool frame_is_baseline(const Frame &f, const BaselineCache &c) {
+  if (f.is_parse) return true;
+  if (f.is_stray) return true;  // strays between baseline frames trim too
+  if (!f.body) return false;
+  return c.bodies.count(f.body) > 0;
+}
+
+const char *marker_label(unsigned int tag) {
+  switch (tag) {
+    case sli3::iiteratetype:              return "proc";
+    case sli3::irepeattype:               return "repeat";
+    case sli3::ifortype:                  return "for";
+    case sli3::iforalltype:               return "forall";
+    case sli3::ilooptype:                 return "loop";
+    case sli3::iforallstringtype:         return "forall_s";
+    case sli3::iforallindexedarraytype:   return "forallidx";
+    case sli3::iforallindexedstringtype:  return "forallidx_s";
+    case sli3::iparsetype:                return "parse";
+    default:                              return "?";
+  }
+}
+
+void emit_frame(std::ostream &os, const Frame &f, bool is_top,
+                const std::string &branch_info) {
+  os << (is_top ? "=> " : "   ");
+
+  if (f.is_stray) {
+    os << "pending: ";
+    // print() not pprint(): tries pprint as a multi-line dump of
+    // their branches, which we don't want inline.
+    if (f.stray.type_) f.stray.print(os);
+    else os << "/nulltoken";
+    os << '\n';
+    return;
+  }
+
+  if (f.is_parse) {
+    os << "In parse <input stream>\n";
+    return;
+  }
+
+  // Per-marker iteration-state clause: " (idx 1/3)", " (i=2 lim=5 inc=1)", etc.
+  std::ostringstream state;
+  if (f.has_for_state) {
+    state << " (i=" << f.for_counter
+          << " lim=" << f.for_lim << " inc=" << f.for_inc << ")";
+  } else if (f.has_loop_count) {
+    state << " (iter remaining=" << f.loop_count << ")";
+  } else if (f.has_idx) {
+    state << " (idx " << f.idx << "/" << f.idx_lim << ")";
+  }
+
+  if (f.body) {
+    long total = static_cast<long>(f.body->size());
+    os << "In step " << f.pos << "/" << total
+       << " of " << marker_label(f.marker_tag) << state.str()
+       << " { ";
+    print_body_window(os, f.body, f.pos - 1, /*before=*/3, /*after=*/2);
+    os << " }";
+    if (f.pos >= 1 && f.pos <= total) {
+      const Token &called = (*f.body)[static_cast<size_t>(f.pos - 1)];
+      os << " calling: ";
+      print_token_compact(os, called);
+      if (!branch_info.empty()) os << " [" << branch_info << "]";
+    } else if (f.pos == 0) {
+      os << " (about to start)";
+    }
+  } else {
+    os << "In " << marker_label(f.marker_tag) << state.str();
+  }
+  os << '\n';
+}
+
+} // anonymous namespace
+
+void TraceFunction::execute(SLIInterpreter *i) const {
+  // New-ABI: dispatcher already pre-popped /trace from the estack.
+  Dictionary &ed = i->error_dict();
+  Token est_tok;
+  if (!ed.lookup(Name("estack"), est_tok) ||
+      est_tok.tag() != sli3::arraytype) {
+    std::cout << "trace: no execution-stack snapshot recorded.\n"
+                 "       Either recordstacks is off, or no error has fired yet.\n";
+    return;
+  }
+  TokenArray *snap = est_tok.data_.array_val;
+  if (!snap || snap->size() == 0) {
+    std::cout << "trace: empty estack snapshot.\n";
+    return;
+  }
+
+  prime_baseline_cache(i);
+  const BaselineCache &cache = baseline_cache();
+
+  std::vector<Frame> frames = decode_snapshot(*snap);
+
+  // Identify the trailing baseline run (frames at the *end* of the
+  // most-recent-first list — i.e. the bottom of the estack).
+  size_t baseline_start = frames.size();
+  while (baseline_start > 0 && frame_is_baseline(frames[baseline_start - 1], cache))
+    --baseline_start;
+
+  std::cout << "Execution stack at error (most recent first):\n";
+  bool any = false;
+  for (size_t k = 0; k < baseline_start; ++k) {
+    std::string branch = detect_branch(frames[k], frames, k);
+    emit_frame(std::cout, frames[k], !any, branch);
+    any = true;
+  }
+  // If tail-call optimization ate the user frame, the snapshot is
+  // entirely baseline. Surface the failing op's name from errordict
+  // /commandname so trace is never silent.
+  if (!any) {
+    Token cmd_tok, err_tok;
+    bool has_cmd = ed.lookup(Name("commandname"), cmd_tok);
+    bool has_err = ed.lookup(Name("errorname"),   err_tok);
+    if (has_cmd || has_err) {
+      std::cout << "=> ";
+      if (has_cmd && (cmd_tok.tag() == sli3::literaltype ||
+                      cmd_tok.tag() == sli3::nametype ||
+                      cmd_tok.tag() == sli3::symboltype)) {
+        std::cout << "calling: " << Name(cmd_tok.data_.name_val).toString();
+      }
+      if (has_err && (err_tok.tag() == sli3::literaltype ||
+                      err_tok.tag() == sli3::nametype ||
+                      err_tok.tag() == sli3::symboltype)) {
+        std::cout << "   (raised /" << Name(err_tok.data_.name_val).toString() << ")";
+      }
+      std::cout << "   [frame elided by tail-call;"
+                   " run `backtrace_on` before the error to keep it]\n";
+    }
+  }
+  if (baseline_start < frames.size())
+    std::cout << "   ... <REPL>\n";
+}
+
+/* BeginDocumentation
  Name: raiseagain - re-raise the last error
  Synopsis:  raiseagain
 
@@ -1961,6 +2428,7 @@ void NoopFunction::execute(SLIInterpreter *i) const
  RaiseerrorFunction       raiseerrorfunction;
  PrinterrorFunction       printerrorfunction;
  RaiseagainFunction       raiseagainfunction;
+ TraceFunction            tracefunction;
 
  ExecFunction             execfunction;
  BindFunction             bindfunction;
@@ -2060,6 +2528,7 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("raiseerror",&raiseerrorfunction);
   i->createcommand("print_error",&printerrorfunction);
   i->createcommand("raiseagain",&raiseagainfunction);
+  i->createcommand("trace", &tracefunction);
   i->createcommand("exec",&execfunction);
   // Phase 4: native /bind. The SLI definition in sli-init.sli will
   // redefine /bind in userdict; we expose this C++ leaf as /bind_
