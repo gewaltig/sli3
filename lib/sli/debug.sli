@@ -98,7 +98,63 @@ systemdict begin
   } ifelse
 } def
 
- /debugdict 
+/** @BeginDocumentation
+
+   Name: trace - Pretty-print the execution-stack snapshot from errordict.
+
+   Synopsis: trace -> -
+
+   Description:
+     trace reads the /estack entry stored in errordict by the most
+     recent raiseerror and prints each frame, most-recent first.
+     This is a debugging aid: after an error fires, run `trace` at
+     the SLI prompt to see what was on the execution stack when the
+     error was raised.
+
+     If errordict has no /estack snapshot (either recordstacks is
+     off or no error has fired yet), trace prints a short notice and
+     returns.
+
+   Examples:
+     (s) (t) add   %% raises ArgumentType, snapshots estack
+     trace         %% dumps the call sequence
+
+   Author:
+     sli3 revive branch.
+
+   SeeAlso: raiseerror, resume, errordict
+*/
+/trace
+{
+  errordict /estack known
+  {
+    errordict /estack get
+    dup length 0 eq
+    {
+      pop
+      (trace: no execution-stack snapshot recorded.) =
+      (Either recordstacks is off, or no error has fired yet.) =
+    }
+    {
+      (Execution stack at error (most recent first):) =
+      dup length 1 sub  %% array (n-1)
+      -1                %% step
+      0                 %% end
+      {
+        %% body: stack = [array, idx]
+        1 index exch get  %% [array, elem]
+        (  ) =only
+        =
+      } for
+      pop
+    } ifelse
+  }
+  {
+    (trace: errordict has no /estack key.) =
+  } ifelse
+} bind def
+
+ /debugdict
  <<
    /SingleStepMode false
  >> def
