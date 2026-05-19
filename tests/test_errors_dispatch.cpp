@@ -224,6 +224,26 @@ void test_attrib_cvi_string(SLIInterpreter& i)
     expect_commandname(i, "(notanumber) cvi", "cvi_s");
 }
 
+void test_attrib_trie_mismatch(SLIInterpreter& i)
+{
+    // TypeNode::lookup throws ArgumentType before current_op_ is set
+    // (the dispatcher only sets it for direct functiontype calls).
+    // The failing trie still sits on the estack top; raiseerror must
+    // read the trie's name so the user sees "/add ArgumentType"
+    // rather than the generic interpreter tag.
+    expect_commandname(i, "(s) (t) add", "add");
+}
+
+void test_attrib_user_trie_mismatch(SLIInterpreter& i)
+{
+    // Same path for a user-defined trie. Push trie onto e-stack via
+    // userdict, then call with mismatched arg.
+    expect_commandname(i,
+        "/mytrie trie [/integertype] { } addtotrie def "
+        "(s) mytrie",
+        "mytrie");
+}
+
 }  // namespace
 
 int main()
@@ -244,6 +264,8 @@ int main()
     test_attrib_get_range(i);
     test_attrib_put_range(i);
     test_attrib_cvi_string(i);
+    test_attrib_trie_mismatch(i);
+    test_attrib_user_trie_mismatch(i);
 
     std::cout << "test_errors_dispatch: ok\n";
     return 0;

@@ -491,8 +491,18 @@ Name SLIInterpreter::get_current_name(void) const {
   // primary path.
   if (current_op_)
     return current_op_->get_name();
-  if (execution_stack_.top().is_of_type(sli3::functiontype))
-    return execution_stack_.top().data_.func_val->get_name();
+  if (execution_stack_.load() > 0)
+  {
+    Token const& top = execution_stack_.top();
+    if (top.is_of_type(sli3::functiontype) && top.data_.func_val)
+      return top.data_.func_val->get_name();
+    // Trie dispatch throws ArgumentType / StackUnderflow from
+    // TypeNode::lookup before current_op_ can be set, so the
+    // failing trie still sits on the estack top. Surface its name
+    // (e.g. "add", "mul") instead of the generic interpreter tag.
+    if (top.is_of_type(sli3::trietype) && top.data_.trie_val)
+      return top.data_.trie_val->get_name();
+  }
   return interpreter_name;
 }
 
