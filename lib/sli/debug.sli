@@ -166,24 +166,58 @@ systemdict begin
         /:t_idx exch def
         %% Use `/:name load` rather than `:name`: bare-name lookup
         %% dispatches executable values (functions, tries, procs),
-        %% and the snapshot's top is exactly that -- a trie that
-        %% would re-run if executed. `load` pushes the value
+        %% and the snapshot's top is exactly that -- a trie/proc
+        %% that would re-run if executed. `load` pushes the value
         %% inert.
         /:t_arr load /:t_idx load get
         /:t_elem exch def
-        %% Arrow if this is the topmost frame, OR the entry is a
-        %% continuation marker (iter / loop / parse / ...). The
-        %% null-token slot (e.g. an uninitialised loop counter)
-        %% would crash `type`, so we screen those out via cvs
-        %% first -- a null Token can never be a frame head.
-        /:t_idx load /:t_top load eq
+
+        %% is_top: most-recent op (failing call). is_iter: this
+        %% slot is a continuation marker (::proc_continue, etc).
+        %% Screen nulls via cvs -- type crashes on null Tokens.
+        /:t_is_top /:t_idx load /:t_top load eq def
+        /:t_is_iter
           /:t_elem load cvs (/nulltoken) eq
             { false }
             { /:t_elem load type :trace_frame_heads exch known }
             ifelse
-          or
+          def
+
+        /:t_is_top load /:t_is_iter load or
         { (=> ) =only } { (   ) =only } ifelse
-        /:t_elem load =
+        /:t_elem load =only
+
+        %% Iter markers (but not the top) annotate with the most
+        %% recently dispatched op of their frame: body[pos-1]. The
+        %% dispatcher's body_walk uses
+        %%   pick(2)=body, pick(1)=pos, pick(0)=marker
+        %% which maps onto snapshot[k-2], snapshot[k-1], snapshot[k].
+        /:t_is_iter load /:t_is_top load not and
+        /:t_idx load 2 geq and
+        {
+          /:t_arr load /:t_idx load 1 sub get /:t_pos  exch def
+          /:t_arr load /:t_idx load 2 sub get /:t_body exch def
+          %% Guard: both slots must be non-null (type crashes on
+          %% null Tokens), pos a positive integer, body a
+          %% procedure/array. Loops with a /nulltoken counter slot
+          %% (e.g. ::loop_continue) bail out here.
+          /:t_pos  load cvs (/nulltoken) eq not
+          /:t_body load cvs (/nulltoken) eq not and
+          {
+            /:t_pos load type /integertype eq
+            /:t_pos load 1 geq and
+            /:t_body load type /proceduretype eq
+              /:t_body load type /arraytype eq
+              or
+            and
+            {
+              ( calling ) =only
+              /:t_body load /:t_pos load 1 sub get =only
+            } if
+          } if
+        } if
+
+        (\n) =only
       } for
       end
     } ifelse
