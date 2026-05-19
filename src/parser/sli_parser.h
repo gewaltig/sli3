@@ -27,15 +27,23 @@
 #include "sli_scanner.h"
 #include <typeinfo>
 #include <iostream>
+#include <utility>
+#include <vector>
 
 namespace sli3
 {
   class Scanner;
   class SLIInterpreter;
-  class Parser 
+  class Parser
   {
       Scanner* s;
-      TokenStack stack_; 
+      TokenStack stack_;
+      // Parallel to stack_: line/col where each unmatched `{` was
+      // opened. Pushed when BeginProcedureSymbol is seen, popped
+      // when EndProcedureSymbol matches. On unexpectedeof, the
+      // outermost (front) entry pinpoints the brace whose body
+      // ran past EOF -- usually the actual bug.
+      std::vector<std::pair<unsigned long, unsigned long>> open_brace_positions_;
       Name open_array_;
       Name close_array_;
       enum ParseResult   {

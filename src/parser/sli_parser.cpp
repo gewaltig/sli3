@@ -23,6 +23,8 @@
 #include "sli_arraytype.h"
 #include "sli_nametype.h"
 //#include "config.h"
+#include <sstream>
+#include <string>
 namespace sli3
 {
 /*****************************************************************/
@@ -95,6 +97,10 @@ inline
 	      if (contains_symbol(t,s->BeginProcedureSymbol))
 	      {
 		  stack_.push(sli.new_token<sli3::litproceduretype>());
+		  // Remember where this `{` was opened so an
+		  // unmatched-brace EOF can pinpoint it.
+		  open_brace_positions_.emplace_back(
+		      s->get_line(), s->get_col());
 		  result=scancontinue;
 	      }
 	    else if (contains_symbol(t,s->BeginArraySymbol))
@@ -110,6 +116,8 @@ inline
 		    if (t.is_of_type(sli3::litproceduretype))
 		    {
 			stack_.pop();
+			if (!open_brace_positions_.empty())
+			    open_brace_positions_.pop_back();
 			result=tokencontinue;
 		    }
 		    else result=endarrayexpected;
@@ -126,7 +134,9 @@ inline
 		if (!stack_.empty())
 		  {
 		    result=unexpectedeof;
-		    stack_.clear();
+		    // Defer clearing stack_ and open_brace_positions_
+		    // until after the error report below, so the
+		    // positions can be printed.
 		  }
 		else
 		  result=tokencompleted;
@@ -165,7 +175,27 @@ inline
 	    s->print_error("Closed bracket missing.");
 	    break;
 	  case unexpectedeof:
-	    s->print_error("Unexpected end of input.");
+	    {
+	      std::string msg = "Unexpected end of input.";
+	      if (!open_brace_positions_.empty())
+		{
+		  // Outermost (oldest) unclosed `{` is the most
+		  // informative: it's the one whose body ran past EOF.
+		  // Inner unclosed `{`s are usually consequences.
+		  auto const& outer = open_brace_positions_.front();
+		  std::ostringstream extra;
+		  extra << " Unclosed `{` opened near line "
+			<< outer.first << " column " << outer.second;
+		  if (open_brace_positions_.size() > 1)
+		    extra << " (" << open_brace_positions_.size()
+			  << " open braces total)";
+		  extra << ".";
+		  msg += extra.str();
+		}
+	      s->print_error(msg.c_str());
+	      stack_.clear();
+	      open_brace_positions_.clear();
+	    }
 	    break;
 	  default: break;
 	  }
