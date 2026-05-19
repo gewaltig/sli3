@@ -70,6 +70,7 @@ namespace sli3
     iforallindexedstringtype,  //!< Phase 5: was IforallindexedstringFunction
     nooptype,
     quittype,
+    regextype,         //!< POSIX <regex.h> wrapper, appended for the regex module.
     num_sli_types, //!< Number of builtin types. User type ids start here
     intvectortype,
     doublevectortype

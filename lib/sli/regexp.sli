@@ -497,36 +497,47 @@ Unix manpage for "regcomp"
 SeeAlso: regex_find, regcomp, regexec, regexdict
 */
 
-/grep << /flags_regcomp regexdict/REG_EXTENDED ::
-         /flags_regexec 0                         >> Options
-
-/grep[/stringtype /filename
-      /stringtype /regexstr]
+% grep uses Options / :: / GetOption from mathematica.sli, which sli3
+% does not auto-load (loading it exposes a latent SLIFunctionWrapper
+% bug, tracked separately). Gate on /Options so a missing dependency
+% leaves /grep undefined but does not abort the regexp.sli load (the
+% core /regcomp /regexec /regex_find /regex_replace ops above are
+% independent of this block). When mathematica.sli is loaded later in
+% a session, this block can be re-evaluated to define /grep.
+/Options where
 {
-  /regex  regexstr  /grep /flags_regcomp GetOption  regcomp  def
-  /result [] def
-  
-  filename (r) file
+  pop
+  /grep << /flags_regcomp regexdict/REG_EXTENDED ::
+           /flags_regexec 0                         >> Options
+
+  /grep[/stringtype /filename
+        /stringtype /regexstr]
   {
-    getline not {exit} if
-    /line Set      
-    regex line 0  /grep /flags_regexec GetOption  regexec
-    0 eq {/result result line append def} if      
-  } loop
-  pop % the stream
-  result  
-} SLIFunctionWrapper
+    /regex  regexstr  /grep /flags_regcomp GetOption  regcomp  def
+    /result [] def
 
-/grep[/arraytype /a
-      /stringtype /regexstr]
-{
-  /regex  regexstr  /grep /flags_regcomp GetOption  regcomp  def
-  /result [] def
-  
-  a {
-    /line Set      
-    regex line 0  /grep /flags_regexec GetOption  regexec
-    0 eq {/result result line append def} if      
-  } forall
-  result  
-} SLIFunctionWrapper
+    filename (r) file
+    {
+      getline not {exit} if
+      /line Set
+      regex line 0  /grep /flags_regexec GetOption  regexec
+      0 eq {/result result line append def} if
+    } loop
+    pop % the stream
+    result
+  } SLIFunctionWrapper
+
+  /grep[/arraytype /a
+        /stringtype /regexstr]
+  {
+    /regex  regexstr  /grep /flags_regcomp GetOption  regcomp  def
+    /result [] def
+
+    a {
+      /line Set
+      regex line 0  /grep /flags_regexec GetOption  regexec
+      0 eq {/result result line append def} if
+    } forall
+    result
+  } SLIFunctionWrapper
+} if

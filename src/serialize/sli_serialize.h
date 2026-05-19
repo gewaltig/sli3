@@ -21,7 +21,8 @@ constexpr uint32_t kSerializeMagic = 0x33494C53;  // "SLI3" little-endian
 //   1 — initial release.
 //   2 — appended PostScript access byte (ACCESS_UNLIMITED / READONLY /
 //       EXECUTEONLY / NOACCESS) to TokenArray and SLIString bodies.
-constexpr uint32_t kSerializeVersion = 2;
+//   3 — appended regextype (POSIX <regex.h> wrapper) to sli_typeid.
+constexpr uint32_t kSerializeVersion = 3;
 
 /**
  * Abstract sink for serialization. Concrete implementations:

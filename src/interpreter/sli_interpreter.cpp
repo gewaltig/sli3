@@ -17,6 +17,8 @@
 #include "sli_nametype.h"
 #include "sli_numerics.h"
 #include "sli_parser.h"
+#include "sli_regex_module.h"
+#include "sli_regextype.h"
 #include "sli_stack.h"
 #include "sli_startup.h"
 #include "sli_string.h"
@@ -298,6 +300,8 @@ void SLIInterpreter::init_types() {
       new XIstreamType(this, "xistreamtype", sli3::xistreamtype));
   reg(sli3::ostreamtype,
       new OstreamType(this, "ostreamtype", sli3::ostreamtype));
+  reg(sli3::regextype,
+      new RegexType(this, "regextype", sli3::regextype));
 }
 
 void SLIInterpreter::init_message_tags() {
@@ -370,6 +374,7 @@ void SLIInterpreter::init_internal_functions(void) {
   init_io_ops(this);
   init_state_ops(this);
   init_access_ops(this);
+  init_regex_module(this);
   // GNUreadline / GNUaddhistory must be registered BEFORE sli-init.sli
   // loads — the script's /executive definition gates on
   // `systemdict /GNUreadline known` and only picks the line-editing

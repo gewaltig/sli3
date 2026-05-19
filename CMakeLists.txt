@@ -38,6 +38,7 @@ add_library(sli3_core STATIC
   src/types/sli_dicttype.cpp
   src/types/sli_functiontype.cpp
   src/types/sli_iostreamtype.cpp
+  src/types/sli_regextype.cpp
 
   # containers
   src/containers/sli_array.cpp
@@ -69,6 +70,7 @@ add_library(sli3_core STATIC
   src/builtins/sli_readline.cpp
   src/builtins/sli_state_ops.cpp
   src/builtins/sli_access_ops.cpp
+  src/builtins/sli_regex_module.cpp
 
   # trie / serialize / util
   src/trie/sli_type_trie.cpp
@@ -165,3 +167,4 @@ sli3_add_test(test_state_ops           tests/test_state_ops.cpp)
 sli3_add_test(test_bind                tests/test_bind.cpp)
 sli3_add_test(test_dispatch_abi        tests/test_dispatch_abi.cpp)
 sli3_add_test(test_access              tests/test_access.cpp)
+sli3_add_test(test_regex_module        tests/test_regex_module.cpp)

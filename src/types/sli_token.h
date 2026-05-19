@@ -28,6 +28,7 @@ namespace sli3
     class SLIistream;
     class SLIostream;
     class TypeNode;
+    class Regex;
 
     class Token
     {
@@ -212,6 +213,7 @@ namespace sli3
 	    SLIostream *ostream_val;
 	    TypeNode *trie_val;
 	    SLIType *type_val;
+	    Regex *regex_val;
 	} data_;
     };
 

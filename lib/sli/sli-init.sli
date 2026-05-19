@@ -1875,6 +1875,27 @@ end
 
 (debug.sli) run
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% mathematica-flavoured helpers           %
+% (OptionsDictionary, Options, ::,        %
+%  GetOption, SetOptions, JoinTo, ...)    %
+% must come before regexp.sli, which uses %
+% Options/GetOption for /grep.            %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% POSIX regular expressions               %
+% (wraps regcomp_ / regexec_ / regerror_  %
+%  from sli_regex_module.cpp)             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% NOTE: mathematica.sli (Options / ::) is intentionally NOT loaded
+% here. Loading it surfaces a latent bug in misc_helpers.sli's
+% SLIFunctionWrapper (locals not bound under sli3) -- fixing that
+% is a separate task. regexp.sli's grep block is gated on /Options
+% so the rest of the file (regcomp, regexec, regex_find,
+% regex_replace) loads cleanly. Once SLIFunctionWrapper is fixed,
+% drop the gate and load mathematica.sli + library.sli first.
+(regexp.sli) run
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

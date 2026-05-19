@@ -547,7 +547,6 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
         "doublevector2array",
         "intvector2array",
         "references_a",
-        "regerror_", "regexec_",
         "shrink_a",
         // FormattedIO.sli — typed-stream read helpers, not on the
         // interactive-prompt path.
