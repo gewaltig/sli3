@@ -354,6 +354,14 @@ public:
 };
 
 // proceduretype <-> literalproceduretype share TokenArray payload.
+// `proc cvlit -> array` — strip executable semantics from a procedure.
+// Same TokenArray payload (arraytype / proceduretype / litproceduretype
+// share storage per the type-economical polymorphism); only the SLIType
+// discriminator changes. Matches NEST 2.20.2 Cvlit_pFunction and the
+// typeinit.sli doc (`{ 5 = } cvlit -> [5 =]`). Callers in mathematica.sli
+// (the math-compiler's /assign branch) and misc_helpers.sli rely on the
+// result being an array so subsequent `append` / `join` / `JoinTo` etc.
+// dispatch through the array overloads.
 class Cvlit_pFunction : public SLIFunction
 {
 public:
@@ -361,7 +369,7 @@ public:
     {
         i->require_stack_load(1);
         i->require_stack_type(0, sli3::proceduretype);
-        i->top().type_ = i->get_type(sli3::litproceduretype);
+        i->top().type_ = i->get_type(sli3::arraytype);
     }
 };
 
