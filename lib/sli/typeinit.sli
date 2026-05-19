@@ -642,6 +642,31 @@ def
 def
 %%%%%
 
+/add trie
+  [/integertype /integertype] /add load addtotrie
+  [/doubletype /integertype] /add load addtotrie
+  [/doubletype /doubletype] /add load addtotrie
+  [/integertype /doubletype] /add load addtotrie
+def  
+/sub trie
+  [/integertype /integertype] /sub load addtotrie
+  [/doubletype /integertype] /sub load addtotrie
+  [/doubletype /doubletype] /sub load addtotrie
+  [/integertype /doubletype] /sub load addtotrie
+def  
+/mul trie
+  [/integertype /integertype] /mul load addtotrie
+  [/doubletype /integertype] /mul load addtotrie
+  [/doubletype /doubletype] /mul load addtotrie
+  [/integertype /doubletype] /mul load addtotrie
+def  
+/div trie
+  [/integertype /integertype] /div load addtotrie
+  [/doubletype /integertype] /div load addtotrie
+  [/doubletype /doubletype] /div load addtotrie
+  [/integertype /doubletype] /div load addtotrie
+def  
+
 /** @BeginDocumentation
  Name: abs - absolute value
  Synopsis:  value abs -> value
