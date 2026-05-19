@@ -47,4 +47,20 @@ Executes the command string provided by a module to initialize it.
 		  end end
 		} bind def
 
+/** @BeginDocumentation
+Name: :: - look up a literal key in a dictionary.
+
+Synopsis:  dict /key :: -> value
+
+Description:
+   Short form of `dict /key get`. Mirrors the depth-1 variant in
+   NEST 2.20.2's library.sli (the depth-2..4 nested-dict overloads
+   are not ported -- the sli3 consumers in regexp.sli only need
+   the depth-1 form).
+
+SeeAlso: get
+*/
+/:: [/dictionarytype /literaltype] /get load def
+
+
 end % systemdict
