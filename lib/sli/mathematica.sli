@@ -356,7 +356,7 @@ SeeAlso: Set, AppendTo, MergeDictionary
  2 copy    % v l d l d
  5 2 roll  % l d v l d
  exch      % l d v d l
- get_d     % l d v a
+ get     % l d v a
  exch      % l d a v
  join      % l d av
  exch      % l av d
@@ -400,8 +400,9 @@ def
 
 
 /join
- /join load
+ trie
  [/dictionarytype /dictionarytype] /join_d load addtotrie
+ [/anytype /anytype] /join load addtotrie
 def
 
 
@@ -444,7 +445,7 @@ def
  2 copy    % v l d l d
  5 2 roll  % l d v l d
  exch      % l d v d l
- get_d     % l d v a
+ get     % l d v a
  exch      % l d a v
  append    % l d av
  exch      % l av d
@@ -712,7 +713,7 @@ end
 % the level specification is restriced to [n], 130222 MD
 /MapAtLevel
 {
- 0 get 
+ 0 get
  MapRecursion
 } def
 
@@ -727,7 +728,7 @@ end
   rolld  % p i a
 
   {
-             % p i ai 
+             % p i ai
    rollu     % ai p i
    2 copy    % ai p i p i
    5 -1 roll % p i p i ai
@@ -735,7 +736,7 @@ end
    MapRecursion
   } Map
           % p i a
-  rollu   % a p i 
+  rollu   % a p i
   2 npop  % a
  }
  {pop Map}
@@ -1050,7 +1051,7 @@ def
      MapIndexed works similar to Map, however, in adition to the
      element its index within the array is also passed to the function.
      Note that the index starts with 1, according to Mathematica convention.
-     This is unlike in forallindexed where in accordance with Postscript 
+     This is unlike in forallindexed where in accordance with Postscript
      array indices start with 0.
      The result of MapIndexed is a list with the same number of values as the
      argument list.
@@ -1392,8 +1393,8 @@ SeeAlso: Dimensions
  [/arraytype] /TensorRank_ load addtotrie
 def
 
-/TensorRank [/intvectortype] {; 1} def
-/TensorRank [/doublevectortype] {; 1} def
+%/TensorRank [/intvectortype] {; 1} def
+%/TensorRank [/doublevectortype] {; 1} def
 
 /** @BeginDocumentation
 Name: Dimensions - determine dimenstions of a (hyper-rectangular) SLI array
@@ -1452,8 +1453,8 @@ trie [/arraytype]
   } loop
 } bind addtotrie def
 
-/Dimensions [/intvectortype] { length 1 arraystore } def
-/Dimensions [/doublevectortype] { length 1 arraystore } def
+%/Dimensions [/intvectortype] { length 1 arraystore } def
+%/Dimensions [/doublevectortype] { length 1 arraystore } def
 
 /** @BeginDocumentation
 Name: MatrixQ - Test whether a nested array i a matrix
@@ -1496,8 +1497,8 @@ trie [/arraytype]
 [/anytype] {pop false} addtotrie
  def
 
-/MatrixQ [/intvectortype] false def
-/MatrixQ [/doublevectortype] false def
+%/MatrixQ [/intvectortype] false def
+%/MatrixQ [/doublevectortype] false def
 
 /** @BeginDocumentation
   Name: FindRoot - numerically find a root in an interval
@@ -1746,16 +1747,16 @@ SeeAlso: MathematicaToSliIndex
 
 
    [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [1 3] [2 3] ] Part  --> [[5 6] [1 8]]
-   [ [3 [-12 -19] 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 2 2] Part --> -19  
-   [3 4 5 6 7] [-2] Part                                   --> 6 
+   [ [3 [-12 -19] 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 2 2] Part --> -19
+   [3 4 5 6 7] [-2] Part                                   --> 6
    [3 [-9 -12] 5 6 7] [2] Part                             --> [-9 -12]
    [3 [-9 -12] 5 6 7] [2 2] Part                           --> -12
-   [3 [-9 -12] 5 6 7] [[2 3]] Part                         --> [[-9 -12] 5] 
+   [3 [-9 -12] 5 6 7] [[2 3]] Part                         --> [[-9 -12] 5]
    [3 [-9 -12] 5 6 7] [[2 3 2]] Part                       --> [[-9 -12] 5 [-9 -12]]
-   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 []  ] Part    --> [] 
-   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [] 1 ] Part     --> [] 
-   [3 [5 -12] 6 9]  [ [ 2 ] ] Part                         --> [[5 -12]] 
-   [3 [5 -12] 6 9]  [ [ 2 ] 2] Part                        --> [-12] 
+   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 []  ] Part    --> []
+   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [] 1 ] Part     --> []
+   [3 [5 -12] 6 9]  [ [ 2 ] ] Part                         --> [[5 -12]]
+   [3 [5 -12] 6 9]  [ [ 2 ] 2] Part                        --> [-12]
    [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ /All [3 2]  ] Part --> [[6 5] [7 4] [8 1]]
 
   Bugs:
@@ -1831,14 +1832,14 @@ def
      rolld                         % a jm im
      dup                           % a jm im im
      rollu                         % a im jm im
-     sub 1 add   
-     dup 0 lt			    % if 2nd parameter < 0, set it to zero to force getinterval 
+     sub 1 add
+     dup 0 lt			    % if 2nd parameter < 0, set it to zero to force getinterval
      {				    % to return empty array as requested by Take in this case
-       pop 0 
-     } if 
-    
+       pop 0
+     } if
+
      getinterval
-     
+
    } case
 
    1 index 3 eq
@@ -1847,7 +1848,7 @@ def
      dup rollu Most MathematicaToSliIndex rolld Last append
      Range     % a r
      exch      % r a
-     container % r a c 
+     container % r a c
      rolld     % a c r
      {
        2 index
@@ -1885,8 +1886,8 @@ Operations are the same on strings.
 The implementation of Take uses the command container to abstract
 the container type.
 
-Note that Take handles indices ranging from -N to N where 
-    N is the length of the original container and asking for index 0 
+Note that Take handles indices ranging from -N to N where
+    N is the length of the original container and asking for index 0
     will return an empty array.
 
 If the specified indices do not exist in the container, Take throws a RangeCheck error.
@@ -1901,7 +1902,7 @@ Examples:
  [1 2 3 4 5] [1 -2] Take   --> [1 2 3 4]
  [1 2 3 4 5] [1 -2 2] Take --> [1 3]
  [1 2 3 4 5] [1 -1 2] Take --> [1 3 5]
-% [1 2 3 4 5] [1 6] Take    --> [Error]: RangeCheck 
+% [1 2 3 4 5] [1 6] Take    --> [Error]: RangeCheck
  (HAL) {1 add} Map     --> (IBM)
  (HAL) 2 Take          --> (HA)
  (HAL) -2 Take         --> (AL)
@@ -2157,9 +2158,7 @@ functional operator and for compatibility with Mathematica.
 SeeAlso: forall, repeat, FoldList, Nest
 */
 %% x a p
-/Fold [/anytype /arraytype /proceduretype] /forall load def
-/Fold [/anytype /intvectortype /proceduretype] /forall load def
-/Fold [/anytype /doublevectortype /proceduretype] /forall load def
+/Fold /forall load def
 
 
 
@@ -2522,7 +2521,7 @@ def
 /** @BeginDocumentation
    Name: Dot1D - Compute the inner product of two vectors.
    Synopsis: array array Dot1D -> num
-   Description: 
+   Description:
    Dot1D expects two one dimensional arrays or vectors and computes the
    inner product of the two arguments.
    Dot1D works equally well for arrays, doublevectors and intvectors.
@@ -2566,7 +2565,7 @@ def
    not yet protected by trie
   Author: Marc-Oliver Gewaltig, Diesmann
   FirstVersion: 31.5.2000, rewritten Dec 18 2012
-  
+
   Remarks:
   SeeAlso: Times, Dot
   References:
@@ -2575,7 +2574,7 @@ def
 /OuterProduct
 {
  exch
- { 1 index mul } Map 
+ { 1 index mul } Map
  exch pop
 } bind def
 
@@ -2990,7 +2989,7 @@ Synposis: dictionary DictQ -> true
           any        DictQ -> false
 SeeAlso: NumberQ, LiteralQ, ArrayQ
 */
-/DictQ trie 
+/DictQ trie
   [/dictionarytype] true addtotrie
   [/anytype]        false addtotrie
 def
@@ -3343,20 +3342,20 @@ SeeAlso: Min, Sort
 /Max
 {
    size 0 eq
-   {  
+   {
      /Max /RangeCheck raiseerror
    } if
    dup 0 get  % start value as sentinel
-   exch 
-   { 
+   exch
+   {
       dup 2 index gt % compare current element with sentinel
-     { 
+     {
        exch pop % if element is greater than sentinel, make it new sentinel
-     } 
+     }
      {
         pop  %else discard
-     } ifelse 
-   } forall 
+     } ifelse
+   } forall
 } def
 
 /** @BeginDocumentation
@@ -3384,20 +3383,20 @@ SeeAlso: Max, Sort, Mean, Variance
 /Min
 {
    size 0 eq
-   {  
+   {
      /Max /RangeCheck raiseerror
    } if
    dup 0 get  % start value as sentinel
-   exch 
-   { 
+   exch
+   {
       dup 2 index lt % compare current element with sentinel
-     { 
+     {
        exch pop % if element is less than sentinel, make it new sentinel
-     } 
+     }
      {
         pop  %else discard
-     } ifelse 
-   } forall 
+     } ifelse
+   } forall
 }
 def
 
@@ -3656,11 +3655,29 @@ def
 
 
 /gettoken {
- in empty not
+ in empty
+ {
+  % EOF sentinel: drop the empty `in` array that `empty` left on
+  % the stack (`empty` peeks), then push the literal /:EOF so the
+  % grammar's `/lookahead load /:EOF eq` check (in /statement) can
+  % detect end-of-input.
+  %
+  % NEST 2.20.2 had this as a bare `if` -- pushing nothing -- which
+  % left the subsequent `cdict /lookahead gettoken put` in /match
+  % under-supplied and raised StackUnderflow at EOF.
+  %
+  % NEST also used `[]` (empty array) as the sentinel and compared
+  % via `eq`; that works in NEST because /eq on arrays compared by
+  % value, but in sli3 array /eq compares by identity so two
+  % freshly-created `[]` would never be equal. We use a literal
+  % name instead -- /eq on literals compares by name index, which
+  % is value-equivalent in both interpreters.
+  pop /:EOF
+ }
  {
   First
   cdict /in in Rest put
- } if
+ } ifelse
 } def
 
 /match
@@ -3709,7 +3726,7 @@ def
 
    <</args [] >> begin                 % dictionary to store argument names of the pure function
                                        % in the #1, ..., #n notation. In case of only a single argument
-                                       % the # is sufficient 
+                                       % the # is sufficient
 % expr
      expr_sequence                        % length
 
@@ -3721,7 +3738,13 @@ def
 
      args length 0 gt
      {
-      {<< >> begin} 
+      % {<< >> begin} is a procedure LITERAL stored in this body.
+      % sli3's `append` mutates the array in place; if we appended
+      % directly to the literal we'd corrupt every subsequent call
+      % to /purefunction (the same shared proc object would grow
+      % with each lambda we compile). Clone via `{<< >> begin} {} join`
+      % -- join_p_fn allocates a fresh TokenArray.
+      {<< >> begin} {} join
       args Sort Reverse { cvlit append (Set) cvn append } forall
 
       exch join {end} join
@@ -4071,7 +4094,7 @@ def
    {
     (#) cvn /out cdict AppendTo
 %   /argument match
-   (#) /args AppendTo 
+   (#) /args AppendTo
 %  1 /n_args Set
    }
    ifelse
@@ -4208,7 +4231,7 @@ def
 /statement
 {
  {
-  /lookahead load [] eq {exit} if
+  /lookahead load /:EOF eq {exit} if   % EOF sentinel pushed by /gettoken
 
   expr
   /lookahead load /sepexpr eq
@@ -4420,10 +4443,10 @@ Description:
 
  This is to be distinguished from Map which individually applies
  the function to the elements of the array,
-   [f(a(1),f(a(2), ...,f(a(n))] 
+   [f(a(1),f(a(2), ...,f(a(n))]
 
 Parameters:
-  array is an arbitrarily shaped heterogeneous array. 
+  array is an arbitrarily shaped heterogeneous array.
   proc is any procedure object (pure function).
 
 Examples:
@@ -4450,543 +4473,3 @@ References:
  exec
 }
 def
-
-
-
-/** @BeginDocumentation
-Name: Function - creates pure function with named arguments
-
-Synopsis:
-   {proc} literal_1 ... literal_n    Function -> proc'
-   string literal_1 ... literal_n    Function -> proc'
-   [literal_1 ... literal_n] {proc}  Function -> proc'
-   [literal_1 ... literal_n] string  Function -> proc'
-
-
-Parameters:
-   proc       - code body using variables
-   string     - code body using variables in infix notation
-   literal_i  - the name of the ith argument
-   proc'      - pure function with named arguments
-
-Description:
- Pure functions are one of the most powerful features of SLI. They are
- first class objects and can be assembled at run time like arrays. Some
- times pure functions are constructed for one time execution, however more
- often they are used as arguments of functional operators like Map and Fold
- executing the pure function many times.
- If a pure function has several arguments or a particular argument is used many
- times in the code managing the location of the arguments on the stack can be
- cumbersome. In these situations operator Function is helpful, it assigns each
- argument of the pure function to a formal name which can be used in the body
- of function. If the pure function is specified as a string, Compile Math is
- called for conversion to rpn. Note that the example combining Function and Map
- is efficient. The pure function is constructed from the string only once but
- executed 4 times with different arguments. In the alternative syntax the variables
- are declared by an array prior to the body of the function. This notation increases
- the readability of definitions of  named functions because in most programming
- languages the declaration of variables preceeds the function body. In combination
- with operator def also the type of the arguments can be specified. The definition
- of a function without arguments is useful if the body of the function introduces
- local variables and therefore profits from the automatic restriction of scope by
- operator Function. This is shown in the last example. Without the empty array the
- arguments of Function would not be unique.
- The availability of the alternative version ExecFunction with immediate execution
- highlights the fact that a pure function with named arguments maybe used
- for clarity even in situations where it needs to be evaluated only once.
-
-Examples:
- 2   {x 1 x add mul} /x    Function exec --> 6
- 2 3 {x 1 x add mul} /x /y Function exec --> 6
- 2 3 {x y x add mul} /x /y Function exec --> 10
- 2 3   ( x*(y+x) )   /x /y Function exec --> 10
-
- ( x*(y+x) ) /x /y Function --> {<< >> begin /y Set /x Set x y x add mul end}
-
- [2. 3. 4. 5.]  (x + (1+x)^3) /x Function Map --> [29. 67. 129. 221.]
-
- /f ( x*(y+x) )  /x /y  Function def
- /f [/x /y] ( x*(y+x) ) Function def
-
- /f [/doubletype /doubletype] [/x /y] (y+x^2) Function def
- /f [/doubletype /doubletype] [/x /y] {y x dup mul add} Function def
-
-
- /f [] (x=sin(0.7);x^2-3*x) Function def
-
-
-Version: 090302
-Author: Diesmann
-References:
-   [1] The Mathematica Book "Function"
-SeeAlso: CompileMath, Inline, ExecFunction
-*/
-/Function_
-{
- {<< >> begin}
-
- {
-  exch
-  dup type
-  /literaltype neq
-  {
-   dup type
-   /stringtype eq
-   {
-    CompileMath
-   } if
-   exit
-  } if
-  append {Set} join
- } loop
-
- join
- {end} join
-}
-def
-
-/Function
-[/literaltype]
-{
- Function_
-} def
-
-/Function
-[/arraytype /anytype]
-{
- exch arrayload pop Function_
-}
-def
-
-
-
-/** @BeginDocumentation
-Name: ExecFunction - immediately execute a pure function with named arguments
-Synopsis:
-   {proc} literal_1 ... literal_n ExecFunction -> val
-   string literal_1 ... literal_n ExecFunction -> val
-
-Description:
-  ExecFunction is equivalent to the sequence
-  Function exec
-Examples:
- 2   {x 1 x add mul} /x    ExecFunction --> 6
- 2 3 {x 1 x add mul} /x /y ExecFunction --> 6
- 2 3 {x y x add mul} /x /y ExecFunction --> 10
- 2 3   ( x*(y+x) )   /x /y ExecFunction --> 10
-
-Version: 090304
-Author: Diesmann
- SeeAlso: Function, CompileMath, Inline
-*/
-/ExecFunction
-{
- Function exec
-} def
-
-
-/** @BeginDocumentation
-Name: LambertW - simple iteration implementing the Lambert-W function
-Synopsis:
-   double double LambertW -> double
-Parameters:
-The first parameter is the argument of the Lambert-W function, the
-second argument is the start value of the iteration. 0.0 is a good initial
-value for the principal branch of the Lambert-W function. -2.0 is a good
-choice to select the non-principal branch.
-
-Description:
-The Lambert-W function is the inverse function of x=W*exp(W). For real values of
-x and W, the function W(x) is defined on [-1/e,\infty). On the interval [-1/e,0)
-it is double valued. The two branches coincide at W(-1/e)=-1. The so called
-principal branch LambertW0 continuously grows (W>=-1) and crosses the origin (0,0).
-The non-principal branch LambertWm1 is defined on [-1/e,0) and declines to -\infty for
-growing x.
-
-LambertW uses Halley's method described in [1] (see also [2]) to
-implement the functions for the two branches LambertW0 and LambertWm1
-if NEST has no access to the GSL [3].
-
-Version: 090818
-Author: Diesmann
-References:
-[1] Corless, R. M., Gonnet, G. H., Hare, D. E. G., Jeffrey, D. J., & Knuth, D. E.
-    (1996). On the lambert w function. Advances in Computational Mathematics 5,
-     329--359.
-[2] Wikipedia (2009). Lambert W function ---wikipedia, the free encyclopedia.
-[3] Galassi, M., Davies, J., Theiler, J., Gough, B., Jungman, G., Booth, M.,
-    & Rossi, F. (2006). GNU Scientific Library Reference Manual (2nd Ed.).
-    Network Theory Limited.
-
-SeeAlso: LambertWm1, LambertW0, testsuite::test_lambertw, CompileMath
-*/
-/LambertW
-[/doubletype /doubletype] [/x /start]
-{
- 1e-12 /prec Set
- start /w    Set
- 100   % maxiters
- (we=w*E**w; w1e=(w+1)*E**w; abs((x-we)/w1e)) CompileMath
- {prec leq {w exit} if }
- (w=w-(we - x) / (w1e - (w + 2) * (we - x) / (2*w + 2));) CompileMath
-
- join join
- repeat
-}
-Function def
-
-
-
-
-/** @BeginDocumentation
-Name: LambertW0 - principal branch of the Lambert-W function
-Synopsis:
-   double LambertW0 -> double
-Description:
-The Lambert-W function [1] is the inverse function of x=W*exp(W). For real values of
-x and W, the function W(x) is defined on [-1/e,\infty). On the interval [-1/e,0)
-it is double valued. The two branches coincide at W(-1/e)=-1. The so called
-principal branch LambertW0 continuously grows (W>=-1) and crosses the origin (0,0).
-The non-principal branch LambertWm1 is defined on [-1/e,0) and declines to -\infty for
-growing x.
-
-NEST uses the GSL [2] implementations of LambertW0 and LambertWm1 if available and
-falls back to to the iterative scheme LambertW suggested in [1] if not.
-The GSL interfaces for LambertW0 and LambertWm1 are in the SpecialFunctionsModule
-of SLI.
-
-Examples:
-
-The Lambert-W function has applications in many areas as described in [1] and [3].
-For example, the solution of
-     exp(s) = 1 + a*s
-with respect to s can be written in closed form as
-  s=1/a * (-aW(-exp(-1/a)/a) -1 )
-
-Version: 090818
-Author: Diesmann
-References:
-[1] Corless, R. M., Gonnet, G. H., Hare, D. E. G., Jeffrey, D. J., & Knuth, D. E.
-    (1996). On the lambert w function. Advances in Computational Mathematics 5,
-     329--359.
-[2] Galassi, M., Davies, J., Theiler, J., Gough, B., Jungman, G., Booth, M.,
-    & Rossi, F. (2006). GNU Scientific Library Reference Manual (2nd Ed.).
-    Network Theory Limited.
-[3] Wikipedia (2009). Lambert W function ---wikipedia, the free encyclopedia.
-
-
-SeeAlso: LambertWm1, LambertW, testsuite::test_lambertw
-*/
-statusdict/have_gsl :: not
-{
- /LambertW0  [/doubletype] {0.  LambertW} def
-}
-if
-
-/** @BeginDocumentation
-Name: LambertWm1 - non-principal branch of the Lambert-W function
-Synopsis:
-   double LambertWm1 -> double
-Description:
-The Lambert-W function [1] is the inverse function of x=W*exp(W). For real values of
-x and W, the function W(x) is defined on [-1/e,\infty). On the interval [-1/e,0)
-it is double valued. The two branches coincide at W(-1/e)=-1. The so called
-principal branch LambertW0 continuously grows (W>=-1) and crosses the origin (0,0).
-The non-principal branch LambertWm1 is defined on [-1/e,0) and declines to -\infty for
-growing x.
-
-NEST uses the GSL [2] implementations of LambertW0 and LambertWm1 if available and
-falls back to to the iterative scheme LambertW suggested in [1] if not.
-The GSL interfaces for LambertW0 and LambertWm1 are in the SpecialFunctionsModule
-of SLI.
-
-Examples:
-
-The Lambert-W function has applications in many areas as described in [1] and [3].
-For example, the problem of finding the location of the maximum of the postsynaptic
-potential generated by an alpha-function shaped current can be reduced to the
-equation
-     exp(s) = 1 + a*s .
-Here, s is the location of the maximum in scaled time s=b*t, where
-b= 1/tau_alpha - 1/tau_m and a is the ratio of the time constants tau_m/tau_alpha.
-In terms of the Lambda_W function the solution is
-  s=1/a * (-aW(-exp(-1/a)/a) -1 ) .
-The solution is guaranteed to live on the non-principal branch because the scaled time
-needs to be positive. This requires W < -1/a which is trivially fulfilled for the
-non-principal branch and there is no solution on the principal branch.
-
-
-Version: 090818
-Author: Diesmann
-References:
-[1] Corless, R. M., Gonnet, G. H., Hare, D. E. G., Jeffrey, D. J., & Knuth, D. E.
-    (1996). On the lambert w function. Advances in Computational Mathematics 5,
-     329--359.
-[2] Galassi, M., Davies, J., Theiler, J., Gough, B., Jungman, G., Booth, M.,
-    & Rossi, F. (2006). GNU Scientific Library Reference Manual (2nd Ed.).
-    Network Theory Limited.
-[3] Wikipedia (2009). Lambert W function ---wikipedia, the free encyclopedia.
-SeeAlso: LambertW0, LambertW, testsuite::test_lambertw
-*/
-statusdict/have_gsl :: not
-{
- /LambertWm1 [/doubletype] {-2. LambertW} def
-}
-if
-
-%----------------------------------------------------------------------------
-/** @BeginDocumentation
-Name: ScanThread - execute a function to corresponding elements of n arrays
-Synopsis: [[a11 ... a1n]...[am1 ... amn]] {f} ScanThread -> -
-Description: ScanThread applies the given function to corresponding elements
-             of m argument arrays. This is similar to MapThread, but no results
-	     are returned.
-
-Parameters: the first parameter is a list of m arrays of equal size n.
-            The second parameter is a procedure which takes m arguments and
-	    returns nothing.
-
-Examples:   [[(a) (b) (c)] [1 2 3]] { exch (: ) join exch cvs join == } ScanThread
-
-	    generates the following output and leaves nothing on the stack.
-
-References: This function implements the simple version of Mathematica's ScanThread
-SeeAlso: MapThread, forall, Map, MapIndexed, NestList, FoldList
-*/
-
-/ScanThread
-[/arraytype /proceduretype]
-{
-  << >> begin
-    /proc Set
-    /args Set
-
-    args length 0 gt
-    {
-      % ensure all arrays have equal length
-      args { length } Map
-      dup First /l0 Set
-      Rest true exch { l0 eq and } Fold
-      not
-      {
-        /ScanThread /ArraysMustHaveEqualLength raiseerror
-      } if
-
-      args Transpose
-      { arrayload ; proc } forall
-    }
-    if
-  end
-} def
-
-%% Functions on Integer and double vectors
-
-/cva [/intvectortype] /intvector2array load def
-/cva [/doublevectortype] /doublevector2array load def
-
-/** @BeginDocumentation
-   Name: cv_iv - convert array of integers to an IntVector.
- */
-/cv_iv[/arraytype]  { {cvi} Map array2intvector } def
-
-/** @BeginDocumentation
-   Name: cv_dv - convert array of integers to a DoubleVector.
- */
-
-/cv_dv[/arraytype] { {cvd} Map array2doublevector } def
-
-/neg [/intvectortype] /neg_iv load def
-/neg [/doublevectortype] /neg_dv load def
-/inv_ /inv load def
-
-/inv [/doublevectortype] /inv_dv load def
-/inv [/doubletype] /inv_ load def
-
-/add [/intvectortype /intvectortype] /add_iv_iv load def
-/add [/integertype /intvectortype] /add_i_iv load def
-/add [/intvectortype /integertype] {exch_ add_i_iv} def
-/add [/doublevectortype /doublevectortype] /add_dv_dv load def
-/add [/doubletype /doublevectortype] /add_d_dv load def
-/add [/doublevectortype /doubletype] {exch_ add_d_dv} def
-/sub [/intvectortype /intvectortype] /sub_iv_iv load def
-/sub [/integertype /intvectortype] { neg_iv add_i_iv} def
-/sub [/intvectortype /integertype] { neg_i exch_ add_i_iv} def
-/sub [/doublevectortype /doublevectortype] /sub_dv_dv load def
-/mul [/intvectortype /intvectortype] /mul_iv_iv load def
-/mul [/integertype /intvectortype] /mul_i_iv load def
-/mul [/intvectortype /integertype] {exch_ mul_i_iv} def
-/mul [/doubletype /intvectortype]  /mul_d_iv load def
-/mul [/intvectortype /doubletype ]  {exch_ mul_d_iv} def
-/mul [/doubletype /doublevectortype] /mul_d_dv load def
-/mul [/doublevectortype /doubletype] {exch_ mul_d_dv} def
-/mul [/doublevectortype /doublevectortype] /mul_dv_dv load def
-/div [/intvectortype /integertype] { exch_ { 1 index div_ii } Map exch_ ; } def
-/div [/intvectortype /intvectortype] /div_iv_iv load def
-/div [/doublevectortype /doublevectortype] /div_dv_dv load def
-/div [/doubletype /doublevectortype] { inv_dv mul_d_dv } def
-/div [/doublevectortype /doubletype] { inv_d exch_ mul_d_dv}  def
-
-/add [/intvectortype /arraytype] {cv_iv add_iv_iv} def
-/mul [/intvectortype /arraytype] {cv_iv mul_iv_iv} def
-/sub [/intvectortype /arraytype] {cv_iv sub_iv_iv} def
-/div [/intvectortype /arraytype] {cv_iv div_iv_iv} def
-
-/add [/arraytype /intvectortype] {exch cv_iv add_iv_iv} def
-/mul [/arraytype /intvectortype] {exch cv_iv mul_iv_iv} def
-/dub [/arraytype /intvectortype] {exch cv_iv exch sub_iv_iv} def
-/div [/arraytype /intvectortype] {exch cv_iv exch div_iv_iv} def
-
-/add [/doublevectortype /arraytype] {cv_dv add_dv_dv} def
-/mul [/doublevectortype /arraytype] {cv_dv mul_dv_dv} def
-/sub [/doublevectortype /arraytype] {cv_dv sub_dv_dv} def
-/div [/doublevectortype /arraytype] {cv_dv div_dv_dv} def
-
-/add [/arraytype /doublevectortype] {exch cv_dv add_dv_dv} def
-/mul [/arraytype /doublevectortype] {exch cv_dv mul_dv_dv} def
-/dub [/arraytype /doublevectortype] {exch cv_dv exch sub_dv_dv} def
-/div [/arraytype /doublevectortype] {exch cv_dv exch div_dv_dv} def
-
-/length [/doublevectortype] /length_dv load def
-/length [/intvectortype] /length_iv load def
-/size [/intvectortype] {dup length_iv} def
-/size [/doublevectortype] {dup length_dv} def
-
-/eq [/intvectortype /intvectortype] /eq_iv load def
-/eq [/doublevectortype /doublevectortype] /eq_dv load def
-
-/neq [/intvectortype /intvectortype] {eq not} def
-/neq [/doublevectortype /doublevectortype] {eq not} def
-
-/forall [/doublevectortype /proceduretype] /forall_dv load def
-/forall [/intvectortype /proceduretype] /forall_iv load def
-
-/Map [/doublevectortype /proceduretype] /Map_ load def
-/Map [/intvectortype /proceduretype] /Map_ load def
- 
-/arrayload_ /arrayload load def
-
-/arrayload [/arraytype] /arrayload_ load def
-/arrayload [/intvectortype] {intvector2array arrayload_} def
-/arrayload [/doublevectortype] {doublevector2array arrayload_} def
-
-/get [/doublevectortype /integertype] /get_dv_i load def
-/get [/doublevectortype /intvectortype] /get_dv_iv load def
-/get [/intvectortype /integertype] /get_iv_i load def
-/get [/intvectortype /intvectortype] /get_iv_iv load def
-/get [/intvectortype /arraytype] {cv_iv get_iv_iv} def
-/get [/doublevectortype /arraytype] {cv_iv get_dv_iv} def
-
-/put  [/doublevectortype /integertype /doubletype] /put_dv_i_d load def
-/put  [/intvectortype /integertype /integertype] /put_iv_i_i load def
-
-/** @BeginDocumentation
-Name: zeros - Return a DoubleVector filled with zeros.
-Synapsis: n zeros -> [. 0. 0. ... .]
-Author: Marc-Oliver Gewaltig
-FirstVersion: Dec. 4 2012
-SeeAlso: ones, arange
-*/
-/zeros [/integertype] /zeros_dv load def
-
-/** @BeginDocumentation
-Name: ones - Return a DoubleVector filled with ones.
-Synapsis: n ones -> [. 1. 1. ... .]
-Author: Marc-Oliver Gewaltig
-FirstVersion: Dec. 4 2012
-SeeAlso: zeros, arange
-*/
-
-/ones [/integertype] /ones_dv load def
-
-/** @BeginDocumentation
-Name: arange - Return a Int/DoubleVector filled with a range of numbers.
-Synapsis: [n] arange -> [ 1  ... 10 ]
-          [a b] arange -> [a ... b]
-          [a b s] arange -> [a a+s ...]
-Description:
-arange is identical to Range, except that the returned object is a DoubleVector or IntVector, depending on the type of the
-range specification.
-
-Author: Marc-Oliver Gewaltig
-FirstVersion: Dec. 4 2012
-SeeAlso: zeros, ones, Range, array, LayoutArray, Table
-*/
-/arange_ /arange load def
-/arange [/arraytype] /arange_ load def
-
-/getinterval [/intvectortype /integertype /integertype]
-{
-   2 arraystore arange 
-   get_iv_iv 
-} def 
-
-/getinterval [/doublevectortype /integertype /integertype]
-{
-   2 arraystore arange 
-   get_dv_iv 
-} def 
-
-/<. mark def
-/<# mark def
-
-/.> { ] cv_dv } bind def
-/#> { ] cv_iv } bind def
-
-/< mark def
-/** @BeginDocumentation
-Name: <> - Construct an array or vector, depending on the element type.
-Synopsis: < obj1 ... obj n > -> [obj1, ... , objn]
-          < int1 ... intn >  -> <# int1 ... intn #>
-          < double1 ... doublen > -> <. d1 ... dn .>
-Description:
-Create an array, intvector, or doublevector, depending on the type of the entered elements.
-This constructor uses the type of the first element in the sequence to determine the target type. All other
-elements will be converted.
-FirstVersion: Dec 18 2012
-Author: Marc-Oliver Gewaltig
-*/ 
-/> 
-{
-  counttomark arraystore exch ;
-  dup 0 get type 
-  switchbegin
-  1 index /doubletype eq { pop cv_dv exit} case
-  1 index /integertype eq { pop cv_iv exit} case
-  { pop } switchdefault
-
-} bind def
-
-
-%----------------------------------------------------------------------------
-/* Begin(LOESCHMISCH!)Documentation
-
-Name:
-
-Synopsis:
-
-Description:
-
-Parameters: In :
-            Out:
-
-Examples:
-
-Diagnostics:
-
-Bugs:
-
-Author:
-
-FirstVersion:
-
-Remarks:
-
-References:
-
-Variants:
-
-SeeAlso:
-
-*/
-
-%% NOTE: There must be a carriage return after the last line, i.e., here:
