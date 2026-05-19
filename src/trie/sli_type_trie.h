@@ -85,6 +85,12 @@ namespace sli3
 	void toTokenArray(SLIInterpreter *sli, TokenArray &) const;
 	void info(SLIInterpreter *sli, std::ostream &) const;
 
+	// Render every stored variant as
+	//   [/type1 /type2 ...] -leaf-
+	// one line per variant. Functions render as `-name-`; other
+	// payload kinds (procedure, etc.) as `-typename-`.
+	void pprint(SLIInterpreter *sli, std::ostream &) const;
+
 	// Inverse of toTokenArray: reconstruct a trie from the
 	// array form emitted by cva_t. The root carries `name`;
 	// inner nodes carry an empty name. Leaf nodes are encoded as
@@ -114,6 +120,7 @@ namespace sli3
 	//    TypeNode operator=(const TypeNode &){}; // disable this operator
 	TypeNode * get_alternative(TypeNode *, unsigned int);
 	void info(SLIInterpreter *sli, std::ostream &, std::deque<TypeNode const *> &) const;
+	void pprint(SLIInterpreter *sli, std::ostream &, std::deque<TypeNode const *> &) const;
 
 	refcount_t   refs_;         //!< number of references to this Node
 	Name         name_;         //!< Name of the trie (only for root)

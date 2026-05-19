@@ -534,6 +534,35 @@ int main()
                 "2.5 trie_rt_poly",
                 4.0, 1e-12);
 
+    // Two-parameter trie with alt branching: covers the recursive
+    // `[/type [next] [alt]]` layout in both directions.
+    EVAL_INT(i,
+             "/trie_rt_2p trie "
+             "[/integertype /integertype] /add load addtotrie "
+             "[/integertype /doubletype]  /mul load addtotrie "
+             "cva_t cvt_a def "
+             "3 4 trie_rt_2p",
+             7);
+    EVAL_DOUBLE(i,
+                "3 4.0 trie_rt_2p",
+                12.0, 1e-12);
+
+    // anytype must remain at the tail of the alt-list after a round
+    // trip, otherwise a concrete type behind it becomes unreachable.
+    // Insert order here exercises get_alternative's anytype-swap
+    // path; after cva_t/cvt_a, the integertype arm must still win
+    // for an int operand.
+    EVAL_INT(i,
+             "/trie_rt_any trie "
+             "[/anytype]     { pop 999 } addtotrie "
+             "[/integertype] { pop 1 } addtotrie "
+             "cva_t cvt_a def "
+             "42 trie_rt_any",
+             1);
+    EVAL_INT(i,
+             "(s) trie_rt_any",
+             999);
+
     std::cout << "test_sli_eval: all assertions passed\n";
     return 0;
 }

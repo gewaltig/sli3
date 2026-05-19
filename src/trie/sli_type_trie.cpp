@@ -61,20 +61,34 @@ namespace sli3
 
   void TypeNode::toTokenArray(SLIInterpreter *sli, TokenArray &a) const
   {
-      if(tag_ == sli3::nulltype)
+      assert(a.size() == 0);
+
+      // Leaf detection: structural, matching NEST 2.20.2. The
+      // previous `tag_ == nulltype` check happened to work because
+      // every leaf carries nulltype, but it conflated "no payload
+      // type" with "this is the terminal node" -- the same conflation
+      // that silently disabled info() before its fix. Use the
+      // structural form to keep cva_t and info in lockstep.
+      if (next_ == NULL && alt_ == NULL)
       {
+          // Empty trie root: nothing was ever inserted. Emit `[]`
+          // (cva_t then yields `/name []`) instead of `[/nulltoken]`,
+          // which was a non-round-trippable artefact of pushing the
+          // root's default-constructed func slot.
+          if (func_.type_ == nullptr)
+              return;
           a.push_back(func_);
-	  return;
+          return;
       }
 
-      assert(a.size()==0);
+      assert(next_ != NULL);
       a.push_back(sli->new_token<sli3::literaltype>(sli->get_type(tag_)->get_typename()));
-      TokenArray *a_next_=new TokenArray();
+      TokenArray *a_next_ = new TokenArray();
       next_->toTokenArray(sli, *a_next_);
       a.push_back(sli->new_token<sli3::arraytype>(a_next_));
-      if(alt_ != NULL)
+      if (alt_ != NULL)
       {
-          TokenArray *a_alt_= new TokenArray();
+          TokenArray *a_alt_ = new TokenArray();
           alt_->toTokenArray(sli, *a_alt_);
           a.push_back(sli->new_token<sli3::arraytype>(a_alt_));
       }
@@ -84,6 +98,12 @@ namespace sli3
                                  TokenArray const &a)
   {
       const size_t n = a.size();
+      if (n == 0)
+      {
+          // Empty trie: cva_t of a freshly-created /foo trie. Round
+          // trip back to an empty root.
+          return new TypeNode(Name());
+      }
       if (n == 1)
       {
           TypeNode *node = new TypeNode(Name());
@@ -130,11 +150,12 @@ namespace sli3
     
   void TypeNode::info(SLIInterpreter *sli, std::ostream &out, std::deque<TypeNode const *> &tl) const
   {
-      if(tag_ == sli3::nulltype)
-	  return;
-
       if(next_ == NULL && alt_ == NULL) // Leaf node
       {
+	  // Empty trie root: no parameters ever pushed, no func bound.
+	  if (func_.type_ == nullptr)
+	      return;
+
 	  // print type list then function
 	  for(int i=tl.size()-1; i>=0;--i)
 	  {
@@ -283,6 +304,58 @@ namespace sli3
     {
 	std::deque<TypeNode const * > tl;
 	info(sli, out, tl);
+    }
+
+    namespace {
+	// Compact leaf rendering used by pprint: functions emit
+	// `-name-`, anything else falls back to `-typename-`.
+	void render_leaf(std::ostream &out, Token const &t)
+	{
+	    if (t.type_ == nullptr)
+	    {
+		out << "+null+";
+		return;
+	    }
+	    if (t.tag() == sli3::functiontype && t.data_.func_val != nullptr)
+		out << '-' << t.data_.func_val->get_name() << '-';
+	    else
+		out << '-' << t.type_->get_typename() << '-';
+	}
+    }
+
+    void TypeNode::pprint(SLIInterpreter *sli, std::ostream &out, std::deque<TypeNode const *> &tl) const
+    {
+	if (next_ == NULL && alt_ == NULL) // Leaf node
+	{
+	    if (func_.type_ == nullptr)
+		return; // empty root, nothing bound
+
+	    out << '[';
+	    for (int i = static_cast<int>(tl.size()) - 1; i >= 0; --i)
+	    {
+		if (i != static_cast<int>(tl.size()) - 1)
+		    out << ' ';
+		out << '/' << sli->get_type(tl[i]->tag_)->get_typename();
+	    }
+	    out << "] ";
+	    render_leaf(out, func_);
+	    out << '\n';
+	}
+	else
+	{
+	    assert(next_ != NULL);
+	    tl.push_back(this);
+	    next_->pprint(sli, out, tl);
+	    tl.pop_back();
+	    if (alt_ != NULL)
+		alt_->pprint(sli, out, tl);
+	}
+    }
+
+    void TypeNode::pprint(SLIInterpreter *sli, std::ostream &out) const
+    {
+	std::deque<TypeNode const *> tl;
+	pprint(sli, out, tl);
     }
 
 }

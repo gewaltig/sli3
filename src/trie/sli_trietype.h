@@ -78,10 +78,13 @@ namespace sli3
         return out;
       }
 
+    // Expanded form: list every stored variant. `==` (which calls
+    // pprint) thus dumps the full overload set, mirroring how
+    // procedures pprint their body while print emits a one-liner.
     std::ostream & pprint(std::ostream&out, const Token &t) const override
       {
         if (t.data_.trie_val == 0) return out << "+null+";
-        out << '+' << t.data_.trie_val->get_name() << '+';
+        t.data_.trie_val->pprint(sli_, out);
         return out;
       }
 
