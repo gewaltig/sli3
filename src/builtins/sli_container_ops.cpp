@@ -1426,6 +1426,23 @@ public:
         i->require_stack_type(1, TID);
         TokenArray* arr = i->pick(1).data_.array_val;
         if (!require_writable(arr, i)) return;
+        // Clone-on-write: when the array is shared (refs > 1, i.e. some
+        // other Token also references it), mutating it in place would
+        // leak into the other sharers. This is the bug that makes
+        // SLIFunctionWrapper's wrapper-construction trample the embedded
+        // `{ << >> begin }` litproc literal across calls. NEST 2.20.2
+        // gets this behaviour from lockPTRDatum's clone-on-write; we
+        // do the same here by detaching when shared. The stack copy on
+        // pick(1) plus any other holder counts as a sharer, so refs > 1
+        // is the right threshold.
+        if (arr->references() > 1)
+        {
+            TokenArray* fresh = new TokenArray(*arr);  // refs_=1
+            Token& slot = i->pick(1);
+            arr->remove_reference();
+            slot.data_.array_val = fresh;
+            arr = fresh;
+        }
         arr->push_back(i->top());
         i->pop();  // drop value, leave container on top
     }
