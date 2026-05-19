@@ -124,6 +124,25 @@ systemdict begin
 
    SeeAlso: raiseerror, resume, errordict
 */
+%% Set of typenames that denote an active continuation frame on the
+%% execution stack. The top of each such frame is the point where
+%% execution will resume after its inner call returns -- /trace
+%% marks them with an arrow. Keys match the typenames registered in
+%% sli_interpreter.cpp's init_types (the OperatorType<...> "...continue"
+%% labels), not the sli_typeid enum identifiers.
+/:trace_frame_heads
+<<
+  /proc_continue                true
+  /repeat_continue              true
+  /for_continue                 true
+  /forall_continue              true
+  /loop_continue                true
+  /parse_continue               true
+  /forallstring_continue        true
+  /forallindexedarray_continue  true
+  /forallindexedstring_continue true
+>> def
+
 /trace
 {
   errordict /estack known
@@ -137,16 +156,36 @@ systemdict begin
     }
     {
       (Execution stack at error (most recent first):) =
-      dup length 1 sub  %% array (n-1)
-      -1                %% step
-      0                 %% end
+      %% Scratch dict avoids stack-depth juggling across the inner
+      %% ifelse/known/get chain in the loop body.
+      3 dict begin
+      /:t_arr exch def                          %% []
+      /:t_top /:t_arr load length 1 sub def
+      /:t_top load -1 0
       {
-        %% body: stack = [array, idx]
-        1 index exch get  %% [array, elem]
-        (  ) =only
-        =
+        /:t_idx exch def
+        %% Use `/:name load` rather than `:name`: bare-name lookup
+        %% dispatches executable values (functions, tries, procs),
+        %% and the snapshot's top is exactly that -- a trie that
+        %% would re-run if executed. `load` pushes the value
+        %% inert.
+        /:t_arr load /:t_idx load get
+        /:t_elem exch def
+        %% Arrow if this is the topmost frame, OR the entry is a
+        %% continuation marker (iter / loop / parse / ...). The
+        %% null-token slot (e.g. an uninitialised loop counter)
+        %% would crash `type`, so we screen those out via cvs
+        %% first -- a null Token can never be a frame head.
+        /:t_idx load /:t_top load eq
+          /:t_elem load cvs (/nulltoken) eq
+            { false }
+            { /:t_elem load type :trace_frame_heads exch known }
+            ifelse
+          or
+        { (=> ) =only } { (   ) =only } ifelse
+        /:t_elem load =
       } for
-      pop
+      end
     } ifelse
   }
   {
