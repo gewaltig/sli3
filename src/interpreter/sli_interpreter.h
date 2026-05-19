@@ -108,6 +108,17 @@ namespace sli3
 	void clear_parser_context();
 
 	Token read_token(std::istream &);
+
+	// Read a single scanner token (not a parser token). Returns the
+	// raw symbol/name/literal/string/number that the scanner
+	// produces -- including the bare BeginProcedureSymbol /
+	// EndProcedureSymbol / BeginArraySymbol / EndArraySymbol etc.
+	// without trying to balance them. This is the "readSymbol"
+	// semantics from NEST 2.x, needed by `symbol_s` for the
+	// `({)  symbol pop ...` idiom in mathematica.sli where the
+	// caller wants the symbol token corresponding to a single `{`
+	// or `}` without invoking procedure-body collection.
+	Token read_symbol(std::istream &);
 	/**
 	 * Execute the commands, supplied as string.
 	 */

@@ -481,6 +481,13 @@ Token SLIInterpreter::read_token(std::istream &in) {
   return t;
 }
 
+Token SLIInterpreter::read_symbol(std::istream &in) {
+  Token t;
+  if (not parser_->readSymbol(*this, in, t))
+    throw SyntaxError();
+  return t;
+}
+
 Name SLIInterpreter::get_current_name(void) const {
   // Axis I bundle step 1: prefer the dispatcher's transient
   // current_op_ record over the e-stack read. Today (step 1)

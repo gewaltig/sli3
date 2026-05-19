@@ -1714,12 +1714,13 @@ SeeAlso: token
 
 void  Symbol_sFunction::execute(SLIInterpreter *i) const
 {
-  // Stage 4.10: implemented as a thin wrapper around read_token --
-  // sli-init.sli's /css uses symbol_s only on strings that
-  // tokenize cleanly as symbols (e.g. literal names), so the
-  // narrower "readSymbol" semantics from NEST 2.x aren't needed
-  // for the bootstrap path. If a future use case needs strict
-  // symbol-only filtering, gate the result Token's typeid here.
+  // Returns the raw scanner token corresponding to the input
+  // string -- no procedure-body balancing, no array assembly.
+  // This is the NEST 2.x "readSymbol" semantics: feed the 1-char
+  // string `{` and get back the bare BeginProcedureSymbol token,
+  // without the parser trying to collect a procedure body and
+  // failing on EOF. mathematica.sli depends on this for the
+  // `({)  symbol pop /BeginProcedureSymbol Set pop` idiom.
   i->require_stack_load(1);
   i->require_stack_type(0, sli3::stringtype);
   // Axis I bundle step 4: dispatcher pre-popped /symbol_s.
@@ -1730,7 +1731,7 @@ void  Symbol_sFunction::execute(SLIInterpreter *i) const
 
   Token t;
   i->clear_parser_context();
-  t = i->read_token(in);
+  t = i->read_symbol(in);
   if (t == i->EndSymbol)
   {
     i->pop();
