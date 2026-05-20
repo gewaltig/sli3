@@ -5,8 +5,7 @@
 *.so
 /sli
 /sli3
-/test_dictionary
-/test_token
+/test_*
 
 # Editor backups
 *~
@@ -16,15 +15,19 @@
 # Local Claude Code settings
 .claude/
 
-# CMake
+# CMake (root-anchored to catch accidental in-source builds; out-of-source
+# builds in build/ are also covered by build/ below). /Makefile is NOT
+# ignored — the repo ships a hand-written convenience Makefile that wraps
+# cmake; in-source CMake builds (which would overwrite it) are blocked
+# by the guard in CMakeLists.txt.
 build/
 build-*/
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-makefile
-compile_commands.json
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/CTestTestfile.cmake
+/config.h
+/compile_commands.json
 
 # Benchmark results DB (per-machine; regenerate baseline via
 # bench/init_db.sh)

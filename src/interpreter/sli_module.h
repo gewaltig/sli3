@@ -49,11 +49,21 @@ namespace sli3
     
     /**
      * Return sli command sequence to be executed for initialisation.
+     * Inlined so the class has no out-of-line virtual definition: the
+     * C++ ABI's "key function" rule would otherwise emit typeinfo only
+     * in the TU defining this method, and the corresponding .cpp lives
+     * under unported/ (no concrete SLIModule subclass exists in sli3).
+     * Linux UBSan emits dynamic-type checks that reference SLIModule's
+     * typeinfo from sli_interpreter.cpp; with no key function the
+     * typeinfo gets vague linkage and the link succeeds.
      */
-    virtual const std::string commandstring(void) const;
-    
+    virtual const std::string commandstring(void) const { return std::string(); }
+
     /**
      * Print installation message via interpreter message command.
+     * Declared but never defined — no caller exists in sli3 (the only
+     * use site is the SLIInterpreter::addmodule<T> template, which is
+     * never instantiated).
      */
     void install(std::ostream &, SLIInterpreter *);
   };
