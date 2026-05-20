@@ -263,21 +263,8 @@ namespace sli3
     void execute(SLIInterpreter *) const;
   };
 
-  /**
-   * /trace — pretty-print errordict /estack one *frame* per line.
-   * Decodes the nine continuation marker layouts directly from the
-   * snapshot, hides REPL/executive baseline frames, and annotates
-   * the failing op (body[pos-1]) on the innermost frame. SLI
-   * replacement of the dictless lookup chain that used to live in
-   * lib/sli/debug.sli.
-   */
-  class TraceFunction: public SLIFunction
-  {
-  public:
-    TraceFunction() {}
-    void execute(SLIInterpreter *) const;
-  };
-  
+  // TraceFunction lives in src/builtins/sli_trace.{h,cpp}.
+
   class RaiseagainFunction: public SLIFunction
   {
   public:

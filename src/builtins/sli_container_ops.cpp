@@ -11,6 +11,7 @@
 #include "sli_access_check.h"
 #include "sli_array.h"
 #include "sli_container_ops.h"
+#include "sli_cow.h"
 #include "sli_dictionary.h"
 #include "sli_exceptions.h"
 #include "sli_function.h"
@@ -1416,6 +1417,13 @@ UndefFunction undef_fn;
 // share TokenArray storage — a single template covers them.
 //------------------------------------------------------------------------
 
+// Extension ops (append, prepend) clone-on-write when the underlying
+// container has refs > 1. The SLI parser shares literal procedure
+// bodies (e.g. the `{ << >> begin }` inside SLIFunctionWrapper) across
+// uses; without COW the first SLIFunctionWrapper call would trample the
+// literal for every later consumer. Assignment ops (/put) deliberately
+// do *not* COW — PostScript semantics keep the shared view on a slot
+// write. NEST 2.20.2 got this whole behaviour from lockPTRDatum.
 template <unsigned int TID>
 class AppendArrayLikeFunction : public SLIFunction
 {
@@ -1424,25 +1432,8 @@ public:
     {
         i->require_stack_load(2);
         i->require_stack_type(1, TID);
-        TokenArray* arr = i->pick(1).data_.array_val;
-        if (!require_writable(arr, i)) return;
-        // Clone-on-write: when the array is shared (refs > 1, i.e. some
-        // other Token also references it), mutating it in place would
-        // leak into the other sharers. This is the bug that makes
-        // SLIFunctionWrapper's wrapper-construction trample the embedded
-        // `{ << >> begin }` litproc literal across calls. NEST 2.20.2
-        // gets this behaviour from lockPTRDatum's clone-on-write; we
-        // do the same here by detaching when shared. The stack copy on
-        // pick(1) plus any other holder counts as a sharer, so refs > 1
-        // is the right threshold.
-        if (arr->references() > 1)
-        {
-            TokenArray* fresh = new TokenArray(*arr);  // refs_=1
-            Token& slot = i->pick(1);
-            arr->remove_reference();
-            slot.data_.array_val = fresh;
-            arr = fresh;
-        }
+        if (!require_writable(i->pick(1).data_.array_val, i)) return;
+        TokenArray* arr = cow_array_slot(i, 1);
         arr->push_back(i->top());
         i->pop();  // drop value, leave container on top
     }
@@ -1456,8 +1447,8 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
-        SLIString* sv = i->pick(1).data_.string_val;
-        if (!require_writable(sv, i)) return;
+        if (!require_writable(i->pick(1).data_.string_val, i)) return;
+        SLIString* sv = cow_string_slot(i, 1);
         sv->str().push_back(static_cast<char>(i->top().data_.long_val));
         i->pop();
     }
@@ -1465,9 +1456,6 @@ public:
 
 // `c1 any prepend_<a|p> -> c1'` — insert a single token at index 0.
 // `s1 int prepend_s   -> s1'` — insert a single character at index 0.
-// Mirrors NEST 2.20.2 sli/slidata.cc Prepend_a/p/s — no validation; the
-// underlying array/string supports the insert directly. We mutate in
-// place (same convention as append).
 template <unsigned int TID>
 class PrependArrayLikeFunction : public SLIFunction
 {
@@ -1476,8 +1464,8 @@ public:
     {
         i->require_stack_load(2);
         i->require_stack_type(1, TID);
-        TokenArray* arr = i->pick(1).data_.array_val;
-        if (!require_writable(arr, i)) return;
+        if (!require_writable(i->pick(1).data_.array_val, i)) return;
+        TokenArray* arr = cow_array_slot(i, 1);
         arr->insert(0, i->top());
         i->pop();  // drop value, leave container on top
     }
@@ -1491,8 +1479,8 @@ public:
         i->require_stack_load(2);
         i->require_stack_type(1, sli3::stringtype);
         i->require_stack_type(0, sli3::integertype);
-        SLIString* sv = i->pick(1).data_.string_val;
-        if (!require_writable(sv, i)) return;
+        if (!require_writable(i->pick(1).data_.string_val, i)) return;
+        SLIString* sv = cow_string_slot(i, 1);
         std::string& s = sv->str();
         s.insert(s.begin(), static_cast<char>(i->top().data_.long_val));
         i->pop();

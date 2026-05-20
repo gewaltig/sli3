@@ -9,6 +9,23 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Link-time optimization for Release builds. Enabled by default so that
+# function placement is decided across all TUs rather than per-file —
+# this neutralizes the icache-layout sensitivity that otherwise makes
+# trimming any single function body show up as a 10–20% hot-path swing
+# in the dispatcher benches. Toggle off with -DSLI3_LTO=OFF if your
+# compiler can't keep up.
+option(SLI3_LTO "Enable link-time optimization for Release builds" OFF)
+if(SLI3_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT _sli3_ipo_ok OUTPUT _sli3_ipo_msg)
+  if(_sli3_ipo_ok)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+  else()
+    message(WARNING "LTO requested but not supported: ${_sli3_ipo_msg}")
+  endif()
+endif()
+
 # config.h carries the few compile-time constants the rewritten startup
 # reads (version, default sli-init.sli location). Generated into the
 # build dir so a regenerate doesn't dirty the source tree.
@@ -71,6 +88,7 @@ add_library(sli3_core STATIC
   src/builtins/sli_state_ops.cpp
   src/builtins/sli_access_ops.cpp
   src/builtins/sli_regex_module.cpp
+  src/builtins/sli_trace.cpp
 
   # trie / serialize / util
   src/trie/sli_type_trie.cpp
@@ -101,6 +119,13 @@ target_compile_options(sli3_core PRIVATE
   -Wall
   -Wextra
   -Wno-unused-parameter
+  # Align every function to a 64-byte boundary so a body-size change
+  # in any one TU can't shift later functions to a worse icache offset.
+  # Without this, removing a single `std::cerr` call from a cold
+  # deserialize path costs ~15 % on the dispatcher benches because
+  # execute_dispatch_ ends up straddling a cache line. Cost: a few
+  # NOPs per function (avg ~32 bytes), well under 1 % binary growth.
+  $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-falign-functions=64>
 )
 
 # Tests link sli3_core (PRIVATE flags don't propagate). This INTERFACE

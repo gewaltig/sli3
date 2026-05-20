@@ -17,6 +17,7 @@
 #include "sli_token.h"
 #include "sli_type.h"
 
+#include <memory>
 #include <regex.h>
 #include <string>
 #include <vector>
@@ -42,13 +43,17 @@ public:
         std::string const& pat = i->pick(1).data_.string_val->str();
         int flags = static_cast<int>(i->pick(0).data_.long_val);
 
-        Regex* r = new Regex;  // refs_=1
+        // RAII for the wrapper until it lands on the stack. compile()
+        // does a std::string assignment that can throw bad_alloc; the
+        // unique_ptr covers that window. Once tok holds the pointer,
+        // Token refcounting drives cleanup on later exceptions.
+        auto r = std::make_unique<Regex>();
         int e = r->compile(pat, flags);
         i->pop(2);
 
         Token tok(i->get_type(sli3::regextype));
-        tok.data_.regex_val = r;
-        i->push(tok);  // stack copy bumps refs to 2
+        tok.data_.regex_val = r.release();
+        i->push(tok);
 
         if (e == 0)
         {
@@ -59,7 +64,6 @@ public:
             i->push<long>(static_cast<long>(e));
             i->push<bool>(false);
         }
-        // `tok` destructor drops refs back to 1 (owner = stack).
     }
 };
 
@@ -104,19 +108,24 @@ public:
 
         if (size > 0)
         {
-            TokenArray* out = new TokenArray();  // refs_=1
+            // RAII: unique_ptr covers the construction window; once a
+            // TokenArray lands inside a Token, intrusive refcount takes
+            // over (Token dtor will free it if no other holder picks it up).
+            auto out = std::make_unique<TokenArray>();
             out->reserve(size);
             for (std::size_t k = 0; k < size; ++k)
             {
-                TokenArray* pair = new TokenArray();  // refs_=1
+                auto pair = std::make_unique<TokenArray>();
                 pair->reserve(2);
                 pair->push_back(i->new_token<sli3::integertype, long>(
                     static_cast<long>(pm[k].rm_so)));
                 pair->push_back(i->new_token<sli3::integertype, long>(
                     static_cast<long>(pm[k].rm_eo)));
-                out->push_back(i->new_token<sli3::arraytype, TokenArray*>(pair));
+                Token sub = i->new_token<sli3::arraytype, TokenArray*>(pair.release());
+                out->push_back(sub);
             }
-            i->push(i->new_token<sli3::arraytype, TokenArray*>(out));
+            Token arr = i->new_token<sli3::arraytype, TokenArray*>(out.release());
+            i->push(arr);
         }
         i->push<long>(static_cast<long>(e));
     }
@@ -137,14 +146,14 @@ public:
         Regex* r = i->pick(1).data_.regex_val;
         int code = static_cast<int>(i->pick(0).data_.long_val);
 
-        // POSIX regerror takes a const regex_t* and tolerates a null
-        // (or uncompiled) source for diagnostic codes that don't
-        // depend on the compiled state -- but most implementations
-        // dereference it, so pass r_ unconditionally. If compile
-        // never succeeded the regex_t is undefined; we still pass it
-        // through (matching NEST 2.x's assert-only guard).
+        // :regerror is reached exactly when regcomp failed -- the regex_t
+        // inside `r` is uninitialized in that case, and dereferencing it
+        // is UB on POSIX implementations that consult preg for code
+        // interpretation. Pass nullptr unless we actually have a
+        // compiled regex.
         char buf[256];
-        regerror(code, r ? r->posix() : nullptr, buf, sizeof buf);
+        regerror(code, (r && r->compiled()) ? r->posix() : nullptr,
+                 buf, sizeof buf);
 
         i->pop(2);
         i->push(i->new_token<sli3::stringtype, std::string>(std::string(buf)));

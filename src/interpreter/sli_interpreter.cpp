@@ -23,6 +23,7 @@
 #include "sli_startup.h"
 #include "sli_string.h"
 #include "sli_stringtype.h"
+#include "sli_trace.h"
 #include "sli_trietype.h"
 #include <algorithm>
 #include <ostream>
@@ -375,6 +376,7 @@ void SLIInterpreter::init_internal_functions(void) {
   init_state_ops(this);
   init_access_ops(this);
   init_regex_module(this);
+  init_trace(this);
   // GNUreadline / GNUaddhistory must be registered BEFORE sli-init.sli
   // loads — the script's /executive definition gates on
   // `systemdict /GNUreadline known` and only picks the line-editing

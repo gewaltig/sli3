@@ -2748,6 +2748,10 @@ SeeAlso: Dot, Plus, Times, add
 % `1 index add` inside Map can't reach the scalar, because Map's
 % body sits above a `[` mark from the array-literal collector
 % (sli-init.sli:147). Stash the scalar in a scratch dict instead.
+% NOT bound: the body references `:s`, which only resolves after
+% the enclosing `1 dict begin ... :s ... end` puts the dict on the
+% dictstack -- bind happens at definition time, before the dict
+% exists, so we leave name resolution to runtime.
 /Add_i_a
 {
   % stack: scalar [a]

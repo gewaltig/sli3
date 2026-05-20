@@ -423,6 +423,10 @@ static inline void hot_op_put(SLIInterpreter* i)
          || coll == sli3::litproceduretype)
         && idx == sli3::integertype)
     {
+        // /put assigns into an existing slot; PostScript and NEST 2.x
+        // preserve the mutation through every holder of the array. No
+        // clone-on-write here — that's what /append uses to dodge the
+        // parser-shared-literal trample.
         TokenArray* arr = i->pick(2).data_.array_val;
         if (!require_writable(arr, i)) return;
         long k = resolve_index(i->pick(1).data_.long_val, arr->size());
@@ -439,6 +443,12 @@ static inline void hot_op_put(SLIInterpreter* i)
     {
         // Path-into-nested-arrays: `arr [i0 i1 ...] val put` →
         // `arr[i0][i1]... = val`. Mirrors PutArrayArrayTokenFunction.
+        // Path-put does NOT clone-on-write down the descent chain: a
+        // shared intermediate array would leak the leaf mutation to
+        // other holders. The single-level array put above privatises
+        // its slot; nested-path COW would require cloning every level.
+        // Not in scope for typical SLI usage (paths land on dict-side
+        // structures); revisit if a regression surfaces.
         TokenArray* src  = i->pick(2).data_.array_val;
         TokenArray* path = i->pick(1).data_.array_val;
         if (!require_readable(path, i)) return;
