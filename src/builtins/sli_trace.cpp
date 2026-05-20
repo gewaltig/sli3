@@ -243,7 +243,7 @@ std::vector<Frame> decode_snapshot(TokenArray const& snap) {
     long k = static_cast<long>(snap.size()) - 1;
     while (k >= 0) {
         Token const& top = snap[k];
-        unsigned int tag = top.type_ ? top.tag() : sli3::nulltype;
+        unsigned int tag = top.type_ ? top.tag() : static_cast<unsigned int>(sli3::nulltype);
         MarkerDesc const* m = find_marker(tag);
         if (m && k >= m->slots - 1) {
             Frame f;

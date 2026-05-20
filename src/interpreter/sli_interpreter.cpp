@@ -860,7 +860,7 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           execution_stack_.push(null_val);
           execution_stack_.push(iiterate_t);
           // fall through to the unified body-walk case below.
-          // [[fallthrough]]
+          [[fallthrough]];
         case sli3::iiteratetype:
         case sli3::irepeattype:
         case sli3::ifortype:
