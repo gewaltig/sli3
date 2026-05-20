@@ -642,30 +642,12 @@ def
 def
 %%%%%
 
-/add trie
-  [/integertype /integertype] /add load addtotrie
-  [/doubletype /integertype] /add load addtotrie
-  [/doubletype /doubletype] /add load addtotrie
-  [/integertype /doubletype] /add load addtotrie
-def  
-/sub trie
-  [/integertype /integertype] /sub load addtotrie
-  [/doubletype /integertype] /sub load addtotrie
-  [/doubletype /doubletype] /sub load addtotrie
-  [/integertype /doubletype] /sub load addtotrie
-def  
-/mul trie
-  [/integertype /integertype] /mul load addtotrie
-  [/doubletype /integertype] /mul load addtotrie
-  [/doubletype /doubletype] /mul load addtotrie
-  [/integertype /doubletype] /mul load addtotrie
-def  
-/div trie
-  [/integertype /integertype] /div load addtotrie
-  [/doubletype /integertype] /div load addtotrie
-  [/doubletype /doubletype] /div load addtotrie
-  [/integertype /doubletype] /div load addtotrie
-def  
+% The scalar /add /sub /mul /div stay as direct C++ functiontype
+% leaves -- no wrapping trie. Their array-valued companions live
+% in mathematica.sli as /Add /Sub /Mul /Div (commit b6386ec used
+% to layer array arms on top of /add etc., which forced every
+% scalar dispatch through a trie lookup and cost ~10 ns per call;
+% B2/B2b/B3 regressed by ~60% as a result).
 
 /** @BeginDocumentation
  Name: abs - absolute value

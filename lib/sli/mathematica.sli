@@ -2716,193 +2716,205 @@ SeeAlso: LayoutArray, Part, Table, Dimensions
 
 
 /** @BeginDocumentation
-Name: add - add two numbers or vectors
-Synopsis: n1 n2  add -> n3
-          a1 a2  add -> a3
-Description: add can be used to add numbers and arrays.
-
-  If applied to numbers, add returns the sum of the numbers. If one
-  of the arguments is a double, the result is also a double.
-
-  Applied to arrays, add perfoms a per-component addition of the two
-  arrays. The components must be numbers, however, integer and double
-  values may be mixed.
-
-  Note that the two arrays must be of the same size.
-
+Name: Add - elementwise add for numbers and arrays
+Synopsis: n1 n2  Add -> n3
+          a1 a2  Add -> a3
+Description: Add is the Mathematica-style elementwise version of /add.
+  It accepts mixed scalar/array operands. The scalar `add` operator
+  stays a direct C++ leaf so the hot-path arithmetic that doesn't
+  need this dispatch (`1 1 add`) pays nothing -- that's the reason
+  for the rename.
 
 Examples:
-           1 2   add -> 3
-           1.0 2 add -> 3.0
-           [1 2] [3 4] add -> [4 6]
-           1 [3 4] add -> [4 5]
+           1 2   Add -> 3
+           1.0 2 Add -> 3.0
+           [1 2] [3 4] Add -> [4 6]
+           1 [3 4] Add -> [4 5]
 Author: M-O Gewaltig
-SeeAlso: Dot, Plus, Times
+SeeAlso: Dot, Plus, Times, add
 */
 
-
-/add_a_a
+% Array-arm leaves. They use the bare scalar `add` for the inner
+% recursion -- bind locks that in at definition time, so nested
+% arrays would hit a scalar arg-type error. Nesting was implicit
+% before the rename (the trie matched arraytype again); if we ever
+% need it back, drop the `bind` and recurse through /Add.
+/Add_a_a
 {
   2 arraystore
   { add } MapThread
 }  bind def
 
-/add_i_a
+% `1 index add` inside Map can't reach the scalar, because Map's
+% body sits above a `[` mark from the array-literal collector
+% (sli-init.sli:147). Stash the scalar in a scratch dict instead.
+/Add_i_a
 {
-  {
-    1 index add
-  } Map
-  exch pop
-} bind def
+  % stack: scalar [a]
+  exch
+  1 dict begin
+    /:s exch def
+    { :s add } Map
+  end
+} def
 
-/add_a_i
+/Add_a_i
 {
-  exch_ add_i_a
-} bind def
+  exch Add_i_a
+} def
 
-/add [/arraytype /arraytype] /add_a_a load def
-/add [/doubletype /arraytype] /add_i_a load def
-/add [/arraytype /doubletype] /add_a_i load def
-/add [/integertype /arraytype] /add_i_a load def
-/add [/arraytype /integertype] /add_a_i load def
+/Add trie
+  [/arraytype /arraytype]   /Add_a_a load addtotrie
+  [/doubletype /arraytype]  /Add_i_a load addtotrie
+  [/arraytype /doubletype]  /Add_a_i load addtotrie
+  [/integertype /arraytype] /Add_i_a load addtotrie
+  [/arraytype /integertype] /Add_a_i load addtotrie
+def
 
 /** @BeginDocumentation
-Name: sub - subtract two numbers or vectors
+Name: Sub - elementwise subtract for numbers and arrays
 
-Synopsis: n1 n2  sub -> n3
-          a1 a2  sub -> a3
+Synopsis: n1 n2  Sub -> n3
+          a1 a2  Sub -> a3
 
-Description: sub can be used to subtract numbers and arrays.
-
-  If applied to numbers, sub returns the difference of the numbers. If one
-  of the arguments is a double, the result is also a double.
-
-  Applied to arrays, sub perfoms a per-component subtraction of the two
-  arrays. The components must be numbers, however, integer and double
-  values may be mixed.
-
-  Note that the two arrays must be of the same size.
-
+Description: Mathematica-style elementwise /sub. See /Add for the
+  rationale.
 
 Examples:
-           5 2   sub -> 3
-           5.0 2 sub -> 3.0
-           [5 7] [3 4] sub -> [2 3]
-           [3 4] 1 sub -> [2 3]
+           5 2   Sub -> 3
+           5.0 2 Sub -> 3.0
+           [5 7] [3 4] Sub -> [2 3]
+           [3 4] 1 Sub -> [2 3]
 
-Author: docu by Sirko Straube (adopted from add)
+Author: docu by Sirko Straube (adopted from Add)
 
-SeeAlso: add, mul, div
+SeeAlso: Add, Mul, Div, sub
 */
 
-/sub_a_a
+/Sub_a_a
 {
   2 arraystore
   { sub } MapThread
 }  bind def
 
-/sub_i_a
+/Sub_i_a
 {
-  {
-    1 index exch_ sub
-  } Map
-  exch pop
-} bind def
+  % stack: scalar [a]  ->  [scalar-each]
+  exch
+  1 dict begin
+    /:s exch def
+    { :s exch sub } Map
+  end
+} def
 
-/sub_a_i
+/Sub_a_i
 {
-  exch_
-  {
-    1 index sub
-  } Map
-  exch_ pop
-} bind def
+  % stack: [a] scalar  ->  [each-scalar]
+  1 dict begin
+    /:s exch def
+    { :s sub } Map
+  end
+} def
 
-/sub [/arraytype /arraytype] /sub_a_a load def
-/sub [/doubletype /arraytype] /sub_i_a load def
-/sub [/arraytype /doubletype] /sub_a_i load def
-/sub [/integertype /arraytype] /sub_i_a load def
-/sub [/arraytype /integertype] /sub_a_i load def
+/Sub trie
+  [/arraytype /arraytype]   /Sub_a_a load addtotrie
+  [/doubletype /arraytype]  /Sub_i_a load addtotrie
+  [/arraytype /doubletype]  /Sub_a_i load addtotrie
+  [/integertype /arraytype] /Sub_i_a load addtotrie
+  [/arraytype /integertype] /Sub_a_i load addtotrie
+def
 
 /** @BeginDocumentation
-Name: mul - multiply two numbers or vectors (point-wise)
+Name: Mul - elementwise multiply for numbers and arrays
 
-Synopsis: int int mul -> int
-int double mul -> double
-array int/double mul -> array
+Synopsis: int int      Mul -> int
+          int double   Mul -> double
+          array number Mul -> array
 
-Examples: 3 4 mul -> 12
-3.33 3 mul -> 9.99
-[1 2.2 3] 4 mul -> [4 8.8 12]
+Examples: 3 4         Mul -> 12
+          3.33 3      Mul -> 9.99
+          [1 2.2 3] 4 Mul -> [4 8.8 12]
 
 Author: docu by Sirko Straube
 
-SeeAlso: add, sub, div, Dot
+SeeAlso: Add, Sub, Div, Dot, mul
 */
-/mul_a_a
+/Mul_a_a
 {
   2 arraystore
   { mul } MapThread
 }  bind def
 
-/mul_i_a
+/Mul_i_a
 {
-  {
-    1 index mul
-  } Map
-  exch pop
-} bind def
+  % stack: scalar [a]  ->  [scalar*each]
+  exch
+  1 dict begin
+    /:s exch def
+    { :s mul } Map
+  end
+} def
 
-/mul_a_i
+/Mul_a_i
 {
-  exch_ mul_i_a
-} bind def
+  exch Mul_i_a
+} def
 
-/mul [/arraytype /arraytype] /mul_a_a load def
-/mul [/doubletype /arraytype] /mul_i_a load def
-/mul [/arraytype /doubletype] /mul_a_i load def
-/mul [/integertype /arraytype] /mul_i_a load def
-/mul [/arraytype /integertype] /mul_a_i load def
+/Mul trie
+  [/arraytype /arraytype]   /Mul_a_a load addtotrie
+  [/doubletype /arraytype]  /Mul_i_a load addtotrie
+  [/arraytype /doubletype]  /Mul_a_i load addtotrie
+  [/integertype /arraytype] /Mul_i_a load addtotrie
+  [/arraytype /integertype] /Mul_a_i load addtotrie
+def
 
 /** @BeginDocumentation
-Name: div - divide two numbers or vectors (point-wise)
+Name: Div - elementwise divide for numbers and arrays
 
-Synopsis: int int div -> int
-int double div -> double
-array int/double div -> array
+Synopsis: int int       Div -> int
+          int double    Div -> double
+          array number  Div -> array
 
-Examples: 9 2 div -> 4
-9 3.3 div -> 2.727273
-[10 11.5 12] 4 div -> [2 2.875 3]
+Examples: 9 2          Div -> 4
+          9 3.3        Div -> 2.727273
+          [10 11.5 12] 4 Div -> [2 2.875 3]
 
 Author: docu by Sirko Straube
 
-SeeAlso: add, sub, mul, Dot
+SeeAlso: Add, Sub, Mul, Dot, div
 */
-/div_a_a
+/Div_a_a
 {
   2 arraystore
   { div } MapThread
 }  bind def
 
-/div_i_a
+/Div_i_a
 {
-  {
-    1 index div
-  } Map
-  exch pop
-} bind def
+  % stack: scalar [a]  ->  [scalar/each]
+  exch
+  1 dict begin
+    /:s exch def
+    { :s exch div } Map
+  end
+} def
 
-/div_a_i
+/Div_a_i
 {
-  exch_ div_i_a
-} bind def
+  % stack: [a] scalar  ->  [each/scalar]
+  1 dict begin
+    /:s exch def
+    { :s div } Map
+  end
+} def
 
-/div [/arraytype /arraytype] /div_a_a load def
-/div [/doubletype /arraytype] /div_i_a load def
-/div [/arraytype /doubletype] /div_a_i load def
-/div [/integertype /arraytype] /div_i_a load def
-/div [/arraytype /integertype] /div_a_i load def
+/Div trie
+  [/arraytype /arraytype]   /Div_a_a load addtotrie
+  [/doubletype /arraytype]  /Div_i_a load addtotrie
+  [/arraytype /doubletype]  /Div_a_i load addtotrie
+  [/integertype /arraytype] /Div_i_a load addtotrie
+  [/arraytype /integertype] /Div_a_i load addtotrie
+def
 
 /** @BeginDocumentation
 Name: ArrayQ - returns true if top object is an array
