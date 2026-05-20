@@ -1,4 +1,15 @@
 cmake_minimum_required(VERSION 3.20)
+
+# In-source builds pollute the tree with CMakeFiles/, Makefile, generated
+# config.h, and all binaries; gitignore is structured around build/ being
+# elsewhere. Checked before project() so compiler detection doesn't write
+# CMakeFiles/ into the source tree before the guard fires.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+  message(FATAL_ERROR
+    "In-source builds are not allowed. "
+    "Run: cmake -S . -B build && cmake --build build -j")
+endif()
+
 project(sli3 VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -25,6 +36,12 @@ if(SLI3_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
     message(WARNING "LTO requested but not supported: ${_sli3_ipo_msg}")
   endif()
 endif()
+
+# Uniform artifact layout on Linux and macOS: everything lands under the
+# build directory, never beside the sources.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # config.h carries the few compile-time constants the rewritten startup
 # reads (version, default sli-init.sli location). Generated into the
@@ -109,47 +126,70 @@ target_include_directories(sli3_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/util
   ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+# Pointer tagging: the typeid lives in the top byte of every SLIType*.
+# Direct deref of those tagged pointers only works on CPUs that
+# transparently mask the top byte — ARM64 with Top-Byte-Ignore (TBI),
+# enabled by default on macOS Apple Silicon and Linux aarch64. On
+# x86_64 the same scheme yields a non-canonical address and segfaults
+# unless Intel LAM is active (Linux 6.4+, Sapphire Rapids+). To keep
+# the build "uniform" — same source, same configure command, working
+# binary on either OS — enable the SLI3_NO_PTR_TAG fallback whenever
+# the target is not AArch64. That trades one extra byte-load per
+# dispatch (id_ field on SLIType) for portable correctness.
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SLI3_CPU)
+if(NOT SLI3_CPU MATCHES "^(aarch64|arm64)$")
+  target_compile_definitions(sli3_core PUBLIC SLI3_NO_PTR_TAG=1)
+  message(STATUS
+    "sli3: SLI3_NO_PTR_TAG enabled (CPU=${CMAKE_SYSTEM_PROCESSOR} "
+    "lacks TBI; using id_-field fallback for typeid).")
+endif()
 # linenoise has a few unused-parameter / sign-comparison warnings in
 # its vendored form. Don't let those fail our (eventual) -Werror.
+# GCC (Linux), Clang (Linux), and AppleClang (macOS) all accept -w.
 set_source_files_properties(
   src/util/linenoise/linenoise.c
-  PROPERTIES COMPILE_FLAGS "-w"
+  PROPERTIES COMPILE_FLAGS
+    "$<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-w>"
 )
-target_compile_options(sli3_core PRIVATE
-  -Wall
-  -Wextra
-  -Wno-unused-parameter
-  # Align every function to a 64-byte boundary so a body-size change
-  # in any one TU can't shift later functions to a worse icache offset.
-  # Without this, removing a single `std::cerr` call from a cold
-  # deserialize path costs ~15 % on the dispatcher benches because
-  # execute_dispatch_ ends up straddling a cache line. Cost: a few
-  # NOPs per function (avg ~32 bytes), well under 1 % binary growth.
+
+# Warning flags are GCC/Clang/AppleClang dialect — identical across Linux
+# and macOS, silently skipped for any future non-GCC-compatible compiler.
+# -falign-functions=64 aligns every function to a 64-byte boundary so a
+# body-size change in any one TU can't shift later functions to a worse
+# icache offset; without it, removing a single `std::cerr` call from a
+# cold deserialize path costs ~15 % on the dispatcher benches because
+# execute_dispatch_ ends up straddling a cache line. Cost: a few NOPs
+# per function (avg ~32 bytes), well under 1 % binary growth.
+set(SLI3_WARNING_FLAGS
+  $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall>
+  $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wextra>
+  $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-unused-parameter>
   $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-falign-functions=64>
 )
+target_compile_options(sli3_core PRIVATE ${SLI3_WARNING_FLAGS})
 
 # Tests link sli3_core (PRIVATE flags don't propagate). This INTERFACE
 # helper carries the same flags, so tests inherit -Wall/-Wextra and
 # can't accidentally compile warning-free for the wrong reason.
 add_library(sli3_warnings INTERFACE)
-target_compile_options(sli3_warnings INTERFACE
-  -Wall
-  -Wextra
-  -Wno-unused-parameter
-)
+target_compile_options(sli3_warnings INTERFACE ${SLI3_WARNING_FLAGS})
 
 # Optional sanitizer build: -DSLI3_SANITIZE=ON enables ASAN+UBSan.
 # Surfaces self-assign UAFs (Stage 1.1), null-payload UB (Stage 1.2),
 # and the math-op UB (Stage 5: LONG_MIN, divide-by-zero, ...).
+# Sanitizer flags are GCC/Clang/AppleClang dialect; they work the same on
+# Linux and macOS but are gated by compiler id so the option is a no-op
+# under unsupported toolchains rather than a hard failure.
 option(SLI3_SANITIZE "Enable AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
 if(SLI3_SANITIZE)
   target_compile_options(sli3_core PUBLIC
-    -fsanitize=address,undefined
-    -fno-omit-frame-pointer
-    -g
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fsanitize=address,undefined>
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fno-omit-frame-pointer>
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-g>
   )
   target_link_options(sli3_core PUBLIC
-    -fsanitize=address,undefined
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fsanitize=address,undefined>
   )
 endif()
 
@@ -160,6 +200,17 @@ target_link_libraries(sli3 PRIVATE sli3_core)
 # --- Tests ----------------------------------------------------------------
 enable_testing()
 
+# Under SLI3_SANITIZE the Linux ASan runtime auto-enables LeakSanitizer,
+# which flags every parser/scanner/stack heap object still live at
+# process exit (the test fixtures construct SLIInterpreter but don't
+# tear down its containers — same on macOS, but Apple's ASan ships
+# without LSan, so it never reported them). The mode is documented as
+# surfacing UAFs / UB, not exit-time leaks. Disable LSan in the test
+# environment so the sanitizer build behaves the same on both OSes.
+if(SLI3_SANITIZE)
+  set(SLI3_SANITIZE_TEST_ENV "ASAN_OPTIONS=detect_leaks=0")
+endif()
+
 # Helper: register a test target consistently (link sli3_core + warnings,
 # include tests/, register with CTest, set a hard timeout so a hung
 # dispatcher does not hang CI).
@@ -169,6 +220,10 @@ function(sli3_add_test name source)
   target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   add_test(NAME ${name} COMMAND ${name})
   set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+  if(SLI3_SANITIZE_TEST_ENV)
+    set_tests_properties(${name} PROPERTIES
+      ENVIRONMENT "${SLI3_SANITIZE_TEST_ENV}")
+  endif()
 endfunction()
 
 sli3_add_test(test_serialize         tests/test_serialize.cpp)
