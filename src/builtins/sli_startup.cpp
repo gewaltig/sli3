@@ -35,6 +35,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 namespace sli3
 {
@@ -460,6 +461,20 @@ Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
     insert_int(i, *d, "prgminor", SLI3_VERSION_MINOR);
     insert_str(i, *d, "prgpatch", SLI3_VERSION_PATCH);
     insert_str(i, *d, "built",    std::string(__DATE__) + " " + __TIME__);
+    // /host -- consumed by sli-init.sli /:commandline's `-v` branch
+    // (the version banner reads `... built ( for ) host`). NEST 2.x
+    // populated this from configure (NEST_HOST); sli3 reads it at
+    // runtime via gethostname(2) so there's no configure-time
+    // dependency.
+    {
+        char hn[256];
+        std::string host = "unknown";
+        if (gethostname(hn, sizeof(hn)) == 0) {
+            hn[sizeof(hn) - 1] = '\0';
+            host = hn;
+        }
+        insert_str(i, *d, "host", host);
+    }
     insert_str(i, *d, "prgdatadir", datadir);
     // prgdocdir is consumed by helpinit.sli (HelpRoot, HelpdeskURL).
     // We don't ship help docs yet — point at datadir as a harmless

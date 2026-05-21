@@ -77,14 +77,14 @@ namespace sli3
     {
     public:
 
-	SLIInterpreter();
+	SLIInterpreter(int argc = 0, char** argv = nullptr);
 	~SLIInterpreter();
 
-	void init();
+	void init(int argc = 0, char** argv = nullptr);
 	void init_types();
 	void init_dictionaries();
 	void init_message_tags();
-	void init_internal_functions();
+	void init_internal_functions(int argc = 0, char** argv = nullptr);
 
 	/**
 	 * Restore the canonical PostScript Level-2 dictionary stack:

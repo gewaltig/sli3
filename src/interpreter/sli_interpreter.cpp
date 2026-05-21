@@ -123,7 +123,7 @@ static_assert(sizeof(hot_op_table) / sizeof(hot_op_table[0]) == HOP_count,
               "hot_op_table out of sync with HotOpId");
 } // namespace
 
-SLIInterpreter::SLIInterpreter()
+SLIInterpreter::SLIInterpreter(int argc, char** argv)
     : mark_name("mark"), iparse_name("::parse"),
       iparsestdin_name("::parsestdin"), ilookup_name("::lookup"),
       ipop_name("::pop"), iiterate_name("::executeprocedure"),
@@ -158,7 +158,7 @@ SLIInterpreter::SLIInterpreter()
       user_dict_(0), status_dict_(0), error_dict_(0), parser_(0),
       operand_stack_(1000), execution_stack_(1000), types_() {
   parser_ = new Parser();
-  init();
+  init(argc, argv);
   // Install POSIX signal handlers (SIGINT/SIGUSR1/SIGUSR2). The handler
   // just sets sli3::signalflag; execute_dispatch_ converts it into a
   // SystemSignal raiseerror at the next dispatch cycle. NEST's
@@ -189,11 +189,11 @@ SLIInterpreter::~SLIInterpreter() {
     delete Token::unpack_type(types_[t]);
 }
 
-void SLIInterpreter::init() {
+void SLIInterpreter::init(int argc, char** argv) {
   init_types();
   init_message_tags();
   init_dictionaries();
-  init_internal_functions();
+  init_internal_functions(argc, argv);
   // Dictstack layout after init() (top → bottom):
   //   userdict   — scratch (current dict on entry to user code)
   //   globaldict — PS Level-2 global namespace (writable, shared)
@@ -355,7 +355,7 @@ void SLIInterpreter::init_dictionaries() {
   dict.type_ = 0; // This prevents the token data from being cleared.
 }
 
-void SLIInterpreter::init_internal_functions(void) {
+void SLIInterpreter::init_internal_functions(int argc, char** argv) {
   // Phase 5: all iter helpers are now TYPE markers handled inline
   // by the dispatcher (body_walk for iiterate/ifor/iforall/iloop/
   // iforall_s/iforallindexed_a/iforallindexed_s; outer-switch case
@@ -392,7 +392,7 @@ void SLIInterpreter::init_internal_functions(void) {
   // Startup must run AFTER the other modules so it can prime the
   // execution stack with sli-init.sli — that script depends on the
   // operators registered above.
-  init_slistartup(this, 0, nullptr);
+  init_slistartup(this, argc, argv);
 }
 
 int SLIInterpreter::startup() {
