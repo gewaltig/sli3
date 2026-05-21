@@ -31,11 +31,17 @@
 
 #include <csignal>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <sys/utsname.h>
 #include <unistd.h>
+
+// POSIX-mandated process environment; declared in <unistd.h> on many
+// platforms but not all, and the historical portable way is the extern.
+extern char** environ;
 
 namespace sli3
 {
@@ -461,11 +467,15 @@ Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
     insert_int(i, *d, "prgminor", SLI3_VERSION_MINOR);
     insert_str(i, *d, "prgpatch", SLI3_VERSION_PATCH);
     insert_str(i, *d, "built",    std::string(__DATE__) + " " + __TIME__);
-    // /host -- consumed by sli-init.sli /:commandline's `-v` branch
-    // (the version banner reads `... built ( for ) host`). NEST 2.x
-    // populated this from configure (NEST_HOST); sli3 reads it at
-    // runtime via gethostname(2) so there's no configure-time
-    // dependency.
+    // /host /hostos /hostcpu /hostvendor -- NEST's legacy sli_config.h
+    // baked these in at configure-time via autoconf's $host_* triple.
+    // sli3 derives them at runtime: /host from gethostname(2), the
+    // others from uname(3). /hostos has a real consumer
+    // (helpinit.sli:425 -- `(^darwin) statusdict/hostos :: regex_find`
+    // gates the help-page invocation). /hostcpu / /hostvendor exist
+    // for parity; we report struct utsname's machine field for cpu
+    // and leave vendor as "unknown" (autoconf vendor strings -- pc,
+    // apple, ibm -- don't translate cleanly to uname output).
     {
         char hn[256];
         std::string host = "unknown";
@@ -474,6 +484,21 @@ Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
             host = hn;
         }
         insert_str(i, *d, "host", host);
+    }
+    {
+        struct utsname un{};
+        std::string hostos = "unknown";
+        std::string hostcpu = "unknown";
+        if (uname(&un) == 0) {
+            // Lower-case sysname to match autoconf conventions
+            // ("darwin", "linux") that helpinit.sli regexes expect.
+            hostos = un.sysname;
+            for (char& c : hostos) c = static_cast<char>(std::tolower(c));
+            hostcpu = un.machine;
+        }
+        insert_str(i, *d, "hostos",     hostos);
+        insert_str(i, *d, "hostcpu",    hostcpu);
+        insert_str(i, *d, "hostvendor", "unknown");
     }
     insert_str(i, *d, "prgdatadir", datadir);
     // prgdocdir is consumed by helpinit.sli (HelpRoot, HelpdeskURL).
@@ -495,7 +520,8 @@ Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
     arch_tok.data_.dict_val = arch;
     d->insert(Name("architecture"), arch_tok);
 
-    // Standard exit codes consumed by quit_i.
+    // Standard exit codes consumed by quit_i. Values mirror sli3's
+    // exit_codes enum in sli_interpreter.h.
     auto* codes = new Dictionary();
     insert_int(i, *codes, "success",      EXIT_SUCCESS);
     insert_int(i, *codes, "scripterror",  126);
@@ -503,9 +529,32 @@ Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
     insert_int(i, *codes, "fatal",        127);
     insert_int(i, *codes, "unknownerror", 10);
     insert_int(i, *codes, "userabort",    134);
+    insert_int(i, *codes, "abort",        134);
+    insert_int(i, *codes, "segfault",     139);
+    insert_int(i, *codes, "ipc_signal",   1);
     Token codes_tok(i.get_type(sli3::dictionarytype));
     codes_tok.data_.dict_val = codes;
     d->insert(Name("exitcodes"), codes_tok);
+
+    // /environment -- snapshot of the process environment at startup.
+    // sli-init.sli's /environment operator is just `statusdict
+    // /environment get`, so consumers like nestrc load logic can do
+    // `environment /HOME get` etc. without shelling out. Keys/values
+    // are both stringtype.
+    {
+        auto* env = new Dictionary();
+        for (char** ep = environ; ep && *ep; ++ep) {
+            char const* eq = std::strchr(*ep, '=');
+            if (!eq) continue;
+            std::string key(*ep, static_cast<size_t>(eq - *ep));
+            std::string val(eq + 1);
+            env->insert(Name(key.c_str()),
+                        i.new_token<sli3::stringtype, std::string>(std::move(val)));
+        }
+        Token env_tok(i.get_type(sli3::dictionarytype));
+        env_tok.data_.dict_val = env;
+        d->insert(Name("environment"), env_tok);
+    }
 
     return d;
 }
