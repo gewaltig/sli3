@@ -10,7 +10,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     "Run: cmake -S . -B build && cmake --build build -j")
 endif()
 
-project(sli3 VERSION 0.1.0 LANGUAGES C CXX)
+project(sli3 VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
