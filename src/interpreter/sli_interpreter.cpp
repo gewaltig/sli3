@@ -19,6 +19,7 @@
 #include "sli_parser.h"
 #include "sli_regex_module.h"
 #include "sli_regextype.h"
+#include "sli_signal.h"
 #include "sli_stack.h"
 #include "sli_startup.h"
 #include "sli_string.h"
@@ -158,6 +159,12 @@ SLIInterpreter::SLIInterpreter()
       operand_stack_(1000), execution_stack_(1000), types_() {
   parser_ = new Parser();
   init();
+  // Install POSIX signal handlers (SIGINT/SIGUSR1/SIGUSR2). The handler
+  // just sets sli3::signalflag; execute_dispatch_ converts it into a
+  // SystemSignal raiseerror at the next dispatch cycle. NEST's
+  // sli/interpret.cc gates this on `!HAVE_MPI`; sli3 is single-process
+  // (Q3) and always wants the trap.
+  install_signal_handlers();
   // Operator-usage statistics: SLI3_STATS=1 (or any non-empty,
   // non-"0" value) toggles per-call counting at construction.
   // The dump is invoked from sli_main when the program exits.
@@ -776,14 +783,24 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
   if (status_dict_)
     (*status_dict_)[exitcode_name] = null_val;
 
-  if (sli3::signalflag != 0) {
-    return sli3::unknown_error;
-  }
-
   try {
     do {
       try {
         while (execution_stack_.load() > exitlevel) {
+
+        // Signal trap. The OS handler (sli_signal_handler) merely
+        // stashes the signal number; the dispatcher turns it into a
+        // SystemSignal raiseerror that surrounding
+        // `stopped { handleerror } if` brackets can catch -- so Ctrl-C
+        // unwinds to the executive prompt instead of killing the
+        // process. Branch-hint marks the flag as unlikely so the
+        // common case is a single fused load+jcc; the body is cold.
+        if (__builtin_expect(sli3::signalflag != 0, 0)) {
+          int sig = sli3::signalflag;
+          sli3::signalflag = 0;
+          raisesignal(sig);
+          continue;
+        }
 
         switch (execution_stack_.top().tag()) {
         case sli3::integertype:
@@ -974,6 +991,16 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
           }
 
         body_exhausted:
+          // Signal trap (inner). Reached once per body iteration of
+          // a tight loop -- enough to bound signal-delivery latency
+          // to the cost of a single body, while keeping the much
+          // hotter resume_iter path free of any check. Tight
+          // 1-token-body loops (`{ } repeat`) still see it every
+          // iteration; longer bodies wait at most one body-length
+          // (~nanoseconds at typical body sizes) before noticing the
+          // flag, which is far below human-perceivable latency.
+          if (__builtin_expect(sli3::signalflag != 0, 0))
+            break;
           // Body has no more tokens. Dispatch the iter-type-
           // specific exhaust handler by reading the marker tag
           // at pick(0).

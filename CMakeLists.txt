@@ -90,6 +90,7 @@ add_library(sli3_core STATIC
   # interpreter
   src/interpreter/sli_interpreter.cpp
   src/interpreter/sli_numerics.cpp
+  src/interpreter/sli_signal.cpp
 
   # builtins / stdlib
   src/builtins/sli_builtins.cpp
@@ -248,3 +249,4 @@ sli3_add_test(test_bind                tests/test_bind.cpp)
 sli3_add_test(test_dispatch_abi        tests/test_dispatch_abi.cpp)
 sli3_add_test(test_access              tests/test_access.cpp)
 sli3_add_test(test_regex_module        tests/test_regex_module.cpp)
+sli3_add_test(test_signal_trap         tests/test_signal_trap.cpp)

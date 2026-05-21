@@ -29,6 +29,7 @@
 #include "sli_token.h"
 #include "sli_type.h"
 
+#include <csignal>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -598,6 +599,37 @@ void init_slistartup(SLIInterpreter* i, int argc, char** argv)
     Token status_tok(i->get_type(sli3::dictionarytype));
     status_tok.data_.dict_val = statusdict;
     i->def(Name("statusdict"), status_tok);
+
+    // signaldict maps POSIX signal NAMES to their numeric values, so
+    // SLI code can write `signaldict /SIGINT get` instead of hard-
+    // coding the platform-specific integer. raisesignal stores the
+    // delivered number under /sys_signo in errordict; matching it
+    // against signaldict is how scripts decide what to do.
+    auto* sigd = new Dictionary();
+#define SLI_REG_SIG(name) insert_int(*i, *sigd, #name, name)
+    SLI_REG_SIG(SIGABRT);
+    SLI_REG_SIG(SIGALRM);
+    SLI_REG_SIG(SIGFPE);
+    SLI_REG_SIG(SIGHUP);
+    SLI_REG_SIG(SIGILL);
+    SLI_REG_SIG(SIGINT);
+    SLI_REG_SIG(SIGKILL);
+    SLI_REG_SIG(SIGPIPE);
+    SLI_REG_SIG(SIGQUIT);
+    SLI_REG_SIG(SIGSEGV);
+    SLI_REG_SIG(SIGTERM);
+    SLI_REG_SIG(SIGUSR1);
+    SLI_REG_SIG(SIGUSR2);
+    SLI_REG_SIG(SIGCHLD);
+    SLI_REG_SIG(SIGCONT);
+    SLI_REG_SIG(SIGSTOP);
+    SLI_REG_SIG(SIGTSTP);
+    SLI_REG_SIG(SIGTTIN);
+    SLI_REG_SIG(SIGTTOU);
+#undef SLI_REG_SIG
+    Token sig_tok(i->get_type(sli3::dictionarytype));
+    sig_tok.data_.dict_val = sigd;
+    i->def(Name("signaldict"), sig_tok);
 
     // 5. Push sli-init.sli onto the execution stack so that as soon as
     //    the dispatcher starts, the script bootstrap runs.
