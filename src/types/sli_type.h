@@ -68,6 +68,9 @@ namespace sli3
     iforallstringtype,         //!< Phase 5: was IforallstringFunction
     iforallindexedarraytype,   //!< Phase 5: was IforallindexedarrayFunction
     iforallindexedstringtype,  //!< Phase 5: was IforallindexedstringFunction
+    imaptype,                  //!< Map iteration marker (C++ port)
+    imapindexedtype,           //!< MapIndexed iteration marker (C++ port)
+    imapthreadtype,            //!< MapThread iteration marker (C++ port)
     nooptype,
     quittype,
     regextype,         //!< POSIX <regex.h> wrapper, appended for the regex module.

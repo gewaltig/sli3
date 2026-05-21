@@ -744,9 +744,8 @@ end
 } def
 
 
-/Map_ /Map load def
 /Map trie
-[/arraytype /proceduretype] /Map_ load addtotrie
+[/arraytype /proceduretype] /Map_a_p load addtotrie
 [/arraytype /proceduretype /arraytype] /MapAtLevel load addtotrie
 [/stringtype /proceduretype] /Map_s load addtotrie
 def
@@ -1109,12 +1108,12 @@ def
 } bind def
 
 /MapIndexed trie
-[/arraytype /proceduretype] /MapIndexed_a load addtotrie
+[/arraytype /proceduretype] /MapIndexed_a_p load addtotrie
 [/stringtype /proceduretype] /MapIndexed_s load addtotrie
 def
 
 /MapThread trie
- [/arraytype /proceduretype] /MapThread_a load addtotrie
+ [/arraytype /proceduretype] /MapThread_a_p load addtotrie
 def
 
 % * List Operations

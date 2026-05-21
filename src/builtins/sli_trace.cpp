@@ -140,6 +140,26 @@ void extract_parse(TokenArray const&, long, Frame& f) {
     f.state = ParseState{};
 }
 
+void extract_map(TokenArray const& s, long k, Frame& f) {
+    // Frame: [mark, saved_load, target, idx, proc, pos, imap{,indexed}type].
+    f.pos  = s[k - 1].data_.long_val;
+    f.body = s[k - 2].data_.array_val;
+    TokenArray* target = s[k - 4].data_.array_val;
+    f.state = IdxState{ s[k - 3].data_.long_val,
+                        target ? static_cast<long>(target->size()) : 0,
+                        target, nullptr };
+}
+
+void extract_mapthread(TokenArray const& s, long k, Frame& f) {
+    // Frame: [mark, saved_load, sources, result, idx, proc, pos, imapthread].
+    f.pos  = s[k - 1].data_.long_val;
+    f.body = s[k - 2].data_.array_val;
+    TokenArray* result = s[k - 4].data_.array_val;
+    f.state = IdxState{ s[k - 3].data_.long_val,
+                        result ? static_cast<long>(result->size()) : 0,
+                        result, nullptr };
+}
+
 MarkerDesc const markers[] = {
     { sli3::iiteratetype,             "proc",        3, extract_iter        },
     { sli3::ilooptype,                "loop",        3, extract_iter        },
@@ -149,6 +169,9 @@ MarkerDesc const markers[] = {
     { sli3::iforallstringtype,        "forall_s",    5, extract_forall_s    },
     { sli3::iforallindexedarraytype,  "forallidx",   6, extract_forallidx_a },
     { sli3::iforallindexedstringtype, "forallidx_s", 6, extract_forallidx_s },
+    { sli3::imaptype,                 "Map",         7, extract_map         },
+    { sli3::imapindexedtype,          "MapIndexed",  7, extract_map         },
+    { sli3::imapthreadtype,           "MapThread",   8, extract_mapthread   },
     { sli3::iparsetype,               "parse",       2, extract_parse       },
 };
 

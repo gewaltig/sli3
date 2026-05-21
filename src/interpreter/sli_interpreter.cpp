@@ -300,6 +300,12 @@ void SLIInterpreter::init_types() {
       new OperatorType<sli3::iforallindexedarraytype>(this, "forallindexedarray_continue"));
   reg(sli3::iforallindexedstringtype,
       new OperatorType<sli3::iforallindexedstringtype>(this, "forallindexedstring_continue"));
+  reg(sli3::imaptype,
+      new OperatorType<sli3::imaptype>(this, "map_continue"));
+  reg(sli3::imapindexedtype,
+      new OperatorType<sli3::imapindexedtype>(this, "mapindexed_continue"));
+  reg(sli3::imapthreadtype,
+      new OperatorType<sli3::imapthreadtype>(this, "mapthread_continue"));
   reg(sli3::trietype, new TrieType(this, "trietype", sli3::trietype));
   reg(sli3::istreamtype,
       new IstreamType(this, "istreamtype", sli3::istreamtype));
@@ -888,7 +894,10 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
         case sli3::ilooptype:                 // Phase 5
         case sli3::iforallstringtype:         // Phase 5
         case sli3::iforallindexedarraytype:   // Phase 5
-        case sli3::iforallindexedstringtype: {// Phase 5
+        case sli3::iforallindexedstringtype:  // Phase 5
+        case sli3::imaptype:                  // C++ Map family
+        case sli3::imapindexedtype:           // C++ Map family
+        case sli3::imapthreadtype: {          // C++ Map family
           TokenArray *proc = execution_stack_.pick(2).data_.array_val;
           long *pos_p = &execution_stack_.pick(1).data_.long_val;
         body_walk:
@@ -1104,6 +1113,97 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
               }
               break;
             }
+            case sli3::imaptype: {
+              // Frame (top→bottom): [imap, pos, proc, idx, target, saved_load, mark].
+              // Original array stays on ostack throughout; the body
+              // result is written into target[idx-1]. Final iter
+              // overwrites the original on ostack with target.
+              TokenArray *target = execution_stack_.pick(4).data_.array_val;
+              long &idx          = execution_stack_.pick(3).data_.long_val;
+              long lim           = static_cast<long>(target->size());
+              long saved_load    = execution_stack_.pick(5).data_.long_val;
+              if (idx > 0) {
+                if (static_cast<long>(operand_stack_.load()) != saved_load + 1) {
+                  raiseerror(StackUnderflowError);
+                  break;
+                }
+                (*target)[idx - 1] = operand_stack_.top();
+                operand_stack_.pop();
+              }
+              if (idx < lim) {
+                *pos_p = 0;
+                operand_stack_.push(target->get(idx));
+                ++idx;
+              } else {
+                // Final: overwrite the original (now at ostack top)
+                // with the modified target, then pop the frame.
+                operand_stack_.top() = execution_stack_.pick(4);
+                execution_stack_.pop(7);
+              }
+              break;
+            }
+            case sli3::imapindexedtype: {
+              // Frame (top→bottom): [imapindexed, pos, proc, idx, target, saved_load, mark].
+              // Like imaptype but each iter also pushes the 1-based
+              // index (Mathematica convention).
+              TokenArray *target = execution_stack_.pick(4).data_.array_val;
+              long &idx          = execution_stack_.pick(3).data_.long_val;
+              long lim           = static_cast<long>(target->size());
+              long saved_load    = execution_stack_.pick(5).data_.long_val;
+              if (idx > 0) {
+                if (static_cast<long>(operand_stack_.load()) != saved_load + 1) {
+                  raiseerror(StackUnderflowError);
+                  break;
+                }
+                (*target)[idx - 1] = operand_stack_.top();
+                operand_stack_.pop();
+              }
+              if (idx < lim) {
+                *pos_p = 0;
+                operand_stack_.push(target->get(idx));
+                operand_stack_.push(get_type(sli3::integertype));
+                operand_stack_.top().data_.long_val = idx + 1;
+                ++idx;
+              } else {
+                operand_stack_.top() = execution_stack_.pick(4);
+                execution_stack_.pop(7);
+              }
+              break;
+            }
+            case sli3::imapthreadtype: {
+              // Frame (top→bottom):
+              //   [imapthread, pos, proc, idx, result, sources, saved_load, mark].
+              // Each iter pushes one element from each inner array of
+              // `sources` at column `idx`. The body must consume them
+              // and leave exactly one result, which is written to
+              // result[idx-1]. Final iter overwrites the original
+              // outer array on ostack with result.
+              TokenArray *result  = execution_stack_.pick(4).data_.array_val;
+              TokenArray *sources = execution_stack_.pick(5).data_.array_val;
+              long &idx           = execution_stack_.pick(3).data_.long_val;
+              long lim            = static_cast<long>(result->size());
+              long saved_load     = execution_stack_.pick(6).data_.long_val;
+              if (idx > 0) {
+                if (static_cast<long>(operand_stack_.load()) != saved_load + 1) {
+                  raiseerror(StackUnderflowError);
+                  break;
+                }
+                (*result)[idx - 1] = operand_stack_.top();
+                operand_stack_.pop();
+              }
+              if (idx < lim) {
+                *pos_p = 0;
+                for (Token const *row = sources->begin();
+                     row != sources->end(); ++row) {
+                  operand_stack_.push(row->data_.array_val->get(idx));
+                }
+                ++idx;
+              } else {
+                operand_stack_.top() = execution_stack_.pick(4);
+                execution_stack_.pop(8);
+              }
+              break;
+            }
             default: __builtin_unreachable();
           }
           // Fall through to resume_iter. The exhaust handler may
@@ -1130,6 +1230,9 @@ int SLIInterpreter::execute_dispatch_(size_t exitlevel) {
             case sli3::iforallstringtype:         // Phase 5
             case sli3::iforallindexedarraytype:   // Phase 5
             case sli3::iforallindexedstringtype:  // Phase 5
+            case sli3::imaptype:                  // C++ Map family
+            case sli3::imapindexedtype:           // C++ Map family
+            case sli3::imapthreadtype:            // C++ Map family
               proc  = execution_stack_.pick(2).data_.array_val;
               pos_p = &execution_stack_.pick(1).data_.long_val;
               goto body_walk;

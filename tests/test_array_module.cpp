@@ -72,6 +72,127 @@ void run_to_quit(SLIInterpreter& i)
     i.execute_dispatch_(0);
 }
 
+// Build a procedure Token whose body executes `ints...` (as literal
+// integers, pushed to ostack) followed by a single nametype that
+// resolves to a function at dispatch time. Example:
+//   name_proc(i, {2}, "mul_ii") -> {2 mul_ii}
+Token name_proc(SLIInterpreter& i, std::initializer_list<long> ints,
+                std::string const& fn)
+{
+    TokenArray* body = new TokenArray();
+    body->reserve(ints.size() + 1);
+    for (long n : ints)
+        body->push_back(i.new_token<sli3::integertype>(n));
+    body->push_back(i.new_token<sli3::nametype, sli3::Name>(Name(fn.c_str())));
+    return i.new_token<sli3::proceduretype, TokenArray*>(body);
+}
+
+Token lookup_fn(SLIInterpreter& i, char const* name)
+{
+    Token t;
+    if (!i.lookup(Name(name), t))
+    {
+        std::cerr << "lookup_fn: " << name << " not in systemdict\n";
+        std::exit(1);
+    }
+    return t;
+}
+
+void expect_int_array(SLIInterpreter& i,
+                      std::initializer_list<long> expect,
+                      int line)
+{
+    Token& t = i.top();
+    if (!t.is_of_type(sli3::arraytype))
+    {
+        std::cerr << "FAIL @" << line << ": top is not arraytype\n";
+        std::exit(1);
+    }
+    TokenArray* a = t.data_.array_val;
+    if (a->size() != expect.size())
+    {
+        std::cerr << "FAIL @" << line
+                  << ": array size " << a->size()
+                  << ", expected " << expect.size() << "\n";
+        std::exit(1);
+    }
+    size_t k = 0;
+    for (long v : expect)
+    {
+        Token const& e = a->get(k);
+        if (!e.is_of_type(sli3::integertype) || e.data_.long_val != v)
+        {
+            std::cerr << "FAIL @" << line
+                      << ": element " << k
+                      << " did not match " << v << "\n";
+            std::exit(1);
+        }
+        ++k;
+    }
+    i.pop();
+}
+
+void run_map(SLIInterpreter& i,
+             char const* fn_name,
+             Token const& array_tok,
+             Token const& proc_tok)
+{
+    i.EStack().clear();
+    i.OStack().clear();
+    i.EStack().push(i.new_token<sli3::quittype>());
+    i.push(array_tok);
+    i.push(proc_tok);
+    i.EStack().push(lookup_fn(i, fn_name));
+    run_to_quit(i);
+}
+
+void test_map(SLIInterpreter& i)
+{
+    // [1 2 3 4] {2 mul_ii} Map_a_p -> [2 4 6 8]
+    run_map(i, "Map_a_p", int_array(i, {1, 2, 3, 4}),
+            name_proc(i, {2}, "mul_ii"));
+    expect_int_array(i, {2, 4, 6, 8}, __LINE__);
+
+    // Empty source: result is the (empty) source untouched.
+    run_map(i, "Map_a_p", int_array(i, {}),
+            name_proc(i, {2}, "mul_ii"));
+    expect_int_array(i, {}, __LINE__);
+
+    // Empty proc: leaves source untouched.
+    {
+        TokenArray* empty_body = new TokenArray();
+        Token empty_proc = i.new_token<sli3::proceduretype, TokenArray*>(empty_body);
+        run_map(i, "Map_a_p", int_array(i, {7, 8, 9}), empty_proc);
+        expect_int_array(i, {7, 8, 9}, __LINE__);
+    }
+}
+
+void test_map_indexed(SLIInterpreter& i)
+{
+    // [10 10 10] {add_ii} MapIndexed_a_p -> [11 12 13]
+    // 1-based indices per Mathematica convention.
+    run_map(i, "MapIndexed_a_p", int_array(i, {10, 10, 10}),
+            name_proc(i, {}, "add_ii"));
+    expect_int_array(i, {11, 12, 13}, __LINE__);
+
+    // [1 2 3 4 5] {add_ii} MapIndexed -> [2 4 6 8 10]
+    // (Mathematica doc example from mathematica.sli:1067.)
+    run_map(i, "MapIndexed_a_p", int_array(i, {1, 2, 3, 4, 5}),
+            name_proc(i, {}, "add_ii"));
+    expect_int_array(i, {2, 4, 6, 8, 10}, __LINE__);
+}
+
+void test_map_thread(SLIInterpreter& i)
+{
+    // [[1 2 3] [10 20 30]] {add_ii} MapThread_a_p -> [11 22 33]
+    TokenArray* outer = new TokenArray();
+    outer->push_back(int_array(i, {1, 2, 3}));
+    outer->push_back(int_array(i, {10, 20, 30}));
+    Token outer_tok = i.new_token<sli3::arraytype>(outer);
+    run_map(i, "MapThread_a_p", outer_tok, name_proc(i, {}, "add_ii"));
+    expect_int_array(i, {11, 22, 33}, __LINE__);
+}
+
 // -----------------------------------------------------------------
 // Direct operator tests
 // -----------------------------------------------------------------
@@ -382,10 +503,11 @@ int main()
     test_min_max(i);
     test_valid_finite(i);
 
-    // Map / MapIndexed_a / MapThread_a moved to SLI (sli-init.sli)
-    // -- see Phase 5 dispatcher cleanup. The SLI versions exercise
-    // the same code paths through eval-driven integration tests
-    // and indirectly through arraylib.sli / mathematica.sli.
+    // Map family (C++ port) — dispatcher-driven tests on the
+    // typed leaves Map_a_p / MapIndexed_a_p / MapThread_a_p.
+    test_map(i);
+    test_map_indexed(i);
+    test_map_thread(i);
 
     std::cerr << "test_array_module: all checks passed\n";
     return 0;
