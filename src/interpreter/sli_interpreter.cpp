@@ -191,7 +191,6 @@ SLIInterpreter::~SLIInterpreter() {
 
 void SLIInterpreter::init(int argc, char** argv) {
   init_types();
-  init_message_tags();
   init_dictionaries();
   init_internal_functions(argc, argv);
   // Dictstack layout after init() (top → bottom):
@@ -312,18 +311,22 @@ void SLIInterpreter::init_types() {
       new RegexType(this, "regextype", sli3::regextype));
 }
 
-void SLIInterpreter::init_message_tags() {
-  message_tag_.clear();
-  message_tag_.reserve(sli3::num_message_levels);
-  message_tag_.push_back("M_ALL");
-  message_tag_.push_back("M_DEBUG");
-  message_tag_.push_back("M_STATUS");
-  message_tag_.push_back("M_INFO");
-  message_tag_.push_back("M_WARNING");
-  message_tag_.push_back("M_ERROR");
-  message_tag_.push_back("M_FATAL");
-  message_tag_.push_back("M_QUIET");
+namespace {
+// Map a message level to its display tag. Levels follow the
+// wide-scale (M_DEBUG=5 ... M_ERROR=30 ... M_FATAL=40) that the SLI
+// side uses, so a simple if-cascade is the cheapest lookup. Any
+// out-of-range or M_ALL caller falls through to "M_ALL".
+char const *message_level_name(int level) {
+  if (level >= sli3::M_FATAL)    return "M_FATAL";
+  if (level >= sli3::M_ERROR)    return "M_ERROR";
+  if (level >= sli3::M_WARNING)  return "M_WARNING";
+  if (level >= sli3::M_DEPRECATED) return "M_DEPRECATED";
+  if (level >= sli3::M_INFO)     return "M_INFO";
+  if (level >= sli3::M_STATUS)   return "M_STATUS";
+  if (level >= sli3::M_DEBUG)    return "M_DEBUG";
+  return "M_ALL";
 }
+} // namespace
 
 void SLIInterpreter::init_dictionaries() {
   system_dict_ = new Dictionary();
@@ -1246,26 +1249,10 @@ void SLIInterpreter::terminate(int returnvalue) {
 void SLIInterpreter::message(int level, const char from[], const char text[],
                              const char errorname[]) const {
   if (level >= verbosity_level_) {
-    if (level >= M_FATAL) {
-      // Take care that std::cerr and std::cout don't
-      // send output to the same source. This would
-      // lead to duplication of the message.
-      message(std::cout, message_tag_[M_FATAL].c_str(), from, text, errorname);
-    } else if (level >= M_ERROR) {
-      message(std::cout, message_tag_[M_ERROR].c_str(), from, text, errorname);
-
-    } else if (level >= M_WARNING) {
-      message(std::cout, message_tag_[M_WARNING].c_str(), from, text,
-              errorname);
-    } else if (level >= M_INFO) {
-      message(std::cout, message_tag_[M_INFO].c_str(), from, text, errorname);
-    } else if (level >= M_STATUS) {
-      message(std::cout, message_tag_[M_STATUS].c_str(), from, text, errorname);
-    } else if (level >= M_DEBUG) {
-      message(std::cout, message_tag_[M_DEBUG].c_str(), from, text, errorname);
-    } else {
-      message(std::cout, message_tag_[M_ALL].c_str(), from, text, errorname);
-    }
+    // Take care that std::cerr and std::cout don't
+    // send output to the same source. This would
+    // lead to duplication of the message.
+    message(std::cout, message_level_name(level), from, text, errorname);
   }
 }
 

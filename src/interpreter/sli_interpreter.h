@@ -30,17 +30,24 @@ namespace sli3
     class Parser;
     class SLIFunction;
 
+    // Message-priority levels. Values match the SLI side
+    // (lib/sli/misc_helpers.sli:142) AND NEST 2.20.2; the SLI script
+    // /searchfile, /SLIFunctionWrapper etc. pass these integers
+    // unchanged to message(), so the C++ filter must use the same
+    // scale. Earlier sli3 used a packed 0..7 enum, which made
+    // M_DEBUG-tagged messages display as M_ERROR (5 in the packed
+    // scheme).
     enum message_level
     {
-	M_ALL=0,
-	M_DEBUG,
-	M_STATUS,
-	M_INFO,
-	M_WARNING,
-	M_ERROR,
-	M_FATAL,
-	M_QUIET,
-	num_message_levels
+        M_ALL        = 0,
+        M_DEBUG      = 5,
+        M_STATUS     = 7,
+        M_INFO       = 10,
+        M_DEPRECATED = 18,
+        M_WARNING    = 20,
+        M_ERROR      = 30,
+        M_FATAL      = 40,
+        M_QUIET      = 100,
     };
     
     enum exit_codes
@@ -83,7 +90,6 @@ namespace sli3
 	void init(int argc = 0, char** argv = nullptr);
 	void init_types();
 	void init_dictionaries();
-	void init_message_tags();
 	void init_internal_functions(int argc = 0, char** argv = nullptr);
 
 	/**
@@ -521,7 +527,6 @@ namespace sli3
 
 	std::vector<SLIModule *> modules_;
 	DictionaryStack dictionary_stack_;
-	std::vector<std::string> message_tag_;
 	std::vector<SLIFunction *> functions_; //!< Table with internal functions.
 	std::vector<SLIType *> types_;         //!< must be last, so it is deleted last
     };
