@@ -1,0 +1,11 @@
+% Chapter 05 -- repeat: run a procedure n times
+%
+% Expected output:
+%   hi
+%   hi
+%   hi
+%   5
+
+3 { (hi) = } repeat
+0 5 { 1 add } repeat =
+quit

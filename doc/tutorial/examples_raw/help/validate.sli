@@ -1,0 +1,8 @@
+% Harvested example for validate
+% src: lib/sli/helpinit.sli:637
+% summary: Check if a function is consistent with all its examples
+% synopsis: /literal -> boolean
+%
+% Examples (verbatim from docstring):
+%       /Part validate     --> true
+%   %   /validate validate --> true   % infinite recursion

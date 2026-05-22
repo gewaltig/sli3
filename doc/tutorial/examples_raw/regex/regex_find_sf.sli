@@ -1,0 +1,7 @@
+% Harvested example for regex_find_sf
+% src: lib/sli/regexp.sli:172
+% summary: Check if a regex is included in a stream
+% synopsis: string istream -> boolean
+%
+% Examples (verbatim from docstring):
+%   See examples of regex_find, exchange second string with a file.

@@ -1,0 +1,10 @@
+% Harvested example for Times
+% src: lib/sli/mathematica.sli:2370
+% summary: represents/computes product of terms
+% synopsis: array Times -> double -> integer
+%
+% Examples (verbatim from docstring):
+%   %
+%            [4 3 2 5 6] Times --> 720
+%            [] Times          --> 1
+%   

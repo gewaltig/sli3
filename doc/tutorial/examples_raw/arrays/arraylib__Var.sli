@@ -1,0 +1,9 @@
+% Harvested example for arraylib::Var
+% src: lib/sli/arraylib.sli:144
+% summary: Return variance of the elements in array.
+% synopsis: [array] Var -> number
+%
+% Examples (verbatim from docstring):
+%   [0 1 2]   Var -> 1.0
+%   [1 2 3 4] Var -> 1.666667
+%   

@@ -1,0 +1,10 @@
+% Harvested example for bind
+% src: lib/sli/sli-init.sli:238
+% summary: recursively replaces executable operator names by their values.
+% synopsis: proc bind --> proc
+%
+% Examples (verbatim from docstring):
+%   {1 2 add} bind --> {1 2 +add+}
+%                if you know the arguments are integer,
+%                {1 2 add_ii} will be the fastest choice, but there will be no
+%                sli-level typechecking any more!

@@ -1,0 +1,25 @@
+% Harvested example for regexec
+% src: lib/sli/regexp.sli:120
+% summary: compare string and regular expression
+% synopsis: regex string integer integer -> array integer regex string 0       integer -> integer
+%
+% Examples (verbatim from docstring):
+%   1) (simple) regcomp -> <regextype>
+%                  (   simple   ) 0 0 regexec -> 0  % this 0 indicating success
+%               2) (simple) regcomp -> <regextype>
+%                  (   simple   ) 1 0 regexec -> [[3 9]] 0
+%                  % this 3,9 are begin and end offsets of matched regex!
+%               3) ((parenthesize)+.*example) regcomp -> <regextype>
+%                  (This is a parenthesize using example) 2 0 regexec -> [[10 36] [10 22]] 0
+%   
+%               4) This is a more complex example showing how more and more parenthesized
+%                  expressions are returned
+%   
+%                  /rx (:(passed|result|error):([0-9]+):(.*):) regcomp def
+%                  /st (:result:4:this is the result:) def
+%   
+%                  rx st 0 0 regexec -> 0
+%                  rx st 1 0 regexec -> [[0 29]] 0
+%                  rx st 2 0 regexec -> [[0 29] [1 7]] 0
+%                  rx st 4 0 regexec -> [[0 29] [1 7] [8 9] [10 28]] 0
+%   

@@ -1,0 +1,13 @@
+% Harvested example for Inline
+% src: lib/sli/mathematica.sli:4374
+% summary: Replace names in a procedure with their definitions.
+% synopsis: {proc} <<dict>> Inline -> {proc'}
+%
+% Examples (verbatim from docstring):
+%   SLI ] {a b add} <</a 1 /b 2 >> Inline ==
+%   {1 2 add}
+%   
+%   SLI ] {1 2 3 stack} << /stack dup load  >> Inline ==
+%   {1 2 3 0 1 -count- 3 -sub_ii- /{-index- =} -for-}
+%   
+%   Version: January 19 2008

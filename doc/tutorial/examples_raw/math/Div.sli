@@ -1,0 +1,10 @@
+% Harvested example for Div
+% src: lib/sli/mathematica.sli:2874
+% summary: elementwise divide for numbers and arrays
+% synopsis: int int       Div -> int int double    Div -> double array number  Div -> array
+%
+% Examples (verbatim from docstring):
+%   9 2          Div -> 4
+%             9 3.3        Div -> 2.727273
+%             [10 11.5 12] 4 Div -> [2 2.875 3]
+%   

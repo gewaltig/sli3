@@ -1,0 +1,394 @@
+status	file	expr	expected	got	reason
+FAIL	arrays/arraylib__IndexWrap.sli	-6 3 IndexWrap	0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	-5 3 IndexWrap	1	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	-4 3 IndexWrap	2	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	-3 3 IndexWrap	0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	-2 3 IndexWrap	1	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	-1 3 IndexWrap	2	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	0 3 IndexWrap	0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	1 3 IndexWrap	1	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	2 3 IndexWrap	2	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	3 3 IndexWrap	0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	4 3 IndexWrap	1	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	5 3 IndexWrap	2	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__IndexWrap.sli	6 3 IndexWrap	0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/IndexWrap' does not exist in dictionary.	output mismatch
+PASS	arrays/arraylib__Mean.sli	[1 2 3 4] Mean	2.5	2.5	
+FAIL	arrays/arraylib__Product.sli	[1 2 3 4]   Product	24	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/Product' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__Product.sli	[1 2 3 4.0] Product	24.0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/Product' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__Sum.sli	[1 2 3 4]   Sum	10	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/Sum' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__Sum.sli	[1 2 3 4.0] Sum	10.0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/Sum' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__Var.sli	[0 1 2]   Var	1.0	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/Var' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__Var.sli	[1 2 3 4] Var	1.666667	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/Var' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__getdeep.sli	[[1 2 3] [4 5 6] [7 8 9]] [0 2]   getdeep	3	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/getdeep' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__getdeep.sli	[[1 2 3] [4 5 6] [7 8 9]] [1]     getdeep	[4 5 6]	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/getdeep' does not exist in dictionary.	output mismatch
+FAIL	arrays/arraylib__getdeep.sli	<< /a << /b 1  /c 2 >> >> [/a /c] getdeep	2	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/getdeep' does not exist in dictionary.	output mismatch
+FAIL	control/debug.sli	{1 2 add} debug	3	{1 2 add}	output mismatch
+PASS	control/exec.sli	{1 2 add} exec	3	3	
+FAIL	control/if.sli	1 0 gt { (1 > 0) = } if	(1 > 0)	1 > 0 May 22 10:17:01 == [M_ERROR]: StackUnderflow Command needs (at least) 1 argument(s).	output mismatch
+FAIL	control/ifelse.sli	0 1 gt { (1 > 0) = } { (1 <= 0) =} ifelse	(0 <= 1)	1 <= 0 May 22 10:17:01 == [M_ERROR]: StackUnderflow Command needs (at least) 1 argument(s).	output mismatch
+PASS	control/mark.sli	[ 1 2 add ]	[3]	[3]	
+PASS	control/mark.sli	mark 1 2 add ]	[3]	[3]	
+FAIL	core/First.sli	(train) First	104	116	output mismatch
+PASS	core/First.sli	[1 2 3] First	1	1	
+PASS	core/First.sli	[(this) (is) (an) (example)] First	(this)	(this)	
+PASS	core/Last.sli	(train) Last	110	110	
+PASS	core/Last.sli	[1 2 3] Last	3	3	
+PASS	core/Last.sli	[(this) (is) (an) (example)] Last	(example)	(example)	
+FAIL	core/LocateFileNames.sli	-	[(SLIHOME/lib/sli/sli-init.sli)]	May 22 10:17:01 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+PASS	core/Rest.sli	(train) Rest	(rain)	(rain)	
+PASS	core/Rest.sli	[1 2 3] Rest	[2 3]	[2 3]	
+PASS	core/Rest.sli	[(this) (is) (an) (example)] Rest	[(is) (an) (example)]	[(is) (an) (example)]	
+SKIP	core/addpath.sli	(~/MySliRoutines) addpath -	sli files will additionally be looked		multi-value stack
+PASS	core/array.sli	10 array	[0 0 0 0 0 0 0 0 0 0]	[0 0 0 0 0 0 0 0 0 0]	
+SKIP	core/bind.sli	{1 2 add} bind -	{1 2 +add+}		multi-value stack
+PASS	core/cst.sli	(hello) cst	[hello]	[hello]	
+PASS	core/cvs.sli	23 cvs	(23)	(23)	
+PASS	core/cvs.sli	{3 2 mul dup} cvs	(<proceduretype>)	(<proceduretype>)	
+PASS	core/cvs.sli	(hello) cvs	(hello)	(hello)	
+FAIL	core/cvs_f.sli	2.3456 3 cvs_f	(2.346)		timeout
+FAIL	core/cvs_f.sli	2.3456 0 cvs_f	(2)		timeout
+FAIL	core/cvs_f.sli	2.3456 neg 2 cvs_f	(-2.35)		timeout
+FAIL	core/cvs_f.sli	2.3456 [2 3] cvs_f	(02.346)		timeout
+FAIL	core/cvs_f.sli	2.3456 neg [2 3] cvs_f	(-02.346)		timeout
+FAIL	core/cvs_f.sli	222.3456 [2 3] cvs_f	(222.346)		timeout
+FAIL	core/file.sli	(sli-init.sli) (r) file type ==	istreamtype	/istreamtype May 22 10:17:31 == [M_ERROR]: StackUnderflow Command needs (at least) 1 argument(s).	output mismatch
+FAIL	core/get.sli	(Hello World!)      0                  get -	184	May 22 10:17:31 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/get.sli	[(Hello) 1 /a 12]   1                  get -	1	May 22 10:17:31 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/get.sli	{(Hello World!) ==} 1                  get -	==	May 22 10:17:31 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/get.sli	systemdict          /get               get -	+get+	May 22 10:17:31 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+PASS	core/get.sli	[/a /b /c /d] [0 2]                    get	[/a /c]	[/a /c]	
+FAIL	core/get.sli	<< /a 3 /c 2 >>  /c                    get -	2	May 22 10:17:31 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/get.sli	<< /a 3 /c 2 >>  [/c]                  get -	2	May 22 10:17:31 get [M_ERROR]: ArgumentType	output mismatch
+FAIL	core/get.sli	<< /a 3 /c 2 >>  [[/c]]                get -	[2]	May 22 10:17:31 get [M_ERROR]: ArgumentType	output mismatch
+FAIL	core/get.sli	<< /a 3 /c 2 >>  [[/c /a /a]]          get -	[2 3 3]	May 22 10:17:31 get [M_ERROR]: ArgumentType	output mismatch
+FAIL	core/get.sli	<< /a << /b 3 /c 2 >> >>  [/a /c]      get -	2	May 22 10:17:31 get [M_ERROR]: ArgumentType	output mismatch
+FAIL	core/get.sli	<< /a << /b 3 /c 2 >> >>  [/a [/b /c]] get -	[3 2]	May 22 10:17:31 get [M_ERROR]: ArgumentType	output mismatch
+FAIL	core/length.sli	(Hello world!)      length -	12	May 22 10:17:31 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/length.sli	{(Hello world!) ==} length -	2	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+PASS	core/pcvs.sli	23 pcvs	(23)	(23)	
+PASS	core/pcvs.sli	{3 2 mul dup} pcvs	({3 2 mul dup})	({3 2 mul dup})	
+PASS	core/pcvs.sli	(hello) pcvs	((hello))	((hello))	
+PASS	core/pick.sli	1 2 3 4 5 6 7 3 pick	4	4	
+FAIL	core/pstack.sli	-	{3}	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/put.sli	(Hello Wxrld!)      7 111    put -	(Hello World!)	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/put.sli	[(Hello) 1 /a 12]   2 /here  put -	[Hello 1 here 12]	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	core/put.sli	[[1 2][3 4]]    [1 1] 6      put -	[[1 2] [3 6]]	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	core/put.sli	{(Hello World!) ==} (Bye!) 1 put -	{(Bye!) ==}		multi-value stack
+SKIP	core/put.sli	systemdict          /MyLit 5 put -	-  % MyLit equals integer 5 now!		multi-value stack
+SKIP	core/run.sli	(MySli.sli) run            -	execute file MySli, assuming it		multi-value stack
+SKIP	core/run.sli	(~/MySliRoutines/DoIt) run -	execute file, ignoring search pathes		multi-value stack
+FAIL	core/stack.sli	-	3	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	core/stack.sli	{123} stack -	<proceduretype>		type-tag placeholder
+SKIP	help/--_x3e.sli	[8 -	6] --> 8 /--> cvx exec 6  3 arraystore		multi-value stack
+FAIL	help/EvaluateLiteralInfixes.sli	[ 5 /add 6 /sub 2] EvaluateLiteralInfixes -	[9]	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/EvaluateLiteralInfixes' does not exist in dictionary.	output mismatch
+SKIP	help/EvaluateLiteralInfixes.sli	[ 5 -	6 true ] EvaluateLiteralInfixes   --> [false true]		multi-value stack
+SKIP	help/helpindex.sli	helpindex -	lists all commands		multi-value stack
+FAIL	help/validate.sli	/Part validate     -	true	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/validate' does not exist in dictionary.	output mismatch
+SKIP	help/validate.sli	%   /validate validate -	true   % infinite recursion		multi-value stack
+FAIL	helpers/CyclicValue.sli	-3601 [0 360] CyclicValue	359.0	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	23.0 [Pi -1 mul  Pi] CyclicValue	-2.13274	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	1 [1 4] CyclicValue	1	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	2 [1 4] CyclicValue	2	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	3 [1 4] CyclicValue	3	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	4 [1 4] CyclicValue	1	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	1 [4 1] CyclicValue	4	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	2 [4 1] CyclicValue	2	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	3 [4 1] CyclicValue	3	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+FAIL	helpers/CyclicValue.sli	4 [4 1] CyclicValue	4	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/double' does not exist in dictionary.	output mismatch
+PASS	helpers/breakup.sli	1. (home/kupper/synod) (/) breakup	[(home) (kupper) (synod)]	[(home) (kupper) (synod)]	
+PASS	helpers/breakup.sli	2. (Theresnospaceinhere) ( ) breakup	[(Theresnospaceinhere)]	[(Theresnospaceinhere)]	
+FAIL	helpers/breakup.sli	3. [23 5 0 17 0] [0]   breakup	[ [23 5] [17] [] ]	[[23 5] [17] []]	output mismatch
+FAIL	helpers/breakup.sli	4. [23 5 0 17 0] [5 0] breakup	[ [23] [17 0] ]	[[23] [17 0]]	output mismatch
+PASS	helpers/breakup.sli	5. (abcdef) 3 breakup	[(abc) (def)]	[(abc) (def)]	
+FAIL	helpers/breakup.sli	6. (abcdef) 4 breakup	[(abcd) (ef)]	May 22 10:17:32 getinterval [M_ERROR]: RangeCheck	output mismatch
+PASS	helpers/breakup.sli	7  [1 2 3 4] 2 breakup	[[1 2] [3 4]]	[[1 2] [3 4]]	
+PASS	helpers/reverse.sli	(Madam I'm Adam) reverse	(madA m'I madaM)	(madA m'I madaM)	
+PASS	helpers/reverse.sli	(Lagerregal)     reverse	(lagerregaL)	(lagerregaL)	
+PASS	helpers/reverse.sli	(Aide-moi o media) reverse	(aidem  o iom-ediA)	(aidem o iom-ediA)	
+PASS	helpers/reverse.sli	[1 2 3] reverse	[3 2 1]	[3 2 1]	
+PASS	helpers/searchif.sli	(Hello world!) (Hello) searchif	true	true	
+PASS	helpers/searchif.sli	[1 3 2 5 2] [3 2]      searchif	true	true	
+PASS	helpers/trim.sli	(--hello-you---) (-) 0 trim	(hello-you---)	(hello-you---)	
+PASS	helpers/trim.sli	(--hello-you---) (-) 1 trim	(--hello-you)	(--hello-you)	
+PASS	helpers/trim.sli	(--hello-you---) (-) 2 trim	(hello-you)	(hello-you)	
+FAIL	io/ReadList.sli	istream [/Number /Number] ReadList	[[1 2] [3 4] ...]	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/istream' does not exist in dictionary.	output mismatch
+FAIL	io/ReadList.sli	istream [/Number] ReadList	[1 2 3 4 ...]	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/istream' does not exist in dictionary.	output mismatch
+FAIL	math/Add.sli	1 2   Add	3	May 22 10:17:32 Add [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+FAIL	math/Add.sli	1.0 2 Add	3.0	May 22 10:17:32 Add [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+PASS	math/Add.sli	[1 2] [3 4] Add	[4 6]	[4 6]	
+PASS	math/Add.sli	1 [3 4] Add	[4 5]	[4 5]	
+FAIL	math/AppendTo.sli	/j [4 5] def  7 /j AppendTo j -	[4 5 7]	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Apply.sli	[1 2] {add} Apply -	3	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Apply.sli	[1 2] {dup mul} Map -	[1 4]	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Apply.sli	[(hell world) 4 (o)] {insert} Apply -	(hello world)	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/CompileMath.sli	( 5 + 3 * 7 )      CompileMath  exec  -	26	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/CompileMath.sli	( 5 * (3 + 7) )    CompileMath  exec  -	50	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	math/CompileMath.sli	( 5 + x * 7 )      CompileMath        -	{5 x 7 mul add}		multi-value stack
+SKIP	math/CompileMath.sli	( 3 + exp 5 )      CompileMath        -	{3 5 exp add}		multi-value stack
+SKIP	math/CompileMath.sli	( 3 + exp (  x ) ) CompileMath        -	{3 x exp add}		multi-value stack
+SKIP	math/CompileMath.sli	( 3 + exp ( -x ) ) CompileMath        -	{3 x neg exp add}		multi-value stack
+SKIP	math/CompileMath.sli	( 3 * exp (sin 2)) CompileMath        -	{3 2 sin exp mul}		multi-value stack
+SKIP	math/CompileMath.sli	( 3 * exp sin 2 )  CompileMath        -	{3 2 sin exp mul}		multi-value stack
+FAIL	math/CompileMath.sli	(4 * - 7)          CompileMath exec   -	-28	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	math/CompileMath.sli	(2^3)              CompileMath        -	{2 3 pow}		multi-value stack
+SKIP	math/CompileMath.sli	(5+3*2^3)          CompileMath        -	{5 3 2 3 pow mul add}		multi-value stack
+SKIP	math/CompileMath.sli	(5+3*2^3-4)        CompileMath        -	{5 3 2 3 pow mul add 4 sub}		multi-value stack
+SKIP	math/CompileMath.sli	(5+3*2^3/4)        CompileMath        -	{5 3 2 3 pow mul 4 div add}		multi-value stack
+SKIP	math/CompileMath.sli	(5+3*2^-3)         CompileMath        -	{5 3 2 3 neg pow mul add}		multi-value stack
+FAIL	math/CompileMath.sli	(4)                CompileMath        -	{4}	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/CompileMath.sli	()                 CompileMath        -	{}	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	math/CompileMath.sli	(a=7+3)            CompileMath        -	{/a 7 3 add dup rolld Set}		multi-value stack
+SKIP	math/CompileMath.sli	(a=7+3;)           CompileMath        -	{/a 7 3 add dup rolld Set pop}		multi-value stack
+SKIP	math/CompileMath.sli	(a=7+3;6)          CompileMath        -	{/a 7 3 add dup rolld Set pop 6}		multi-value stack
+SKIP	math/CompileMath.sli	(a=7+4;b=2*exp(-2.0/10)) CompileMath  -	{/a 7 4 add dup rolld Set pop /b 2 2.0 neg 10 div exp mul dup rolld Set}		multi-value stack
+SKIP	math/CompileMath.sli	(Function({x+2},'x)) CompileMath      -	{{x 2 add} /x Function}		multi-value stack
+SKIP	math/CompileMath.sli	(f=Function({x+2},'x)) CompileMath    -	{/f {x 2 add} /x Function dup rolld Set}		multi-value stack
+SKIP	math/CompileMath.sli	(f={#+2})              CompileMath    -	{/f {<< >> begin /# Set # 2 add end} dup rolld Set}		multi-value stack
+SKIP	math/CompileMath.sli	(f={#1-#2})            CompileMath    -	{/f {<< >> begin /#2 Set /#1 Set #1 #2 sub end} dup rolld Set}		multi-value stack
+SKIP	math/CompileMath.sli	({#1-#2})            CompileMath exec -	{<< >> begin /#2 Set /#1 Set #1 #2 sub end}		multi-value stack
+SKIP	math/CompileMath.sli	([4,3,2])              CompileMath    -	{[4 3 2]}		multi-value stack
+SKIP	math/CompileMath.sli	(x=7+[4,3,2]*2)        CompileMath    -	{/x 7 [ 4 3 2 ] 2 mul add dup rolld Set}		multi-value stack
+FAIL	math/CompileMath.sli	([])                   CompileMath    -	{[]}	May 22 10:17:32 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	math/CompileMath.sli	(<< 'x : [-3, 9]*2, 'y : 7 >>) CompileMath -	{<< /x [ 3 neg 9 ] 2 mul /y 7 >>}		multi-value stack
+SKIP	math/CompileMath.sli	(<< >>)                CompileMath    -	{<< >>}		multi-value stack
+FAIL	math/CompileMath.sli	(5+3 // Function( {2*x+1},'x)  ) CompileMath exec  -	17	May 22 10:17:32 Unimplemented [M_ERROR]: Operator 'cvlp_p' is registered as a stub but not yet implemented. Bootstrap referenced it via `load addtotrie` so the trie surface could be built; runtime calls land here. May 22 10:17:32 cvlp_p [M_ERROR]: Unimplemented	output mismatch
+FAIL	math/CompileMath.sli	(1+(5+3 // Function( {2*x+1},'x))  ) CompileMath exec  -	18	May 22 10:17:32 Unimplemented [M_ERROR]: Operator 'cvlp_p' is registered as a stub but not yet implemented. Bootstrap referenced it via `load addtotrie` so the trie surface could be built; runtime calls land here. May 22 10:17:32 cvlp_p [M_ERROR]: Unimplemented	output mismatch
+FAIL	math/CompileMath.sli	( [ 3, [ 2, 1], -9] // Flatten) CompileMath exec -	[3 2 1 -9]		timeout
+FAIL	math/CompileMath.sli	( [ 3, [ 2, 1], -9] // Flatten // {Select(#,{#<3})}  ) CompileMath exec -	[2 1 -9]	May 22 10:17:37 Unimplemented [M_ERROR]: Operator 'cvn_s' is registered as a stub but not yet implemented. Bootstrap referenced it via `load addtotrie` so the trie surface could be built; runtime calls land here. May 22 10:17:37 cvn_s [M_ERROR]: Unimplemented	output mismatch
+FAIL	math/CompileMath.sli	(5+3 // {#+1}  ) CompileMath exec -	9	May 22 10:17:37 Unimplemented [M_ERROR]: Operator 'cvn_s' is registered as a stub but not yet implemented. Bootstrap referenced it via `load addtotrie` so the trie surface could be built; runtime calls land here. May 22 10:17:37 cvn_s [M_ERROR]: Unimplemented	output mismatch
+FAIL	math/CompileMath.sli	(7 5 // {#1-#2}) CompileMath exec -	2	May 22 10:17:37 Unimplemented [M_ERROR]: Operator 'cvn_s' is registered as a stub but not yet implemented. Bootstrap referenced it via `load addtotrie` so the trie surface could be built; runtime calls land here. May 22 10:17:37 cvn_s [M_ERROR]: Unimplemented	output mismatch
+FAIL	math/Dimensions.sli	SLI ] [1 2 3]                    Dimensions	[3]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/SLI' does not exist in dictionary.	output mismatch
+FAIL	math/Dimensions.sli	SLI ] [[1 2 3] [4 5 6]]          Dimensions	[2 3]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/SLI' does not exist in dictionary.	output mismatch
+FAIL	math/Dimensions.sli	SLI ] [[[1 2][3 4]][[5 6][7 8]]] Dimensions	[2 2 2]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/SLI' does not exist in dictionary.	output mismatch
+FAIL	math/Div.sli	9 2          Div	4	May 22 10:17:37 Div [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+FAIL	math/Div.sli	9 3.3        Div	2.727273	May 22 10:17:37 Div [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+PASS	math/Div.sli	[10 11.5 12] 4 Div	[2 2.875 3]	[2 2.875 3]	
+FAIL	math/Drop.sli	[4 9 -7 3 2 11] 2 Drop    -	[-7 3 2 11]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Drop.sli	[4 9 -7 3 2 11] -2 Drop   -	[4 9 -7 3]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Drop.sli	[1 2 3 4 5] [-2] Drop     -	[1 2 3 5]	May 22 10:17:37 erase_a [M_ERROR]: RangeCheck	output mismatch
+FAIL	math/Drop.sli	[1 2 3 4 5] [1 -2] Drop   -	[5]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Drop.sli	[1 2 3 4 5] [1 -2 2] Drop -	[2 4 5]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Drop.sli	[1 2 3 4 5] [1 -1 2] Drop -	[2 4]	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Drop.sli	[[-9 -12] [6 7]] {[2] [1]} Drop -	[[-12]]	May 22 10:17:37 counttomark [M_ERROR]: UnmatchedMark	output mismatch
+FAIL	math/First.sli	(train) First	104	116	output mismatch
+PASS	math/First.sli	[1 2 3] First	1	1	
+PASS	math/First.sli	[(this) (is) (an) (example)] First	(this)	(this)	
+FAIL	math/FixedPoint.sli	(kaeschperle) {Rest (_) join} FixedPoint   -	(___________)	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/FixedPoint.sli	(kaeschperle) {Rest (_) join} 1 FixedPoint -	(aeschperle_)	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/FixedPoint.sli	(kaeschperle) {Rest (_) join} 3 FixedPoint -	(schperle___)	May 22 10:17:37 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Flatten.sli	[3 [4 [5 [6]]] 7] Flatten   -	[3 4 5 6 7]		timeout
+FAIL	math/Flatten.sli	[3 [4 [5 [6]]] 7] 1 Flatten -	[3 4 [5 [6]] 7]	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Flatten.sli	[3 [4 [5 [6]]] 7] 2 Flatten -	[3 4 5 [6] 7]	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+PASS	math/FoldList.sli	0 [1 2 3 4] {add} FoldList	[0 1 3 6 10]	[0 1 3 6 10]	
+PASS	math/FractionalPart.sli	-2.3 FractionalPart	-0.3	-0.3	
+FAIL	math/HasDifferentMemberQ.sli	[3 8 2 9 -1] 2 HasDifferentMemberQ -	true	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/HasDifferentMemberQ.sli	[2 2 2]      2 HasDifferentMemberQ -	false	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/IntegerPart.sli	-2.3 IntegerPart	-2.0	-2	output mismatch
+FAIL	math/JoinTo.sli	/j [4 5] def [6 7 8] /j JoinTo j -	[4 5 6 7 8]	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/JoinTo.sli	<< /Tau_m 25.0 /I_e 130.0 >> /j JoinTo j -	<< /C_m 250.0 /Tau_m 25.0 /I_e 130.0 >>	May 22 10:17:42 load [M_ERROR]: UndefinedName Key '/j' does not exist in dictionary.	output mismatch
+PASS	math/Last.sli	(train) Last	110	110	
+PASS	math/Last.sli	[1 2 3] Last	3	3	
+PASS	math/Last.sli	[(this) (is) (an) (example)] Last	(example)	(example)	
+PASS	math/LayoutArray.sli	[5] 1 LayoutArray	[1 1 1 1 1]	[1 1 1 1 1]	
+FAIL	math/LayoutArray.sli	[2 3] 1.0 LayoutArray	[ [1.0 1.0 1.0] [1.0 1.0 1.0]]	[[1 1 1] [1 1 1]]	output mismatch
+PASS	math/MapIndexed.sli	[1 2 3 4 5]  {add} MapIndexed	[2 4 6 8 10]	[2 4 6 8 10]	
+PASS	math/MapIndexed.sli	(abcd) {add} MapIndexed	(bdfh)	(bdfh)	
+FAIL	math/MathematicaToSliIndex.sli	[3 5 6 9 11] -2       MathematicaToSliIndex	[3 5 6 9 11] 3	3	output mismatch
+FAIL	math/MathematicaToSliIndex.sli	[3 5 6 9 11] [ -2 2 ] MathematicaToSliIndex	[3 5 6 9 11] [3 1]	[0 1]	output mismatch
+PASS	math/MatrixQ.sli	[1 2 3] MatrixQ	true	true	
+PASS	math/MatrixQ.sli	[[1 2] [3 4]] MatrixQ	true	true	
+FAIL	math/MatrixQ.sli	[[1] [2 3]] MatrixQ	False	true	output mismatch
+FAIL	math/Max.sli	[8 4 3 6 9 5] Max -	9	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Mean.sli	[8 4 3 6 9 5] Mean -	5.833	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/MemberQ.sli	[3 8 2 9 -1] 2 MemberQ -	true	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/MemberQ.sli	[3 8 9 -1]   2 MemberQ -	false	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+PASS	math/MergeLists.sli	[1 3 5] [2 7] MergeLists	[1 2 3 5 7]	[1 2 3 5 7]	
+FAIL	math/Min.sli	[8 4 3 6 9 5] Min -	3	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+PASS	math/Most.sli	(computer) Most	(compute)	(compute)	
+PASS	math/Most.sli	[1 2 3] Most	[1 2]	[1 2]	
+FAIL	math/Most.sli	[(this) (is) (an) (example)] Rest	[(this) (is) (an)]	[(is) (an) (example)]	output mismatch
+FAIL	math/Mul.sli	3 4         Mul	12	May 22 10:17:42 Mul [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+FAIL	math/Mul.sli	3.33 3      Mul	9.99	May 22 10:17:42 Mul [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+PASS	math/Mul.sli	[1 2.2 3] 4 Mul	[4 8.8 12]	[4 8.8 12]	
+PASS	math/NestList.sli	1 {2 mul} 3 NestList	[1 2 4 8]	[1 2 4 8]	
+FAIL	math/Part.sli	[ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [1 3] [2 3] ] Part  -	[[5 6] [1 8]]	May 22 10:17:42 Part [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+FAIL	math/Part.sli	[ [3 [-12 -19] 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 2 2] Part -	-19	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Part.sli	[3 4 5 6 7] [-2] Part                                   -	6	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Part.sli	[3 [-9 -12] 5 6 7] [2] Part                             -	[-9 -12]	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Part.sli	[3 [-9 -12] 5 6 7] [2 2] Part                           -	-12	May 22 10:17:42 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Part.sli	[3 [-9 -12] 5 6 7] [[2 3]] Part                         -	[[-9 -12] 5]	May 22 10:17:42 Part [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+FAIL	math/Part.sli	[3 [-9 -12] 5 6 7] [[2 3 2]] Part                       -	[[-9 -12] 5 [-9 -12]]	May 22 10:17:42 Part [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+FAIL	math/Part.sli	[ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 []  ] Part    -	[]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Part.sli	[ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [] 1 ] Part     -	[]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Part.sli	[3 [5 -12] 6 9]  [ [ 2 ] ] Part                         -	[[5 -12]]	May 22 10:17:43 get [M_ERROR]: RangeCheck	output mismatch
+FAIL	math/Part.sli	[3 [5 -12] 6 9]  [ [ 2 ] 2] Part                        -	[-12]	May 22 10:17:43 get [M_ERROR]: RangeCheck	output mismatch
+FAIL	math/Part.sli	[ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ /All [3 2]  ] Part -	[[6 5] [7 4] [8 1]]	May 22 10:17:43 Part [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+PASS	math/Partition.sli	[1 2 3 4 5 6 7 8 9 10]  2 2 Partition	[[1 2] [3 4] [5 6] [7 8] [9 10]]	[[1 2] [3 4] [5 6] [7 8] [9 10]]	
+FAIL	math/Partition.sli	[1 2 3 4 5 6 7 8 9 10]  1 2 Partition	[[1] [3] [5] [7] [9] [10]]	[[1] [3] [5] [7] [9]]	output mismatch
+PASS	math/Partition.sli	[4 5 6 7 8] 2     Partition	[[4 5] [6 7]]	[[4 5] [6 7]]	
+PASS	math/Partition.sli	[4 5 6]     2 5   Partition	[[4 5]]	[[4 5]]	
+PASS	math/Partition.sli	[4 5 6]     5 1   Partition	[]	[]	
+PASS	math/Partition.sli	[4 5 6]     5 7   Partition	[]	[]	
+FAIL	math/Plus.sli	[4 3 2 5 6] Plus -	20	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Plus.sli	[ ] Plus         -	0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+PASS	math/Range.sli	[5] Range	[1 2 3 4 5]	[1 2 3 4 5]	
+PASS	math/Range.sli	[2 5] Range	[2 3 4 5]	[2 3 4 5]	
+PASS	math/Range.sli	[5 2] Range	[]	[]	
+PASS	math/Range.sli	[5 2 -1] Range	[5 4 3 2]	[5 4 3 2]	
+PASS	math/Range.sli	[1.0 10.0 2.5] Range	[1 3.5 6 8.5]	[1 3.5 6 8.5]	
+PASS	math/Rest.sli	(train) Rest	(rain)	(rain)	
+PASS	math/Rest.sli	[1 2 3] Rest	[2 3]	[2 3]	
+PASS	math/Rest.sli	[(this) (is) (an) (example)] Rest	[(is) (an) (example)]	[(is) (an) (example)]	
+PASS	math/SliToMathematicaIndex.sli	3     SliToMathematicaIndex	4	4	
+FAIL	math/SliToMathematicaIndex.sli	[ 3 1 ] SliToMathematicaIndex	[ 4 2 ]	[4 2]	output mismatch
+FAIL	math/Split.sli	[1 1 1 2 2 3 3 3 3 4 4 4] Split	[[1 1 1] [2 2] [3 3 3 3] [4 4 4]]	May 22 10:17:43 Part [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+PASS	math/Split.sli	[1] Split	[[1]]	[[1]]	
+PASS	math/Split.sli	[] Split	[]	[]	
+FAIL	math/StandardDeviation.sli	[8 4 3 6 9 5] StandardDeviation -	2.3166	May 22 10:17:43 sub [M_ERROR]: ArgumentType	output mismatch
+FAIL	math/Sub.sli	5 2   Sub	3	May 22 10:17:43 Sub [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+FAIL	math/Sub.sli	5.0 2 Sub	3.0	May 22 10:17:43 Sub [M_ERROR]: ArgumentType The type of the first parameter did not match the argument(s) of this function.	output mismatch
+PASS	math/Sub.sli	[5 7] [3 4] Sub	[2 3]	[2 3]	
+PASS	math/Sub.sli	[3 4] 1 Sub	[2 3]	[2 3]	
+PASS	math/SubsetQ.sli	<< /a 1 /b 2 /c 2 >> << /c 2 >> SubsetQ	true	true	
+PASS	math/Table.sli	[5] {2 mul} Table	[2 4 6 8 10]	[2 4 6 8 10]	
+PASS	math/Table.sli	[2 5] {2 mul} Table	[4 6 8 10]	[4 6 8 10]	
+FAIL	math/Table.sli	[1.0 10.0 2.5] {2 mul} Table	[2.0 7.0 12.0 17.0]	[2 7 12 17]	output mismatch
+FAIL	math/Take.sli	[4 9 -7 3 2 11] 2 Take    -	[4 9]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	[4 9 -7 3 2 11] -2 Take   -	[2 11]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	[1 2 3 4 5] [-2] Take     -	4	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	[1 2 3 4 5] [1 -2] Take   -	[1 2 3 4]	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	[1 2 3 4 5] [1 -2 2] Take -	[1 3]	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	[1 2 3 4 5] [1 -1 2] Take -	[1 3 5]	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	% [1 2 3 4 5] [1 6] Take    -	[Error]: RangeCheck		output mismatch
+FAIL	math/Take.sli	(HAL) {1 add} Map     -	(IBM)	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	(HAL) 2 Take          -	(HA)	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	(HAL) -2 Take         -	(AL)	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	(HALLO) [-2] Take     -	76	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	(HALLO) [1 -2] Take   -	(HALL)	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	(HALLO) [1 -2 2] Take -	(HL)	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+FAIL	math/Take.sli	(HALLO) [1 -1 2] Take -	(HLO)	May 22 10:17:43 switchdefault [M_ERROR]: UndefinedName Key '/::pop' does not exist in dictionary.	output mismatch
+PASS	math/TensorRank.sli	[1 2 3] TensorRank	1	1	
+PASS	math/TensorRank.sli	[[1 2] [3 4]] TensorRank	2	2	
+FAIL	math/Times.sli	[4 3 2 5 6] Times -	720	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Times.sli	[] Times          -	1	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	math/ToMathematicaExpression.sli	({i	6, s -> "hello"})		multi-value stack
+FAIL	math/Total.sli	[8 4 3 6 9 5] Total -	35	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	math/Variance.sli	[8 4 3 6 9 5] Variance -	5.366	May 22 10:17:43 sub [M_ERROR]: ArgumentType	output mismatch
+PASS	math/abs_d.sli	-3.456 abs_d	3.456	3.456	
+PASS	math/abs_i.sli	-3 abs_i	3	3	
+FAIL	math/acos.sli	1.0 acos	0.0	0	output mismatch
+PASS	math/and.sli	true true and	true	true	
+PASS	math/and.sli	10   24   and	8	8	
+PASS	math/asin.sli	1.0 asin	1.570796	1.5708	
+PASS	math/cos.sli	1.0 cos	0.540302	0.540302	
+SKIP	math/dexp.sli	-5 dexp frexp	0.5 -4		multi-value stack
+PASS	math/exp.sli	1.0 exp	2.71828	2.71828	
+SKIP	math/frexp.sli	-5 dexp frexp	0.5 -4		multi-value stack
+PASS	math/inv.sli	2.0 inv	0.5	0.5	
+PASS	math/ldexp.sli	1.5 3 ldexp	12	12	
+SKIP	math/ldexp.sli	12.0 frexp	0.75 4		multi-value stack
+FAIL	math/ldexp.sli	12.0 frexp ldexp	12.0	12	output mismatch
+SKIP	math/ldexp.sli	1.0 -5 ldexp frexp	0.5 -4		multi-value stack
+FAIL	math/ln.sli	E ln	1.0	1	output mismatch
+FAIL	math/log.sli	10.0 log	1.0	1	output mismatch
+PASS	math/mod.sli	7 4 mod	3	3	
+SKIP	math/modf.sli	2.5 modf	0.5 2		multi-value stack
+PASS	math/not.sli	1 2 eq not	true	true	
+PASS	math/not.sli	0 not	-1	-1	
+PASS	math/or.sli	true  false or	true	true	
+PASS	math/or.sli	true  true  or	true	true	
+PASS	math/or.sli	false false or	false	false	
+PASS	math/or.sli	2     8     or	10	10	
+PASS	math/or.sli	1     0     or	1	1	
+PASS	math/sin.sli	1.0 sin	0.841471	0.841471	
+FAIL	math/sqr.sli	2.0 sqr	4.0	4	output mismatch
+FAIL	math/sqrt.sli	4 sqrt	2.0	2	output mismatch
+PASS	math/xor.sli	true  false xor	true	true	
+PASS	math/xor.sli	true  true  xor	false	false	
+PASS	math/xor.sli	false false xor	false	false	
+PASS	ps/array.sli	10 array	[0 0 0 0 0 0 0 0 0 0]	[0 0 0 0 0 0 0 0 0 0]	
+FAIL	ps/ceil.sli	2.87 ceil	3	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/ceil' does not exist in dictionary.	output mismatch
+FAIL	ps/ceil.sli	1.001 ceil	2	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/ceil' does not exist in dictionary.	output mismatch
+FAIL	ps/floor.sli	1.1 floor ==	1	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/floor' does not exist in dictionary.	output mismatch
+FAIL	ps/floor.sli	2.9 floor ==	2	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/floor' does not exist in dictionary.	output mismatch
+FAIL	ps/round.sli	1.4 round  -	1.0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/round' does not exist in dictionary.	output mismatch
+FAIL	ps/round.sli	1.5 round  -	2.0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/round' does not exist in dictionary.	output mismatch
+FAIL	ps/round.sli	2   round  -	2.0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/round' does not exist in dictionary.	output mismatch
+FAIL	ps/trunc.sli	3.123456 trunc	3	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/trunc' does not exist in dictionary.	output mismatch
+SKIP	regex/_x3aregerror.sli	(\() regcomp_	<regextype> 8 False		multi-value stack
+SKIP	regex/_x3aregerror.sli	:regerror =	Unmatched ( or \(		multi-value stack
+PASS	regex/grep.sli	[(hello) (world)] (^hell)       grep	[(hello)]	[(hello)]	
+PASS	regex/grep.sli	[(hello) (world)] (not in here) grep	[]	[]	
+FAIL	regex/grep.sli	[(hello) (world)] ()            grep	[(hello) (world)]	May 22 10:17:43 regcomp [M_ERROR]: empty (sub)expression May 22 10:17:43 SLIFunctionWrapper [M_WARNING]: User routine '/grep' stopped. May 22 10:17:43 SLIFunctionWrapper [M_WARNING]: Reason: A nested routine raised an error. May 22 10:17:43 SLIFunctionWrapper [M_WARNING]: Action: Leaving stack and variable context unchanged for inspection. May 22 10:17:43 SLIFunctionWrapper [M_ERROR]: In function '/grep': May 22 10:17:43 regcomp [M_ERROR]: InvalidRegexError	output mismatch
+FAIL	regex/grep.sli	statusdict /prgdocdir get (LICENSE) joinpath (http) grep	[(or visit https://www.nest-simulator.org)]	May 22 10:17:43 SLIFunctionWrapper [M_WARNING]: User routine '/grep' stopped. May 22 10:17:43 SLIFunctionWrapper [M_WARNING]: Reason: A nested routine raised an error. May 22 10:17:43 SLIFunctionWrapper [M_WARNING]: Action: Leaving stack and variable context unchanged for inspection. May 22 10:17:43 SLIFunctionWrapper [M_ERROR]: In function '/grep': May 22 10:17:43 file [M_ERROR]: FileOpenError Could not open the following file for reading: "/Users/gewaltig/Code/sli3/lib/LICENSE".	output mismatch
+SKIP	regex/regcomp.sli	1) (.*) regcomp	<regextype>		type-tag placeholder
+SKIP	regex/regcomp.sli	(\() REG_EXTENDED regcomp	<ERROR>		intentional error
+PASS	regex/regex_find.sli	(hello) (is there a hello hiding) regex_find	true	true	
+PASS	regex/regex_find.sli	(hello) (is there a HeLlO hiding) regex_find	false	false	
+FAIL	regex/regex_find.sli	(is there a HeLlO hiding)         regex_find	true	May 22 10:17:43 regex_find [M_ERROR]: StackUnderflow Command needs (at least) 2 argument(s), but the stack has only 1.	output mismatch
+FAIL	regex/regex_find_r.sli	(is there a HeLlO hiding)         regex_find	true	May 22 10:17:43 regex_find [M_ERROR]: StackUnderflow Command needs (at least) 2 argument(s), but the stack has only 1.	output mismatch
+PASS	regex/regex_find_s.sli	(hello) (is there a hello hiding) regex_find	true	true	
+PASS	regex/regex_find_s.sli	(hello) (is there a HeLlO hiding) regex_find	false	false	
+SKIP	regex/regexec.sli	1) (simple) regcomp	<regextype>		type-tag placeholder
+SKIP	regex/regexec.sli	(   simple   ) 0 0 regexec	0  % this 0 indicating success		multi-value stack
+SKIP	regex/regexec.sli	2) (simple) regcomp	<regextype>		type-tag placeholder
+FAIL	regex/regexec.sli	(   simple   ) 1 0 regexec	[[3 9]] 0	May 22 10:17:43 regexec [M_ERROR]: StackUnderflow Command needs (at least) 4 argument(s), but the stack has only 3.	output mismatch
+SKIP	regex/regexec.sli	3) ((parenthesize)+.*example) regcomp	<regextype>		type-tag placeholder
+FAIL	regex/regexec.sli	(This is a parenthesize using example) 2 0 regexec	[[10 36] [10 22]] 0	May 22 10:17:43 regexec [M_ERROR]: StackUnderflow Command needs (at least) 4 argument(s), but the stack has only 3.	output mismatch
+FAIL	regex/regexec.sli	rx st 0 0 regexec	0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/rx' does not exist in dictionary.	output mismatch
+FAIL	regex/regexec.sli	rx st 1 0 regexec	[[0 29]] 0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/rx' does not exist in dictionary.	output mismatch
+FAIL	regex/regexec.sli	rx st 2 0 regexec	[[0 29] [1 7]] 0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/rx' does not exist in dictionary.	output mismatch
+FAIL	regex/regexec.sli	rx st 4 0 regexec	[[0 29] [1 7] [8 9] [10 28]] 0	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/rx' does not exist in dictionary.	output mismatch
+SKIP	stack/dup.sli	2 dup	2 2		multi-value stack
+FAIL	stack/dup.sli	(hello) dup	(hello) (hello)	(hello)	output mismatch
+PASS	stack/over.sli	1 2 3 over	2	2	
+PASS	stack/over.sli	1 2 3 4 5 over	4	4	
+FAIL	stack/roll.sli	(a) (b) (c) 3 1  roll	(c) (a) (b)	(b)	output mismatch
+FAIL	stack/roll.sli	(a) (b) (c) 3 -1 roll	(b) (c) (a)	(a)	output mismatch
+FAIL	stack/roll.sli	(a) (b) (c) 3 0  roll	(a) (b) (c)	(c)	output mismatch
+PASS	types/abs.sli	-3 abs	3	3	
+PASS	types/abs.sli	3 abs	3	3	
+PASS	types/abs.sli	-3.456 abs	3.456	3.456	
+FAIL	types/cva.sli	<< /a 1 /b 2>> cva         -	[/a 1 /b 2]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	types/cva.sli	/square trie [/doubletype] { dup mul } addtotrie exch pop cva -	[/doubletype [{dup mul}]]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	types/cva.sli	[ << /a 1 >> << /b 2>>] cva -	[[/a 1] [/b 2]]	May 22 10:17:43 cva [M_ERROR]: ArgumentType	output mismatch
+FAIL	types/cva.sli	[1 3 -5 2] cv_iv cva        -	[1 3 -5 2]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/cv_iv' does not exist in dictionary.	output mismatch
+FAIL	types/cva.sli	[1. 3. -5. 2.] cv_dv cva    -	[1. 3. -5. 2.]	May 22 10:17:43 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/cv_dv' does not exist in dictionary.	output mismatch
+FAIL	types/cva.sli	[2 10] RangeIterator cva    -	[2 3 4 5 6 7 8 9 10]	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/RangeIterator_a' does not exist in dictionary.	output mismatch
+SKIP	types/cva_t.sli	/pop load cva_t	/pop [/anytype [-pop-]]		multi-value stack
+FAIL	types/cvd.sli	3 cvd	3.0	3	output mismatch
+FAIL	types/cvd.sli	(23) cvd	23.0	23	output mismatch
+PASS	types/cvd.sli	(23.2323) cvd	23.2323	23.2323	
+FAIL	types/cvd.sli	(hello) cvd	0.0	May 22 10:17:44 cvd_s [M_ERROR]: ArgumentType	output mismatch
+FAIL	types/cvi.sli	3.33 cvi      -	3	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	types/cvi.sli	2    cvi      -	2	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	types/cvi.sli	(23) cvi      -	23	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	types/cvi.sli	(23.2323) cvi -	23	May 22 10:17:44 cvi_s [M_ERROR]: ArgumentType	output mismatch
+FAIL	types/cvi.sli	(hello) cvi   -	0	May 22 10:17:44 cvi_s [M_ERROR]: ArgumentType	output mismatch
+FAIL	types/cvlit.sli	(joe)   cvlit	/joe	May 22 10:17:44 Unimplemented [M_ERROR]: Operator 'cvn_s' is registered as a stub but not yet implemented. Bootstrap referenced it via `load addtotrie` so the trie surface could be built; runtime calls land here. May 22 10:17:44 cvn_s [M_ERROR]: Unimplemented	output mismatch
+PASS	types/cvlit.sli	{ 5 = } cvlit	[5 =]	[5 =]	
+FAIL	types/cvn.sli	(joe) cvn	joe	May 22 10:17:44 Unimplemented [M_ERROR]: Operator 'cvn_s' is registered as a stub but not yet implemented. Bootstrap referenced it via `load addtotrie` so the trie surface could be built; runtime calls land here. May 22 10:17:44 cvn_s [M_ERROR]: Unimplemented	output mismatch
+PASS	types/cvn.sli	/joe  cvn	joe	joe	
+SKIP	types/cvt_a.sli	/pop [/anytype [-pop-]]  cvt_a	trie		stack-effect placeholder
+SKIP	types/cvx.sli	(hello) cvx	<proceduretype>		type-tag placeholder
+FAIL	types/empty.sli	(hello) empty	(hello) false	false	output mismatch
+FAIL	types/eval.sli	(1 2 add) eval              -	3	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/isstream' does not exist in dictionary.	output mismatch
+FAIL	types/eval.sli	([1 2 3] /peter 5 def) eval -	[1 2 3]	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/isstream' does not exist in dictionary.	output mismatch
+PASS	types/max.sli	1   2   max	2	2	
+FAIL	types/max.sli	1   2.0 max	2.0	2	output mismatch
+PASS	types/max.sli	1.0 2   max	2	2	
+PASS	types/min.sli	1   2   min	1	1	
+PASS	types/min.sli	1   2.0 min	1	1	
+FAIL	types/min.sli	1.0 2   min	1.0	1	output mismatch
+SKIP	types/references.sli	<< /x 0 >> dup references	dict dict 2		multi-value stack
+SKIP	types/references.sli	[ 0 ] dup references	array array 2		multi-value stack
+SKIP	types/symbol.sli	(1 2 hello) symbol	true 1 (2 hello)		multi-value stack
+SKIP	types/symbol.sli	({1 2 add}) symbol	true /BeginProcedureSymbol (1 2 add})		multi-value stack
+SKIP	types/token.sli	(1 2 hello) token	true 1 (2 hello)		multi-value stack
+SKIP	types/token.sli	({1 2 add}) token	true {1 2 add} ()		multi-value stack
+PASS	types/type.sli	1 type	/integertype	/integertype	
+SKIP	types/variant.sli	/add [/doubletype /doubletype] variant pop -	/add_dd load		multi-value stack
+FAIL	types/variant.sli	/add [/doubletype /stringtype] variant     -	false	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	types/variant.sli	/add [/stringtype /doubletype] variant     -	false	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+FAIL	types/variant.sli	/ArrayQ [/anytype]             variant pop -	false	May 22 10:17:44 SLIInterpreter::execute [M_ERROR]: UndefinedName Key '/-' does not exist in dictionary.	output mismatch
+SKIP	types/variant.sli	/f [/integertype] variant pop -	{(hello) ==}		multi-value stack

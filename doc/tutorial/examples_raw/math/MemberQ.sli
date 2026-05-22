@@ -1,0 +1,8 @@
+% Harvested example for MemberQ
+% src: lib/sli/mathematica.sli:3012
+% summary: checks if array contains a specific element
+% synopsis: array any MemberQ -> true -> false
+%
+% Examples (verbatim from docstring):
+%   [3 8 2 9 -1] 2 MemberQ --> true
+%   [3 8 9 -1]   2 MemberQ --> false

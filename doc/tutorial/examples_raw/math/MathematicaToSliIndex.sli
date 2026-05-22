@@ -1,0 +1,9 @@
+% Harvested example for MathematicaToSliIndex
+% src: lib/sli/mathematica.sli:1562
+% summary: Convert Mathematica-like indices to SLI indices
+% synopsis: [array] mathematicaIndex MathematicaToSliIndex -> [array] sliIndex
+%
+% Examples (verbatim from docstring):
+%      [3 5 6 9 11] -2       MathematicaToSliIndex -> [3 5 6 9 11] 3
+%      [3 5 6 9 11] [ -2 2 ] MathematicaToSliIndex -> [3 5 6 9 11] [3 1]
+%   

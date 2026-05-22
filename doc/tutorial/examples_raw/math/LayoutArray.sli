@@ -1,0 +1,9 @@
+% Harvested example for LayoutArray
+% src: lib/sli/mathematica.sli:2581
+% summary: build a multidimensional array
+% synopsis: [d1 d2 ...] val LayoutArray -> [...]
+%
+% Examples (verbatim from docstring):
+%      [5] 1 LayoutArray -> [1 1 1 1 1]
+%      [2 3] 1.0 LayoutArray -> [ [1.0 1.0 1.0] [1.0 1.0 1.0]]
+%   

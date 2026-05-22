@@ -1,0 +1,43 @@
+% Harvested example for CompileMath
+% src: lib/sli/mathematica.sli:3538
+% summary: converts traditional math to postfix notation
+% synopsis: string CompileMath -> proc
+%
+% Examples (verbatim from docstring):
+%       ( 5 + 3 * 7 )      CompileMath  exec  --> 26
+%       ( 5 * (3 + 7) )    CompileMath  exec  --> 50
+%       ( 5 + x * 7 )      CompileMath        --> {5 x 7 mul add}
+%       ( 3 + exp 5 )      CompileMath        --> {3 5 exp add}
+%       ( 3 + exp (  x ) ) CompileMath        --> {3 x exp add}
+%       ( 3 + exp ( -x ) ) CompileMath        --> {3 x neg exp add}
+%       ( 3 * exp (sin 2)) CompileMath        --> {3 2 sin exp mul}
+%       ( 3 * exp sin 2 )  CompileMath        --> {3 2 sin exp mul}
+%       (4 * - 7)          CompileMath exec   --> -28
+%       (2^3)              CompileMath        --> {2 3 pow}
+%       (5+3*2^3)          CompileMath        --> {5 3 2 3 pow mul add}
+%       (5+3*2^3-4)        CompileMath        --> {5 3 2 3 pow mul add 4 sub}
+%       (5+3*2^3/4)        CompileMath        --> {5 3 2 3 pow mul 4 div add}
+%       (5+3*2^-3)         CompileMath        --> {5 3 2 3 neg pow mul add}
+%       (4)                CompileMath        --> {4}
+%       ()                 CompileMath        --> {}
+%       (a=7+3)            CompileMath        --> {/a 7 3 add dup rolld Set}
+%       (a=7+3;)           CompileMath        --> {/a 7 3 add dup rolld Set pop}
+%       (a=7+3;6)          CompileMath        --> {/a 7 3 add dup rolld Set pop 6}
+%       (a=7+4;b=2*exp(-2.0/10)) CompileMath  --> {/a 7 4 add dup rolld Set pop /b 2 2.0 neg 10 div exp mul dup rolld Set}
+%       (Function({x+2},'x)) CompileMath      --> {{x 2 add} /x Function}
+%       (f=Function({x+2},'x)) CompileMath    --> {/f {x 2 add} /x Function dup rolld Set}
+%       (f={#+2})              CompileMath    --> {/f {<< >> begin /# Set # 2 add end} dup rolld Set}
+%       (f={#1-#2})            CompileMath    --> {/f {<< >> begin /#2 Set /#1 Set #1 #2 sub end} dup rolld Set}
+%       ({#1-#2})            CompileMath exec --> {<< >> begin /#2 Set /#1 Set #1 #2 sub end}
+%       ([4,3,2])              CompileMath    --> {[4 3 2]}
+%       (x=7+[4,3,2]*2)        CompileMath    --> {/x 7 [ 4 3 2 ] 2 mul add dup rolld Set}
+%       ([])                   CompileMath    --> {[]}
+%       (<< 'x : [-3, 9]*2, 'y : 7 >>) CompileMath --> {<< /x [ 3 neg 9 ] 2 mul /y 7 >>}
+%       (<< >>)                CompileMath    --> {<< >>}
+%       (5+3 // Function( {2*x+1},'x)  ) CompileMath exec  --> 17
+%       (1+(5+3 // Function( {2*x+1},'x))  ) CompileMath exec  --> 18
+%       ( [ 3, [ 2, 1], -9] // Flatten) CompileMath exec --> [3 2 1 -9]
+%       ( [ 3, [ 2, 1], -9] // Flatten // {Select(#,{#<3})}  ) CompileMath exec --> [2 1 -9]
+%       (5+3 // {#+1}  ) CompileMath exec --> 9
+%       (7 5 // {#1-#2}) CompileMath exec --> 2
+%   

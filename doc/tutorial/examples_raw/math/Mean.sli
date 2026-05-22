@@ -1,0 +1,7 @@
+% Harvested example for Mean
+% src: lib/sli/mathematica.sli:3444
+% summary: returns the mean of the elements of an array
+% synopsis: array Mean -> double, mean of elements
+%
+% Examples (verbatim from docstring):
+%    [8 4 3 6 9 5] Mean --> 5.833

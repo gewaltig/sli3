@@ -1,0 +1,7 @@
+% Harvested example for mod
+% src: src/builtins/sli_math.cpp:642
+% summary: compute the modulo of two integer numbers.
+% synopsis: int int mod -> int
+%
+% Examples (verbatim from docstring):
+%   7 4 mod -> 3

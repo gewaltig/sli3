@@ -1,0 +1,9 @@
+% Harvested example for arraylib::Sum
+% src: lib/sli/arraylib.sli:35
+% summary: Return sum of the elements in array.
+% synopsis: [array] Sum -> number
+%
+% Examples (verbatim from docstring):
+%   [1 2 3 4]   Sum -> 10
+%   [1 2 3 4.0] Sum -> 10.0
+%   

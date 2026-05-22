@@ -1,0 +1,16 @@
+% Chapter 07 -- keyword-argument pattern via begin/end
+%
+% Expected output:
+%   Hello, Alice!
+
+/greet
+{
+  begin
+    (Hello, ) =only
+    name =only
+    (!) =
+  end
+} def
+
+<< /name (Alice) >> greet
+quit

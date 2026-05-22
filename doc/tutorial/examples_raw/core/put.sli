@@ -1,0 +1,12 @@
+% Harvested example for put
+% src: lib/sli/sli-init.sli:169
+% summary: put indexed object into container
+% synopsis: array/proc int any         --> array/proc array  array any           --> array string/array/proc int int  --> string/array/proc litproc int any            --> litproc dict literal any           --> -
+%
+% Examples (verbatim from docstring):
+%      (Hello Wxrld!)      7 111    put --> (Hello World!)
+%      [(Hello) 1 /a 12]   2 /here  put --> [Hello 1 here 12]
+%      [[1 2][3 4]]    [1 1] 6      put --> [[1 2] [3 6]]
+%      {(Hello World!) ==} (Bye!) 1 put --> {(Bye!) ==}
+%      systemdict          /MyLit 5 put --> -  % MyLit equals integer 5 now!
+%   

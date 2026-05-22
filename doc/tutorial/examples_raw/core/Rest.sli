@@ -1,0 +1,10 @@
+% Harvested example for Rest
+% src: lib/sli/sli-init.sli:1185
+% summary: Remove the first element of an array or string and return
+% synopsis: string Rest -> string array Rest -> array
+%
+% Examples (verbatim from docstring):
+%   (train) Rest -> (rain)
+%   [1 2 3] Rest -> [2 3]
+%   [(this) (is) (an) (example)] Rest -> [(is) (an) (example)]
+%   

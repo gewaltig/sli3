@@ -1,0 +1,10 @@
+% Harvested example for Apply
+% src: lib/sli/mathematica.sli:4451
+% summary: calls a function with the elements of an array as arguments
+% synopsis: array proc Apply -> any
+%
+% Examples (verbatim from docstring):
+%     [1 2] {add} Apply --> 3
+%     [1 2] {dup mul} Map --> [1 4]
+%     [(hell world) 4 (o)] {insert} Apply --> (hello world)
+%   

@@ -1,0 +1,21 @@
+% Chapter 08 -- type names of common values
+%
+% Expected output:
+%   /integertype
+%   /doubletype
+%   /booltype
+%   /stringtype
+%   /literaltype
+%   /arraytype
+%   /dictionarytype
+%   /proceduretype
+
+42 type =
+3.14 type =
+true type =
+(hello) type =
+/foo type =
+[1 2 3] type =
+<< /a 1 >> type =
+{ 1 add } type =
+quit

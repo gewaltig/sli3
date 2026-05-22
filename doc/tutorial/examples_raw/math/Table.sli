@@ -1,0 +1,9 @@
+% Harvested example for Table
+% src: lib/sli/mathematica.sli:994
+% summary: Generate an array according to a given function
+% synopsis: [N]       {f} Table  -> [f(1) ... f(N)] [N1 N2]   {f} Table  -> [f(N1) ...f(N2)] [N1 N2 d] {f} Table -> [ f(N1) f(N1+d) f(N1+2d) ...]
+%
+% Examples (verbatim from docstring):
+%             [5] {2 mul} Table  -> [2 4 6 8 10]
+%           [2 5] {2 mul} Table  -> [4 6 8 10]
+%           [1.0 10.0 2.5] {2 mul} Table  -> [2.0 7.0 12.0 17.0]

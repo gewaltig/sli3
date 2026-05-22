@@ -1,0 +1,5 @@
+% B6c with stack recording disabled.
+% B6c - B6c_norec isolates the ostack toArray() cost at this depth.
+errordict /recordstacks false put
+tic 1000000 { mark 1 2 3 4 5 { /test /Bench raiseerror } stopped { handleerror } if counttomark 1 add_ii npop } repeat toc ==
+quit

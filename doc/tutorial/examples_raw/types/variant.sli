@@ -1,0 +1,13 @@
+% Harvested example for variant
+% src: lib/sli/typeinit.sli:921
+% summary: return specific variant of function
+% synopsis: funcname signature variant -> anytype  true false
+%
+% Examples (verbatim from docstring):
+%    /add [/doubletype /doubletype] variant pop --> /add_dd load
+%    /add [/doubletype /stringtype] variant     --> false
+%    /add [/stringtype /doubletype] variant     --> false
+%    /ArrayQ [/anytype]             variant pop --> false
+%    /f {(hello) ==} def
+%                 /f [/integertype] variant pop --> {(hello) ==}
+%   

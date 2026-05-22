@@ -1,0 +1,8 @@
+% Harvested example for dup
+% src: src/builtins/sli_stack.cpp:69
+% summary: Duplicate the object which is on top of the stack
+% synopsis: any dup -> any any
+%
+% Examples (verbatim from docstring):
+%   2 dup -> 2 2
+%   (hello) dup -> (hello) (hello)

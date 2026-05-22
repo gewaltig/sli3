@@ -1,0 +1,14 @@
+% B7 -- bubble sort.
+%
+% Sorts a 100-element reverse-ordered array, repeated K times.
+% Exercises: get / put pop (array indexing), gt (comparison), for
+% (nested loops), if (conditional). Tier 2 + Tier 3 of hot_ops.md.
+%
+% Each pass: 99 comparisons + up to 99 swaps (3 array ops each).
+% (n-1) passes per sort = 99*99 = 9801 comparisons per sort.
+% K=1000 sorts = ~10M comparisons + 3-5x more array ops.
+
+/bubble { /n exch def /arr exch def n 1 sub { 0 1 n 2 sub { /j exch def arr j get arr j 1 add get gt { /tmp arr j get def arr j arr j 1 add get put pop arr j 1 add tmp put pop } if } for } repeat } def
+/run { /a 100 array def 0 1 99 { /i exch def a i 99 i sub put pop } for a 100 bubble } def
+tic 1000 { run } repeat toc ==
+quit

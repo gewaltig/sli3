@@ -1,0 +1,9 @@
+% Harvested example for LocateFileNames
+% src: lib/sli/sli-init.sli:992
+% summary: Look up complete pathnames of given file in given search path.
+% synopsis: stringarray string LocateFileNames -> stringarray
+%
+% Examples (verbatim from docstring):
+%      SLISearchPath (sli-init.sli) LocateFileNames
+%      --> [(SLIHOME/lib/sli/sli-init.sli)]
+%   

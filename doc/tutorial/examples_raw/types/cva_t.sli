@@ -1,0 +1,8 @@
+% Harvested example for cva_t
+% src: src/builtins/sli_typecheck.cpp:125
+% summary: Converts a type trie to an equivalent array
+% synopsis: trie cva_t -> /name array
+%
+% Examples (verbatim from docstring):
+%      /pop load cva_t -> /pop [/anytype [-pop-]]
+%   

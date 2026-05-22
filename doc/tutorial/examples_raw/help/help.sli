@@ -1,0 +1,10 @@
+% Harvested example for help
+% src: lib/sli/helpinit.sli:216
+% summary: prints help text for a given command
+% synopsis: /name help -> -
+%
+% Examples (verbatim from docstring):
+%      /help help %prints this text.
+%      /page help %learn how to customize the output of the help command
+%      /ThisIsDefinitelyNoCommand help %raises a NoHelpInformationError.
+%   

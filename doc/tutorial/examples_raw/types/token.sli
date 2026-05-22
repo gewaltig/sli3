@@ -1,0 +1,9 @@
+% Harvested example for token
+% src: lib/sli/typeinit.sli:523
+% summary: read a token from a stream or string
+% synopsis: string token -> post any true false istream token -> istream any true istream false
+%
+% Examples (verbatim from docstring):
+%    (1 2 hello) token -> true 1 (2 hello)
+%    ({1 2 add}) token -> true {1 2 add} ()
+%   

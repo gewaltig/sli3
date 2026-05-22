@@ -1,0 +1,9 @@
+% Harvested example for quit
+% src: src/builtins/sli_control.cpp:1033
+% summary: leave the SLI interpreter, optionally return exit code
+% synopsis: quit   -> - exitcode quit_i -> -
+%
+% Examples (verbatim from docstring):
+%   quit      % quit SLI with exit code statusdict/exitcode.
+%   23 quit_i % quit SLI with exit code 23.
+%   

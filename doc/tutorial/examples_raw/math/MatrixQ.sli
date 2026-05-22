@@ -1,0 +1,9 @@
+% Harvested example for MatrixQ
+% src: lib/sli/mathematica.sli:1458
+% summary: Test whether a nested array i a matrix
+% synopsis: [array] MatrixQ -> true | false
+%
+% Examples (verbatim from docstring):
+%   [1 2 3] MatrixQ -> true
+%             [[1 2] [3 4]] MatrixQ -> true
+%             [[1] [2 3]] MatrixQ ->False

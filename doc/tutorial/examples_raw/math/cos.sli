@@ -1,0 +1,8 @@
+% Harvested example for cos
+% src: src/builtins/sli_math.cpp:714
+% summary: Calculate the cosine of double number.
+% synopsis: double cos -> double
+%
+% Examples (verbatim from docstring):
+%   1.0 cos -> 0.540302
+%   

@@ -1,0 +1,8 @@
+% Harvested example for not
+% src: src/builtins/sli_math.cpp:1289
+% summary: logical not operator.
+% synopsis: bool not -> bool int  not -> int
+%
+% Examples (verbatim from docstring):
+%   1 2 eq not -> true
+%                  0 not -> -1

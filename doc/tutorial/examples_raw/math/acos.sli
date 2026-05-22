@@ -1,0 +1,8 @@
+% Harvested example for acos
+% src: src/builtins/sli_math.cpp:735
+% summary: Calculate the arc cosine of double number.
+% synopsis: double acos -> double
+%
+% Examples (verbatim from docstring):
+%   1.0 acos -> 0.0
+%   

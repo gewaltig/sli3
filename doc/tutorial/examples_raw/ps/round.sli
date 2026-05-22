@@ -1,0 +1,10 @@
+% Harvested example for round
+% src: lib/sli/ps-lib.sli:79
+% summary: Round double to the nearest integer
+% synopsis: double round -> double integer round -> double
+%
+% Examples (verbatim from docstring):
+%   1.4 round  --> 1.0
+%   1.5 round  --> 2.0
+%   2   round  --> 2.0
+%   

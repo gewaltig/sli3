@@ -1,0 +1,7 @@
+% Harvested example for type
+% src: src/builtins/sli_typecheck.cpp:279
+% summary: Return the type of an object
+% synopsis: obj type -> /typename
+%
+% Examples (verbatim from docstring):
+%   1 type -> /integertype

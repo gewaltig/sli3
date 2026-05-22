@@ -1,0 +1,11 @@
+% Chapter 03 -- load and lookup
+% lookup is the "try" variant of load: false on miss, value + true on hit.
+%
+% Expected output:
+%   42
+%   false
+
+/x 42 def
+/x load =
+/notthere lookup =
+quit

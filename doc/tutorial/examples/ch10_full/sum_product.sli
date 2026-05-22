@@ -1,0 +1,14 @@
+% Chapter 10 -- sum and product of an array
+%
+% Expected output:
+%   15
+%   60
+%   120
+
+/sum     { 0 exch { add } forall } def
+/product { 1 exch { mul } forall } def
+
+[1 2 3 4 5] sum =
+[10 20 30]  sum =
+[1 2 3 4 5] product =
+quit

@@ -1,0 +1,12 @@
+% Chapter 01 -- index and roll
+%
+% Expected output:
+%   100
+%   2
+%   1
+%   3
+
+100 200 300 2 index =      % copy element 2 deep -> 100
+clear                      % start fresh for the next demo
+1 2 3 3 1 roll stack       % rotate top 3 by 1 -> top-down 2, 1, 3
+quit

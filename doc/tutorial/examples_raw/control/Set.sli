@@ -1,0 +1,12 @@
+% Harvested example for Set
+% src: src/builtins/sli_control.cpp:415
+% summary: Define an association between a name and an object in the current dictionary
+% synopsis: obj literal   Set -> - [... [obj_1 ...] ... obj_n] [... [literal_1 ...] ... literal_n] Set -> -
+%
+% Examples (verbatim from docstring):
+%    {1 2 add} /myproc Set
+%    [4 3] [/x /y] Set
+%    [[4 3 7] [-9 1]] [[/a /b /c] [/x /y]] Set
+%    [[4 9] 3] [/x /y] Set
+%    [[4 9] 3] [[/a /b] /y] Set
+%   

@@ -1,0 +1,9 @@
+% Harvested example for regcomp
+% src: lib/sli/regexp.sli:23
+% summary: Create a regular expression
+% synopsis: string integer regcomp -> regex string         regcomp -> regex
+%
+% Examples (verbatim from docstring):
+%   1) (.*) regcomp -> <regextype>
+%             2) regexdict begin
+%                (\() REG_EXTENDED regcomp -> <ERROR>

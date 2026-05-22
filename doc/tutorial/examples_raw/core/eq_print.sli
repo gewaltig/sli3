@@ -1,0 +1,12 @@
+% Harvested example for =
+% src: lib/sli/sli-init.sli:271
+% summary: Print object to screen.
+% synopsis: any = --> -
+%
+% Examples (verbatim from docstring):
+%    SLI ] 12 =
+%    12
+%    SLI ] {1211} =
+%    <proceduretype>
+%    SLI ]
+%   

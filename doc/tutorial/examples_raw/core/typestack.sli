@@ -1,0 +1,11 @@
+% Harvested example for typestack
+% src: lib/sli/sli-init.sli:401
+% summary: Display types of operand stack
+% synopsis: typestack --> -
+%
+% Examples (verbatim from docstring):
+%   {1} {2} {3} typestack
+%   proceduretype:{3}
+%   proceduretype:{2}
+%   proceduretype:{1}
+%   

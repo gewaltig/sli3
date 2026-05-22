@@ -1,0 +1,10 @@
+% Harvested example for First
+% src: lib/sli/mathematica.sli:1120
+% summary: Return the first element of an array or string.
+% synopsis: string First -> char array First -> arrayelement
+%
+% Examples (verbatim from docstring):
+%   (train) First -> 104
+%   [1 2 3] First -> 1
+%   [(this) (is) (an) (example)] First -> (this)
+%   

@@ -1,0 +1,18 @@
+% Chapter 05 -- forall and forallindexed
+%
+% Expected output:
+%   10
+%   20
+%   30
+%   15
+%   0
+%   red
+%   1
+%   green
+%   2
+%   blue
+
+[10 20 30] { = } forall
+0 [1 2 3 4 5] { add } forall =
+[(red) (green) (blue)] { = = } forallindexed
+quit

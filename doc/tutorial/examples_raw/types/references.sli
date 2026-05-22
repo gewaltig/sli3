@@ -1,0 +1,8 @@
+% Harvested example for references
+% src: lib/sli/typeinit.sli:369
+% summary: Returns the number of references to a reference counted object.
+% synopsis: array references -> array  integer dict  references -> dict   integer
+%
+% Examples (verbatim from docstring):
+%   << /x 0 >> dup references -> dict dict 2
+%                  [ 0 ] dup references -> array array 2

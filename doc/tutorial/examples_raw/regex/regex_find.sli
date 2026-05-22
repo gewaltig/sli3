@@ -1,0 +1,11 @@
+% Harvested example for regex_find
+% src: lib/sli/regexp.sli:298
+% summary: Check if a regex is included in a string or stream
+% synopsis: string istream -> boolean string string  -> boolean regex  istream -> boolean regex  string  -> boolean
+%
+% Examples (verbatim from docstring):
+%   (hello) (is there a hello hiding) regex_find -> true
+%             (hello) (is there a HeLlO hiding) regex_find -> false
+%   
+%             (hello) regexdict /REG_ICASE get regcomp pop
+%             (is there a HeLlO hiding)         regex_find -> true

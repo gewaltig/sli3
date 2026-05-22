@@ -1,0 +1,18 @@
+% Chapter 10 -- recursive factorial
+%
+% Expected output:
+%   1
+%   120
+%   3628800
+
+/factorial {
+  dup 1 leq
+  { pop 1 }
+  { dup 1 sub factorial mul }
+  ifelse
+} def
+
+1 factorial =
+5 factorial =
+10 factorial =
+quit

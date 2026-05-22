@@ -1,0 +1,9 @@
+% B6c -- raiseerror with a non-empty ostack.
+% Five operands are on the operand stack when the error fires.
+% raiseerror's ostack snapshot (recordstacks=true) copies all of
+% them; cleartomark restores the stack between iterations so the
+% loop's net stack effect is zero.
+tic 1000000 { mark 1 2 3 4 5 { /test /Bench raiseerror } stopped { handleerror } if counttomark 1 add_ii npop } repeat toc ==
+% NB: counttomark/npop kept because B6c intentionally pushes 5 ints (deep
+% ostack at error time) and needs to drop them between iterations.
+quit

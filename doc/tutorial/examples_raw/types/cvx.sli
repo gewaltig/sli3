@@ -1,0 +1,8 @@
+% Harvested example for cvx
+% src: lib/sli/typeinit.sli:382
+% summary: convert array/string to procedure
+% synopsis: array/string cvx -> <proceduretype>
+%
+% Examples (verbatim from docstring):
+%   (hello) cvx -> <proceduretype>
+%   

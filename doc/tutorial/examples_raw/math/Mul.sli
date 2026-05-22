@@ -1,0 +1,10 @@
+% Harvested example for Mul
+% src: lib/sli/mathematica.sli:2830
+% summary: elementwise multiply for numbers and arrays
+% synopsis: int int      Mul -> int int double   Mul -> double array number Mul -> array
+%
+% Examples (verbatim from docstring):
+%   3 4         Mul -> 12
+%             3.33 3      Mul -> 9.99
+%             [1 2.2 3] 4 Mul -> [4 8.8 12]
+%   

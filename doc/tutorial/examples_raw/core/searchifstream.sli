@@ -1,0 +1,8 @@
+% Harvested example for searchifstream
+% src: lib/sli/sli-init.sli:1032
+% summary: searches SLI's search path for a file
+% synopsis: string searchifstream -> istreamtype true -> false
+%
+% Examples (verbatim from docstring):
+%      (sli-init.sli) searchifstream opens sli-init.sli for reading
+%      since the path to system sli files is contained in SLISearchPath.

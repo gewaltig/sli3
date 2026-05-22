@@ -1,0 +1,8 @@
+% Harvested example for bind
+% src: src/builtins/sli_control.cpp:1135
+% summary: resolve names in a procedure body to their executable values
+% synopsis: proc bind -> proc
+%
+% Examples (verbatim from docstring):
+%     /sum { 1 2 add } bind def     -- /add resolves at bind-time
+%   

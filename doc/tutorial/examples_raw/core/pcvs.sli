@@ -1,0 +1,8 @@
+% Harvested example for pcvs
+% src: lib/sli/sli-init.sli:762
+% summary: Convert object to string (long version)
+%
+% Examples (verbatim from docstring):
+%   23 pcvs -> (23)
+%    {3 2 mul dup} pcvs -> ({3 2 mul dup})
+%    (hello) pcvs -> ((hello))

@@ -1,0 +1,9 @@
+% Harvested example for FixedPoint
+% src: lib/sli/mathematica.sli:1290
+% summary: applies a procedure repeatedly until the result is an invariant
+% synopsis: any proc         FixedPoint -> any any proc integer FixedPoint -> any
+%
+% Examples (verbatim from docstring):
+%    (kaeschperle) {Rest (_) join} FixedPoint   --> (___________)
+%    (kaeschperle) {Rest (_) join} 1 FixedPoint --> (aeschperle_)
+%    (kaeschperle) {Rest (_) join} 3 FixedPoint --> (schperle___)

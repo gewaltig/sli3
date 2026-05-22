@@ -1,0 +1,13 @@
+% Chapter 09 -- = strips syntactic decoration; == keeps it
+%
+% Expected output:
+%   hi
+%   (hi)
+%   [1 a /b]
+%   [1 (a) /b]
+
+(hi) =
+(hi) ==
+[1 (a) /b] =
+[1 (a) /b] ==
+quit

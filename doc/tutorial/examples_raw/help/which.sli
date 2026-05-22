@@ -1,0 +1,15 @@
+% Harvested example for which
+% src: lib/sli/helpinit.sli:872
+% summary: Display the name of a command's source file.
+% synopsis: /command which ->
+%
+% Examples (verbatim from docstring):
+%    /which which
+%    -> Source: /home/kupper/nest2/lib/sli/helpinit.sli
+%   
+%    /MemoryInfo which
+%    -> Source: /home/kupper/nest2/nestkernel/nestmodule.cpp
+%   
+%    /unittest::pass_or_die which
+%    -> Source: /home/kupper/nest2/lib/sli/unittest.sli
+%   

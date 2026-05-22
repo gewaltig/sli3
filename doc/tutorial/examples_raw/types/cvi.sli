@@ -1,0 +1,12 @@
+% Harvested example for cvi
+% src: lib/sli/typeinit.sli:402
+% summary: Convert double/string to integer
+% synopsis: double cvi -> integer string cvi -> integer
+%
+% Examples (verbatim from docstring):
+%      3.33 cvi      --> 3
+%      2    cvi      --> 2
+%      (23) cvi      --> 23
+%      (23.2323) cvi --> 23
+%      (hello) cvi   --> 0
+%   

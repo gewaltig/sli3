@@ -1,0 +1,8 @@
+% Harvested example for sleep
+% src: lib/sli/sli-init.sli:600
+% summary: Pauses current process.
+% synopsis: t sleep -> -
+%
+% Examples (verbatim from docstring):
+%     5 sleep %wait for 5 seconds
+%     tic 2.75 sleep toc = %should print 2.75

@@ -1,0 +1,24 @@
+% Harvested example for CyclicValue
+% src: lib/sli/misc_helpers.sli:665
+% summary: project a cyclic value onto it's norm interval (e.g. angle on [0,360))
+% synopsis: value [b1 b2] CyclicValue -> normvalue value  b1 b2  CyclicValue -> normvalue See below for the meaning of b1, b2!
+%
+% Examples (verbatim from docstring):
+%     %% project angle in degrees onto [0,360):
+%     -3601 [0 360] CyclicValue -> 359.0
+%   
+%     %% project angle in radians onto [-pi,pi):
+%     23.0 [Pi -1 mul  Pi] CyclicValue -> -2.13274
+%   
+%     %% this demonstrates the handling of open/closed interval ends:
+%     %%   project number onto [1,4):
+%     1 [1 4] CyclicValue -> 1
+%     2 [1 4] CyclicValue -> 2
+%     3 [1 4] CyclicValue -> 3
+%     4 [1 4] CyclicValue -> 1
+%     %%   project number onto (1,4]:
+%     1 [4 1] CyclicValue -> 4
+%     2 [4 1] CyclicValue -> 2
+%     3 [4 1] CyclicValue -> 3
+%     4 [4 1] CyclicValue -> 4
+%   

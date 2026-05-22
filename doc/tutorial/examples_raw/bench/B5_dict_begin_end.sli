@@ -1,0 +1,12 @@
+% B5 -- dict-construction + dictstack lookup.
+% Each iteration:
+%   * builds a fresh 2-entry dict     ( << /a 1 /b 2 >> )
+%   * pushes it on the dictstack      ( begin )
+%   * reads /a and /b BY NAME via the dictstack ( a b )
+%   * adds them and discards          ( add pop )
+%   * pops the dictstack              ( end )
+% So the loop measures dict alloc/free + dictstack push/pop
+% PLUS two name lookups per iteration that traverse the
+% pushed dict.
+tic 10000000 { << /a 1 /b 2 >> begin a b add pop end } repeat toc ==
+quit

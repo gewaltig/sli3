@@ -1,0 +1,15 @@
+% Harvested example for Drop
+% src: lib/sli/mathematica.sli:1931
+% summary: remove element sequences from an array
+% synopsis: array  n Drop                  remove the first n elements array -n Drop                  remove the last n elements array [n] Drop                 remove the nth element array [n1 n2] Drop             remove elements n1 through n2 array [n1 n2 s] Drop           remove elements n1 through n2 in steps of s array {[seq1]...[seqn]} Drop   return a nested list in which elements specified by seqi are removed at level i in list.
+%
+% Examples (verbatim from docstring):
+%    [4 9 -7 3 2 11] 2 Drop    --> [-7 3 2 11]
+%    [4 9 -7 3 2 11] -2 Drop   --> [4 9 -7 3]
+%    [1 2 3 4 5] [-2] Drop     --> [1 2 3 5]
+%    [1 2 3 4 5] [1 -2] Drop   --> [5]
+%    [1 2 3 4 5] [1 -2 2] Drop --> [2 4 5]
+%    [1 2 3 4 5] [1 -1 2] Drop --> [2 4]
+%   
+%    [[-9 -12] [6 7]] {[2] [1]} Drop --> [[-12]]
+%   

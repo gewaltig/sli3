@@ -1,0 +1,33 @@
+% Harvested example for Dot
+% src: lib/sli/mathematica.sli:2443
+% summary: product of vectors, matrices, and tensors
+% synopsis: array array Dot -> array -> double -> integer
+%
+% Examples (verbatim from docstring):
+%    (1)
+%      [ 4 3 7 ] [ 2 5 8] Dot ==79
+%   
+%    (2)
+%      [ 4 3 7 ] [ [ 2] [ 5 ] [ 8 ] ] Dot ==  [79]
+%   
+%    (3)
+%      [ [ 4 ] [ 3 ] [ 7 ] ] [  2  5   8  ] Dot ==  [8 6 14]
+%         Error: /DimensionMismatch in Dup
+%    (4)
+%      [ [ 5 3 2 ] [ 5 4 1 ] ] [ [ 2 ] [ 3 ] [ 9 ] ] Dot == [[37] [31]]
+%   
+%    (5)
+%      [ [ 5 3 2 ] [ 5 4 1 ] ] [ 2  3 9  ] Dot ==   [37 31]
+%   
+%    (6)
+%      [ 7 8 ] [ [ 5 3 2 ] [ 5 4 1 ] ]  Dot == [75 53 22]
+%   
+%    (7)
+%      [  [ 5 3 ]  [ 1 2 ] [ 5 4 ] ]
+%      [ [ [ 2 1 ]  [ 5 3 ] [ 3  4 ] [ 7 5 ]] [ [ 3 1 ]  [ 7 4] [8 9] [1 8] ] ]
+%       Dot ==
+%      [ [ [19 8] [46 27] [39 47] [38 49] ]
+%        [ [8 3]  [19 11] [19 22] [9 21]  ]
+%        [ [22 9] [53 31] [47 56] [39 57] ]
+%       ]
+%   

@@ -1,0 +1,10 @@
+% Harvested example for ldexp
+% src: src/builtins/sli_math.cpp:957
+% summary: computes the product of integer power of 2 and a factor
+% synopsis: double integer ldexp -> double
+%
+% Examples (verbatim from docstring):
+%     1.5 3 ldexp -> 12
+%     12.0 frexp -> 0.75 4
+%     12.0 frexp ldexp -> 12.0
+%     1.0 -5 ldexp frexp -> 0.5 -4

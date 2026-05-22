@@ -1,0 +1,10 @@
+% Harvested example for min
+% src: lib/sli/typeinit.sli:217
+% summary: return the smaller of two values
+% synopsis: val1 val2 min -> result
+%
+% Examples (verbatim from docstring):
+%     1   2   min -> 1
+%     1   2.0 min -> 1
+%     1.0 2   min -> 1.0
+%   

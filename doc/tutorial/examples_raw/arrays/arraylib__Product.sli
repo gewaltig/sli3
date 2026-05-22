@@ -1,0 +1,9 @@
+% Harvested example for arraylib::Product
+% src: lib/sli/arraylib.sli:70
+% summary: Return product of the elements in array.
+% synopsis: [array] Product -> number
+%
+% Examples (verbatim from docstring):
+%   [1 2 3 4]   Product -> 24
+%   [1 2 3 4.0] Product -> 24.0
+%   

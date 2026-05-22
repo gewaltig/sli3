@@ -1,0 +1,14 @@
+% Chapter 09 -- inspecting the operand stack
+% stack uses =-style printing; pstack uses ==-style.
+%
+% Expected output:
+%   /three
+%   two
+%   1
+%   /three
+%   (two)
+%   1
+
+1 (two) /three stack
+pstack
+quit

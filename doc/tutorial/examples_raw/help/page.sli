@@ -1,0 +1,11 @@
+% Harvested example for page
+% src: lib/sli/helpinit.sli:103
+% summary: Conveniently display contents of a long file
+% synopsis: (filename) page -> -
+%
+% Examples (verbatim from docstring):
+%     The following example displays the license agreement that came with
+%     your copy of NEST:
+%   
+%     "statusdict /prgdatadir get (/LICENSE) join page"
+%   

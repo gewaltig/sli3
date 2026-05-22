@@ -1,0 +1,8 @@
+% Harvested example for and
+% src: src/builtins/sli_math.cpp:1386
+% summary: logical and operator.
+% synopsis: bool1 bool2 and -> bool int1  int2  and -> int
+%
+% Examples (verbatim from docstring):
+%   true true and -> true
+%             10   24   and -> 8

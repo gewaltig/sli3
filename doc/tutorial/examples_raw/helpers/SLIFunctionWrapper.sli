@@ -1,0 +1,78 @@
+% Harvested example for SLIFunctionWrapper
+% src: lib/sli/misc_helpers.sli:788
+% summary: Define a SLI function with lots of comfort.
+% synopsis: /funcname [/trietypes] [/variablenames] {procedure} SLIFunctionWrapper -> FunctionResult /funcname [/trietypes   /variablenames] {procedure} SLIFunctionWrapper -> FunctionResult
+%
+% Examples (verbatim from docstring):
+%   The following defines a function called "myfunc", taking two arguments
+%   of type integer and double. The function will have a type trie for
+%   parameter typechacking, as well as a local dictionary. The arguments
+%   will be known as "x" and "y" inside the local dictionary of the
+%   function.
+%   
+%     /myfunc [/integertype /x  /doubletype /y]
+%       {
+%         (see how my local dictionary looks like:) = who
+%       } SLIFunctionWrapper
+%   
+%   The parameterlist could have also been specified like this:
+%   
+%     /myfunc [/integertype /doubletype] [/x /y] {...} SLIFunctionWrapper
+%   
+%   This defines functions expecting no parameters:
+%   
+%     /f  []    {...} SLIFunctionWrapper
+%     /f2 [] [] {...} SLIFunctionWrapper
+%   
+%   The routine can litter is local dictionary as it likes. The dictionary
+%   will automatically be closed when the routine ends:
+%   
+%     /f []
+%       {
+%         /this 23 def
+%         /will 0.0 def
+%         /be 1 def
+%         /forgotten -3 def
+%       } SLIFunctionWrapper
+%   
+%   If the routine raises an error, the local dictionary is closed, and
+%   the stack will be automatically restored to the condition it was
+%   before the function call:
+%   
+%       /f []
+%       {
+%         /myvar 0.0 def
+%         % push rubbish on the stack:
+%         1 2 3 4 5 6 7
+%         % now raise an error:
+%         funcname /Error raiseerror
+%       } SLIFunctionWrapper
+%   
+%       SLI ] (a) (b) f
+%       Error: /Error in f
+%       SLI [2] pstack
+%       (b)
+%       (a)
+%   
+%   If a nested routine causes an error, the stack is NOT restored, and
+%   the local dictionary is NOT closed:
+%   
+%       /f []
+%       {
+%         /myvar 0.0 def
+%         % push rubbish on the stack:
+%         1 2 3 4 5 6 7
+%         % now cause an error:
+%         0 0 div
+%       } SLIFunctionWrapper
+%   
+%       SLI ] (a) (b) f
+%       Error: /DivisionByZero in div_ii
+%       SLI [12] who
+%       --------------------------------------------------
+%       Name                     Type                Value
+%       --------------------------------------------------
+%       myvar                    doubletype          0
+%       --------------------------------------------------
+%       Total number of entries: 1
+%   

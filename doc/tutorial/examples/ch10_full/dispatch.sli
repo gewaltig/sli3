@@ -1,0 +1,22 @@
+% Chapter 10 -- dictionary dispatch table
+%
+% Expected output:
+%   Hello!
+%   Goodbye!
+%   Mmmm.
+
+/dispatch
+<<
+  /greet { (Hello!) = }
+  /bye   { (Goodbye!) = }
+  /shout { (HEY!) = }
+>> def
+
+/run { dispatch exch get exec } def
+
+/greet run
+/bye run
+
+dispatch /hum { (Mmmm.) = } put
+/hum run
+quit

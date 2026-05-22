@@ -1,0 +1,9 @@
+% Harvested example for cvlit
+% src: lib/sli/typeinit.sli:791
+% summary: Convert name/string/procedure to literal/array
+% synopsis: string cvlit -> literal name   cvlit -> literal proc   cvlit -> array
+%
+% Examples (verbatim from docstring):
+%      (joe)   cvlit -> /joe
+%      { 5 = } cvlit -> [5 =]
+%   

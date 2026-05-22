@@ -1,0 +1,10 @@
+% Harvested example for trace
+% src: src/builtins/sli_trace.cpp:21
+% summary: pretty-print the errordict /estack snapshot.
+% synopsis: trace -> -
+%
+% Examples (verbatim from docstring):
+%        backtrace_on   %% keep full call chain on the next error
+%        (s) (t) add    %% raises ArgumentType, snapshots estack
+%        trace
+%   

@@ -1,0 +1,11 @@
+% Harvested example for Sub
+% src: lib/sli/mathematica.sli:2777
+% summary: elementwise subtract for numbers and arrays
+% synopsis: n1 n2  Sub -> n3 a1 a2  Sub -> a3
+%
+% Examples (verbatim from docstring):
+%              5 2   Sub -> 3
+%              5.0 2 Sub -> 3.0
+%              [5 7] [3 4] Sub -> [2 3]
+%              [3 4] 1 Sub -> [2 3]
+%   

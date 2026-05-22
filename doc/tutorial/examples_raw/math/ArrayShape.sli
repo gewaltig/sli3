@@ -1,0 +1,18 @@
+% Harvested example for ArrayShape
+% src: lib/sli/mathematica.sli:2619
+% summary: reduce a multidimensional array to a desired shape
+% synopsis: array1 [d1 d2 ...] LayoutArray -> array2
+%
+% Examples (verbatim from docstring):
+%    [ [ 3 6 9] 100 [ 8 2 3 7 1] ] [2] ArrayShape
+%     -> [[3 6 9] 100]
+%    [ [ 3 6 9] [ 8 2 3 7 1] ] [/All 2] ArrayShape
+%     -> [[3 6] [8 2]]
+%    [ [ 3 6 9] [ 8 2 3 7 1] ] [/All 3] ArrayShape
+%     -> [[3 6 9] [8 2 3]]
+%    [ [ 3 6 9] [ 8 2 3 7 1] ] [/All 4] ArrayShape
+%     -> [[8 2 3 7]]
+%   
+%    [[[ 6 2 3] [-7 4 5] ] [[8 3 2] [2 -9 -5] 3 7 1]] [/All 2 3] ArrayShape
+%     -> [[[6 2 3] [-7 4 5]] [[8 3 2] [2 -9 -5]]]
+%   

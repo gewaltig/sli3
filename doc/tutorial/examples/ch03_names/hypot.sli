@@ -1,0 +1,10 @@
+% Chapter 03 -- define hypot as a reusable procedure
+%
+% Expected output:
+%   5
+%   13
+
+/hypot { dup mul exch dup mul add sqrt } def
+3 4 hypot =
+5 12 hypot =
+quit

@@ -1,0 +1,7 @@
+% Harvested example for file
+% src: lib/sli/sli-init.sli:1079
+% summary: opens file for reading or writing
+% synopsis: string1 string2 file -> ostreamtype -> istreamtype
+%
+% Examples (verbatim from docstring):
+%     (sli-init.sli) (r) file type == -> istreamtype

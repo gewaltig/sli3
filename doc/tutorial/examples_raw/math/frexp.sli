@@ -1,0 +1,7 @@
+% Harvested example for frexp
+% src: src/builtins/sli_math.cpp:932
+% summary: Decomposes its argument into an exponent of 2 and a factor
+% synopsis: double frexp -> double integer
+%
+% Examples (verbatim from docstring):
+%   -5 dexp frexp -> 0.5 -4

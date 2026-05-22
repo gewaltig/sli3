@@ -1,0 +1,7 @@
+% Harvested example for exp
+% src: src/builtins/sli_math.cpp:757
+% summary: Calculate the exponential of double number
+% synopsis: double exp -> double
+%
+% Examples (verbatim from docstring):
+%   1.0 exp -> 2.71828

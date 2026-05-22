@@ -1,0 +1,8 @@
+% Harvested example for trunc
+% src: lib/sli/ps-lib.sli:63
+% summary: Truncate decimals of a double
+% synopsis: double trunc -> int
+%
+% Examples (verbatim from docstring):
+%   3.123456 trunc -> 3
+%   

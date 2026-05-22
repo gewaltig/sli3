@@ -1,0 +1,7 @@
+% Harvested example for -->
+% src: lib/sli/helpinit.sli:537
+% summary: longrightarrow, usually delayed comparison
+% synopsis: --> -> /-->
+%
+% Examples (verbatim from docstring):
+%       [8 --> 6] --> 8 /--> cvx exec 6  3 arraystore

@@ -1,0 +1,12 @@
+% Chapter 04 -- absolute value via ifelse
+%
+% Expected output:
+%   5
+%   7
+%   0
+
+/myabs { dup 0 lt { neg } { } ifelse } def
+-5 myabs =
+7 myabs =
+0 myabs =
+quit

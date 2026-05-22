@@ -1,0 +1,9 @@
+% Chapter 01 -- count and clear
+%
+% Expected output:
+%   3
+%   0
+
+10 20 30 count =
+1 2 3 4 clear count =
+quit

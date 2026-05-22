@@ -1,0 +1,10 @@
+% Harvested example for handleerror
+% src: lib/sli/sli-init.sli:1315
+% summary: Default error handler
+%
+% Examples (verbatim from docstring):
+%   To catch errors from an unknown function f,
+%              one can write:
+%   
+%              {f} stopped {handleerror} if
+%   

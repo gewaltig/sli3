@@ -1,0 +1,7 @@
+% Harvested example for IntegerPart
+% src: lib/sli/mathematica.sli:3299
+% summary: Return integer part of the argument.
+% synopsis: double IntegerPart -> integerpart
+%
+% Examples (verbatim from docstring):
+%        -2.3 IntegerPart -> -2.0

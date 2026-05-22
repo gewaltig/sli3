@@ -1,0 +1,16 @@
+% B10 -- naive NxN matrix multiplication.
+%
+% Multiplies two NxN matrices repeatedly. Exercises three nested
+% `for` loops, double-indexed array access (M i get j get), and
+% arithmetic in the innermost hot path. Each inner iteration:
+% 4 gets + 1 mul + 1 add + 1 def + the loop bookkeeping.
+%
+% N=50, K=100 iterations: 50^3 * 100 = 12.5M inner iterations.
+
+/mkrow { /n exch def /r n array def 0 1 n 1 sub { /i exch def r i i put pop } for r } def
+/mkmat { /n exch def /m n array def 0 1 n 1 sub { /i exch def m i n mkrow put pop } for m } def
+/matmul { /B exch def /A exch def /n A length def /C n array def 0 1 n 1 sub { /i exch def C i n array put pop /Ci C i get def /Ai A i get def 0 1 n 1 sub { /j exch def /sum 0 def 0 1 n 1 sub { /k exch def /sum sum Ai k get B k get j get mul add def } for Ci j sum put pop } for } for C } def
+/A 50 mkmat def
+/B 50 mkmat def
+tic 100 { A B matmul pop } repeat toc ==
+quit

@@ -1,0 +1,10 @@
+% Harvested example for pstack
+% src: lib/sli/sli-init.sli:429
+% summary: Display operand stack in syntax form.
+% synopsis: pstack --> -
+%
+% Examples (verbatim from docstring):
+%   {1} {2} {3} stack
+%            --> {3}
+%                {2}
+%                {1}

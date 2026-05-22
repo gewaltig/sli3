@@ -1,0 +1,8 @@
+% Harvested example for arraylib::SDev
+% src: lib/sli/arraylib.sli:186
+% summary: Return standard deviation of the elements in array.
+% synopsis: [array] SDev -> number
+%
+% Examples (verbatim from docstring):
+%   [1 2 3 4] SDev ->
+%   

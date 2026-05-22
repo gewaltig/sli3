@@ -1,0 +1,8 @@
+% Harvested example for helpindex
+% src: lib/sli/helpinit.sli:296
+% summary: displays a list of all commands
+% synopsis: helpindex -> -
+%
+% Examples (verbatim from docstring):
+%      helpindex --> lists all commands
+%   

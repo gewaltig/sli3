@@ -1,0 +1,8 @@
+% Harvested example for over
+% src: src/builtins/sli_stack.cpp:83
+% summary: Copy object at stack level 1
+% synopsis: any obj over -> any obj any
+%
+% Examples (verbatim from docstring):
+%   1 2 3 over -> 2
+%   1 2 3 4 5 over -> 4

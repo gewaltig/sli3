@@ -1,0 +1,11 @@
+% Chapter 05 -- for: counted loop with index
+%
+% Expected output:
+%   1
+%   2
+%   3
+%   4
+%   5
+
+1 1 5 { = } for
+quit

@@ -1,0 +1,8 @@
+% Harvested example for abs_d
+% src: src/builtins/sli_math.cpp:1040
+% summary: absolute value of double
+% synopsis: double abs -> double
+%
+% Examples (verbatim from docstring):
+%   -3.456 abs_d -> 3.456
+%   

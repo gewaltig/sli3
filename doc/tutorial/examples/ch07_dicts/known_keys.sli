@@ -1,0 +1,10 @@
+% Chapter 07 -- keys returns an array of literal names
+% put adds or replaces entries in place.
+%
+% Expected output:
+%   [/a /b /c]
+%   << /a 1 /b 2 >>
+
+<< /a 1 /b 2 /c 3 >> keys ==
+<< /a 1 >> dup /b 2 put ==
+quit

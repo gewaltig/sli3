@@ -1,0 +1,7 @@
+% Harvested example for Max
+% src: lib/sli/mathematica.sli:3336
+% summary: returns the largest element of an array
+% synopsis: array Max -> max element
+%
+% Examples (verbatim from docstring):
+%    [8 4 3 6 9 5] Max --> 9

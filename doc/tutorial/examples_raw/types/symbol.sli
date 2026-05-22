@@ -1,0 +1,9 @@
+% Harvested example for symbol
+% src: lib/sli/typeinit.sli:549
+% summary: read a symbol from a string
+% synopsis: string symbol -> post any true false
+%
+% Examples (verbatim from docstring):
+%    (1 2 hello) symbol -> true 1 (2 hello)
+%    ({1 2 add}) symbol -> true /BeginProcedureSymbol (1 2 add})
+%   

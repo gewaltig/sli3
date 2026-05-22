@@ -1,0 +1,7 @@
+% Harvested example for floor
+% src: lib/sli/ps-lib.sli:157
+% summary: Return nearest integer smaller than or equal to the argument.
+%
+% Examples (verbatim from docstring):
+%   1.1 floor == -> 1
+%   2.9 floor == -> 2

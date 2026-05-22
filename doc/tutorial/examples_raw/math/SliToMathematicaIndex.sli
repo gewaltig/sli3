@@ -1,0 +1,10 @@
+% Harvested example for SliToMathematicaIndex
+% src: lib/sli/mathematica.sli:1622
+% summary: Convert SLI indices to Mathematica-like indices
+% synopsis: sliIndex MathematicaToSliIndex -> mathematicaIndex
+%
+% Examples (verbatim from docstring):
+%        3     SliToMathematicaIndex -> 4
+%      [ 3 1 ] SliToMathematicaIndex -> [ 4 2 ]
+%   
+%   

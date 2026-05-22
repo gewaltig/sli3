@@ -1,0 +1,8 @@
+% Harvested example for edit
+% src: lib/sli/helpinit.sli:457
+% summary: Open a file in an external editor
+% synopsis: (filename) edit -> -
+%
+% Examples (verbatim from docstring):
+%   (helloworld.sli) edit
+%   

@@ -1,0 +1,17 @@
+% Harvested example for raiseerror
+% src: src/builtins/sli_control.cpp:922
+% summary: raise an error to the system
+% synopsis: /command /error raiserror -> /command (side-effects see below!)
+%
+% Examples (verbatim from docstring):
+%      /save_sqrt
+%      {
+%         0 gt % is the argument positive ?
+%         {
+%           sqrt
+%         }
+%         { % else, issue an error
+%           /save_sqrt /PositiveValueExpected raiseerror
+%         } ifelse
+%      } def
+%   

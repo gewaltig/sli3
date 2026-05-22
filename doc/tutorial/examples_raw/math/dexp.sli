@@ -1,0 +1,7 @@
+% Harvested example for dexp
+% src: src/builtins/sli_math.cpp:983
+% summary: computes an integer power of 2 and returns the result as double
+% synopsis: integer dexp -> double
+%
+% Examples (verbatim from docstring):
+%   -5 dexp frexp -> 0.5 -4

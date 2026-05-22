@@ -1,0 +1,13 @@
+% Harvested example for cvs_f
+% src: lib/sli/sli-init.sli:780
+% summary: Formatted conversion of double to string
+% synopsis: x q cvs_f -> str x [p q] cvs_f -> str
+%
+% Examples (verbatim from docstring):
+%    2.3456 3 cvs_f -> (2.346)
+%    2.3456 0 cvs_f -> (2)
+%    2.3456 neg 2 cvs_f -> (-2.35)
+%    2.3456 [2 3] cvs_f -> (02.346)
+%    2.3456 neg [2 3] cvs_f -> (-02.346)
+%    222.3456 [2 3] cvs_f -> (222.346)
+%   

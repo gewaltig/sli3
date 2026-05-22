@@ -1,0 +1,9 @@
+% Harvested example for run
+% src: lib/sli/sli-init.sli:1205
+% summary: execute a sli file
+% synopsis: string run -> -
+%
+% Examples (verbatim from docstring):
+%      (MySli.sli) run            --> execute file MySli, assuming it
+%                                     exists in the search path entries.
+%      (~/MySliRoutines/DoIt) run --> execute file, ignoring search pathes

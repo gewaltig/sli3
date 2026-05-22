@@ -1,0 +1,8 @@
+% Harvested example for EvaluateLiteralInfixes
+% src: lib/sli/helpinit.sli:566
+% summary: Evaluates an array of infix expressions
+% synopsis: array -> array
+%
+% Examples (verbatim from docstring):
+%      [ 5 /add 6 /sub 2] EvaluateLiteralInfixes --> [9]
+%      [ 5 --> 6 true ] EvaluateLiteralInfixes   --> [false true]

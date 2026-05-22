@@ -1,0 +1,7 @@
+% Harvested example for sqrt
+% src: src/builtins/sli_math.cpp:835
+% summary: compute the square root of a non-negative number
+% synopsis: number sqrt -> double
+%
+% Examples (verbatim from docstring):
+%   4 sqrt -> 2.0

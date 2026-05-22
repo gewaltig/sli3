@@ -1,0 +1,7 @@
+% Harvested example for log
+% src: src/builtins/sli_math.cpp:774
+% summary: Calculate decadic logarithm of double number.
+% synopsis: double exp -> double
+%
+% Examples (verbatim from docstring):
+%   10.0 log -> 1.0

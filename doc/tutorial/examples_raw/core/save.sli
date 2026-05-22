@@ -1,0 +1,11 @@
+% Harvested example for save
+% src: lib/sli/sli-init.sli:1530
+% summary: save interpreter state in a state dictionary
+% synopsis: save -> statedict true
+%
+% Examples (verbatim from docstring):
+%   save and restore can be used to implement non-local jumps within procedures and even between procedures.
+%   A saved state defines a jump position to which the execution can return by calling restore for this state.
+%   
+%   
+%   

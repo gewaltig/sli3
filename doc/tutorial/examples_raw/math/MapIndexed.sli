@@ -1,0 +1,9 @@
+% Harvested example for MapIndexed
+% src: lib/sli/mathematica.sli:1034
+% summary: Apply a function  to each element of a list/string
+% synopsis: [v1 ... vn] {f} MapIndexed -> [ f(v1,1) ... f(vn,n) ]
+%
+% Examples (verbatim from docstring):
+%      [1 2 3 4 5]  {add} MapIndexed -> [2 4 6 8 10]
+%      (abcd) {add} MapIndexed -> (bdfh)
+%   

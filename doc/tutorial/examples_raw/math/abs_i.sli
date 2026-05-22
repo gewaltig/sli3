@@ -1,0 +1,8 @@
+% Harvested example for abs_i
+% src: src/builtins/sli_math.cpp:1009
+% summary: absolute value of integer
+% synopsis: integer abs -> integer
+%
+% Examples (verbatim from docstring):
+%   -3 abs_i -> 3
+%   

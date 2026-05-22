@@ -1,0 +1,30 @@
+% Harvested example for apropos
+% src: lib/sli/helpinit.sli:779
+% summary: Search the command index for a regular expression.
+% synopsis: (regexp) apropos -> - /regexp  apropos -> -
+%
+% Examples (verbatim from docstring):
+%     SLI ] /apropos apropos
+%     apropos              Search the command index for a regular expression.
+%   
+%     SLI ] /Apropos apropos
+%     apropos              Search the command index for a regular expression.
+%   
+%     SLI ] /Express* apropos
+%     apropos              Search the command index for a regular expression.
+%     EvaluateLiteralInfixes Evaluates an array of infix expressions
+%     ExecMath             execute a math expression.
+%     grep                 extract lines matching a regular expression pattern
+%     regcomp              Create a regular expression
+%     regexec              compare string and regular expression
+%     testsuite::test_iaf_psp_peak test of closed form expression for peak
+%     ToMathematicaExpression converts SLI data to Mathematica input
+%   
+%     SLI ] (regular expression) apropos
+%     apropos              Search the command index for a regular expression.
+%     regcomp              Create a regular expression
+%     regexec              compare string and regular expression
+%   
+%     SLI ] /DoWhatIWant apropos
+%     DoWhatIWant: nothing appropriate.
+%   

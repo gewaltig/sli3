@@ -1,0 +1,8 @@
+% Harvested example for Fold
+% src: lib/sli/mathematica.sli:2147
+% summary: result of repeatedly applying a function with two arguments
+% synopsis: x [a b c ...] f Select -> f( ...n times... f(f(f(x,a),b),c) ...)
+%
+% Examples (verbatim from docstring):
+%   1 [2 x] Range {mul} Fold
+%            computes faculty of integer x

@@ -1,0 +1,7 @@
+% Harvested example for exec
+% src: src/builtins/sli_control.cpp:1074
+% summary: execute an object
+% synopsis: any exec -> -
+%
+% Examples (verbatim from docstring):
+%   {1 2 add} exec -> 3

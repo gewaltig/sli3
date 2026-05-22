@@ -1,0 +1,10 @@
+% Harvested example for JoinTo
+% src: lib/sli/mathematica.sli:327
+% summary: Join an object to a container
+% synopsis: array literal JoinTo -> -- dict  literal JoinTo -> --
+%
+% Examples (verbatim from docstring):
+%   /j [4 5] def [6 7 8] /j JoinTo j --> [4 5 6 7 8]
+%   /j << /C_m 250.0 /Tau_m 10.0 >> def
+%   << /Tau_m 25.0 /I_e 130.0 >> /j JoinTo j --> << /C_m 250.0 /Tau_m 25.0 /I_e 130.0 >>
+%   

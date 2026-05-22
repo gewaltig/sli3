@@ -1,0 +1,13 @@
+% Chapter 04 -- comparisons
+%
+% Expected output:
+%   true
+%   false
+%   true
+%   true
+
+3 3 eq =
+3 4 eq =
+3 4 lt =
+5 5 leq =
+quit

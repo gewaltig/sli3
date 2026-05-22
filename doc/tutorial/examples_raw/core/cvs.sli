@@ -1,0 +1,8 @@
+% Harvested example for cvs
+% src: lib/sli/sli-init.sli:745
+% summary: Convert object to string
+%
+% Examples (verbatim from docstring):
+%   23 cvs -> (23)
+%    {3 2 mul dup} cvs -> (<proceduretype>)
+%    (hello) cvs -> (hello)

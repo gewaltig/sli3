@@ -1,0 +1,8 @@
+% Harvested example for regex_find_r
+% src: lib/sli/regexp.sli:270
+% summary: Check if a regex is included in a string
+% synopsis: regex  string  -> boolean
+%
+% Examples (verbatim from docstring):
+%   (hello) regexdict /REG_ICASE get regcomp pop
+%             (is there a HeLlO hiding)         regex_find -> true

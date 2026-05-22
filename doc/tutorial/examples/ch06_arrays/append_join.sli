@@ -1,0 +1,11 @@
+% Chapter 06 -- append, prepend, join
+%
+% Expected output:
+%   [1 2 3 4]
+%   [1 2 3 4]
+%   [1 2 3 4]
+
+[1 2 3] 4 append ==
+[2 3 4] 1 prepend ==
+[1 2] [3 4] join ==
+quit

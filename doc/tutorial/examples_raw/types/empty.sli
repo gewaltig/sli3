@@ -1,0 +1,7 @@
+% Harvested example for empty
+% src: lib/sli/typeinit.sli:351
+% summary: Tests if a string or array is empty.
+% synopsis: array empty -> array  bool string empty-> string bool dict empty -> dict bool
+%
+% Examples (verbatim from docstring):
+%   (hello) empty -> (hello) false

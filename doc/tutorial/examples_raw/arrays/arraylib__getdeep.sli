@@ -1,0 +1,10 @@
+% Harvested example for arraylib::getdeep
+% src: lib/sli/arraylib.sli:293
+% summary: get an element from a nested container (array, dict, ...).
+% synopsis: (general form:) nested_container index_array getdeep -> element (specific forms:) [nested_array]        [i1 i2 ... in]    getdeep -> element {nested_procedure}    [i1 i2 ... in]    getdeep -> element {nested_litprocedure} [i1 i2 ... in]    getdeep -> element <<nested_dictionary>> [/n1 /n2 ... /nn] getdeep -> element
+%
+% Examples (verbatim from docstring):
+%   [[1 2 3] [4 5 6] [7 8 9]] [0 2]   getdeep -> 3
+%   [[1 2 3] [4 5 6] [7 8 9]] [1]     getdeep -> [4 5 6]
+%   << /a << /b 1  /c 2 >> >> [/a /c] getdeep -> 2
+%   

@@ -1,0 +1,13 @@
+% Harvested example for callback
+% src: lib/sli/sli-init.sli:1617
+% summary: Function to execute before each input prompt.
+%
+% Examples (verbatim from docstring):
+%   The following definition will display the stack before each prompt.
+%   
+%   /callback {stack} def
+%   
+%   The following definition will clear the callback.
+%   
+%   /callback {} def
+%   

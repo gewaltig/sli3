@@ -1,0 +1,8 @@
+% Chapter 01 -- dup
+% Duplicate the top of stack so it can be used twice.
+%
+% Expected output:
+%   10
+
+5 dup add =
+quit

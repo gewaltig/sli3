@@ -1,0 +1,7 @@
+% Harvested example for ln
+% src: src/builtins/sli_math.cpp:797
+% summary: Calculate natural logarithm of double number.
+% synopsis: double ln -> double
+%
+% Examples (verbatim from docstring):
+%   E ln -> 1.0

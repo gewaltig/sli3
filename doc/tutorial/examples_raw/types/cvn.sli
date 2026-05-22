@@ -1,0 +1,9 @@
+% Harvested example for cvn
+% src: lib/sli/typeinit.sli:826
+% summary: Convert literal/string to name
+% synopsis: string  cvn -> name literal cvn -> name
+%
+% Examples (verbatim from docstring):
+%      (joe) cvn -> joe
+%      /joe  cvn -> joe
+%   

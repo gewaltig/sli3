@@ -1,0 +1,7 @@
+% Harvested example for array
+% src: lib/sli/ps-lib.sli:26
+% summary: construct array with n zeros (PS)
+% synopsis: int array -> array
+%
+% Examples (verbatim from docstring):
+%   10 array ->[0 0 0 0 0 0 0 0 0 0]

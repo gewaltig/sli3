@@ -1,0 +1,7 @@
+% Harvested example for SubsetQ
+% src: lib/sli/mathematica.sli:3063
+% summary: Test if one dictinary is a subset of another
+% synopsis: dict1 dict2 SubsetQ -> bool
+%
+% Examples (verbatim from docstring):
+%      << /a 1 /b 2 /c 2 >> << /c 2 >> SubsetQ -> true

@@ -1,0 +1,10 @@
+% Harvested example for ==only
+% src: lib/sli/sli-init.sli:349
+% summary: Print syntax form of object to screen without linefeed
+% synopsis: any ==only --> -
+%
+% Examples (verbatim from docstring):
+%    SLI ] 12 ==only
+%    12SLI ] {1211} ==only
+%    {1211}SLI ]
+%   

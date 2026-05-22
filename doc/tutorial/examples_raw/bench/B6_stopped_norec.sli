@@ -1,0 +1,8 @@
+% B6 with stack recording disabled.
+% B6 - B6_norec = cost of three toArray() calls in raiseerror
+% (ostack + estack + dstack deep copies into $errordict on every
+% error). Shallow estack/ostack here -- variants B6b/B6c stress
+% the depth dimension.
+errordict /recordstacks false put
+tic 1000000 { { /test /Bench raiseerror } stopped { handleerror } if } repeat toc ==
+quit

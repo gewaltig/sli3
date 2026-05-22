@@ -1,0 +1,10 @@
+% Harvested example for searchfile
+% src: lib/sli/sli-init.sli:920
+% summary: tries to open a file for reading using one of
+% synopsis: (filename) [pathnames] searchfile -> istream true -> false
+%
+% Examples (verbatim from docstring):
+%   test.dat [(./) (~/) (/home/synod/)] tries to open test.dat for
+%      reading using the current, your user, and the /home/synod/ path one
+%      after the other. It opens the first test.dat found along the way,
+%      or returns false if there is no one in neither path.

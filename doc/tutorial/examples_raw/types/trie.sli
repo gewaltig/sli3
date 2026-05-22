@@ -1,0 +1,9 @@
+% Harvested example for trie
+% src: src/builtins/sli_typecheck.cpp:30
+% summary: Create a new type-trie object
+% synopsis: /name -> /name typetrie
+%
+% Examples (verbatim from docstring):
+%   /square trie
+%             [/doubletype] { dup mul } addtotrie def
+%   

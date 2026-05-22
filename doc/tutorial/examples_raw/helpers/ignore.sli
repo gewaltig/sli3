@@ -1,0 +1,9 @@
+% Harvested example for ignore
+% src: lib/sli/misc_helpers.sli:618
+% summary: ignore any waiting data on an istream
+% synopsis: istream ignore -> istream
+%
+% Examples (verbatim from docstring):
+%   cin ignore
+%             myfifo ignore
+%   

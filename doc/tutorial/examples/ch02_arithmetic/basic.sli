@@ -1,0 +1,13 @@
+% Chapter 02 -- the four arithmetic operators
+%
+% Expected output:
+%   7
+%   6
+%   42
+%   5
+
+3 4 add =
+10 4 sub =
+6 7 mul =
+20 4 div =
+quit

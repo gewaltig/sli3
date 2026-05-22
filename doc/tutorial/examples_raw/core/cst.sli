@@ -1,0 +1,7 @@
+% Harvested example for cst
+% src: lib/sli/sli-init.sli:1395
+% summary: Convert string to array of tokens
+% synopsis: string cst -> array
+%
+% Examples (verbatim from docstring):
+%   (hello) cst -> [hello]

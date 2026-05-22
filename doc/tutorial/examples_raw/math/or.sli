@@ -1,0 +1,11 @@
+% Harvested example for or
+% src: src/builtins/sli_math.cpp:1316
+% summary: logical or operator.
+% synopsis: bool1 bool2 or -> bool int1  int2  or -> int
+%
+% Examples (verbatim from docstring):
+%   true  false or -> true
+%             true  true  or -> true
+%             false false or -> false
+%             2     8     or -> 10
+%             1     0     or -> 1

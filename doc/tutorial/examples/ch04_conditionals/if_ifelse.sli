@@ -1,0 +1,12 @@
+% Chapter 04 -- if and ifelse
+%
+% Expected output:
+%   positive
+%   non-positive
+
+1 0 gt { (positive) = } if
+-5 0 gt
+{ (positive) = }
+{ (non-positive) = }
+ifelse
+quit

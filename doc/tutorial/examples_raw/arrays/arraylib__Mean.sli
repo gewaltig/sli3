@@ -1,0 +1,8 @@
+% Harvested example for arraylib::Mean
+% src: lib/sli/arraylib.sli:106
+% summary: Return mean of the elements in array.
+% synopsis: [array] Mean -> number
+%
+% Examples (verbatim from docstring):
+%   [1 2 3 4] Mean -> 2.5
+%   

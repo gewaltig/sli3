@@ -1,0 +1,10 @@
+% Harvested example for Add
+% src: lib/sli/mathematica.sli:2717
+% summary: elementwise add for numbers and arrays
+% synopsis: n1 n2  Add -> n3 a1 a2  Add -> a3
+%
+% Examples (verbatim from docstring):
+%              1 2   Add -> 3
+%              1.0 2 Add -> 3.0
+%              [1 2] [3 4] Add -> [4 6]
+%              1 [3 4] Add -> [4 5]

@@ -1,0 +1,11 @@
+% Harvested example for print_error
+% src: src/builtins/sli_control.cpp:986
+% summary: print an error based on the errordict
+% synopsis: /command print_error -> --
+%
+% Examples (verbatim from docstring):
+%      errordict /errorname /MyError put
+%      errordict /command /my_function put
+%      errordict /message (Something went wrong.) put
+%      /my_function print_error
+%   

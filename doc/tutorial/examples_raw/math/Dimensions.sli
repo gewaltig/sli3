@@ -1,0 +1,10 @@
+% Harvested example for Dimensions
+% src: lib/sli/mathematica.sli:1398
+% summary: determine dimenstions of a (hyper-rectangular) SLI array
+% synopsis: [array] Dimensions -> [d1 d2 ... dn]
+%
+% Examples (verbatim from docstring):
+%   SLI ] [1 2 3]                    Dimensions -> [3]
+%   SLI ] [[1 2 3] [4 5 6]]          Dimensions -> [2 3]
+%   SLI ] [[[1 2][3 4]][[5 6][7 8]]] Dimensions -> [2 2 2]
+%   

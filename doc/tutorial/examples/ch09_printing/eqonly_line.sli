@@ -1,0 +1,9 @@
+% Chapter 09 -- assemble a one-line message using =only
+%
+% Expected output:
+%   name=Alice age=30
+
+/name (Alice) def
+/age 30 def
+(name=) =only name =only ( age=) =only age =
+quit

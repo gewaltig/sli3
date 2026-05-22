@@ -1,0 +1,8 @@
+% Harvested example for cvt_a
+% src: src/builtins/sli_typecheck.cpp:195
+% summary: Converts an array to the equivalent type trie.
+% synopsis: /name array cvt_a -> trie
+%
+% Examples (verbatim from docstring):
+%      /pop [/anytype [-pop-]]  cvt_a -> trie
+%   

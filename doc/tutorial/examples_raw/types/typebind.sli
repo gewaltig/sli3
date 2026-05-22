@@ -1,0 +1,65 @@
+% Harvested example for typebind
+% src: lib/sli/typeinit.sli:1051
+% summary: optimizes procedure for certain data type
+% synopsis: proc dict typebind -> proc
+%
+% Examples (verbatim from docstring):
+%    The following is the closed form expression of a postsynaptic potential at
+%    at time t
+%   
+%    (
+%      weight * E/tau_syn * 1./C_m
+%   (   (exp(-t/tau_m)-exp(-t/tau_syn)) / (1./tau_syn - 1./tau_m)^2.
+%            -        t*exp(-t/tau_syn)        / (1./tau_syn - 1./tau_m)
+%         )
+%    )
+%    CompileMath /v Set
+%   
+%    The expression operates on doubles. Therefore we optimize with
+%   
+%    /v load
+%     <<
+%        /add [/doubletype /doubletype]
+%        /sub [/doubletype /doubletype]
+%        /mul [/doubletype /doubletype]
+%        /div [/doubletype /doubletype]
+%        /pow [/doubletype /doubletype]
+%        /exp [/doubletype ]
+%        /neg [/doubletype ]
+%     >> typebind /v_d Set
+%   
+%    We can further optimize by replacing all symbolic constants by the
+%    corresponding values
+%   
+%    /v_d load
+%     <<
+%       /weight    3.2
+%       /tau_syn   0.5
+%       /tau_m    10.0
+%       /C_m     250.0
+%       /t         1.345
+%       /E         E
+%     >> Inline /v_c Set
+%   
+%    Let us now explore the required number of interpreter cycles and the run time
+%    of the three versions
+%   
+%    clic v cloc
+%    clic v_d cloc
+%    clic v_c cloc
+%    tic 500000 {v pop}   repeat toc
+%    tic 500000 {v_d pop} repeat toc
+%    tic 500000 {v_c pop} repeat toc
+%   
+%    The results are:
+%                          v    v_d   v_c
+%      ----------------------------------
+%      cycles             138   112    97
+%       reduction factor        1.2   1.4
+%                               20%   30%
+%      ----------------------------------
+%      time               20.8  8.3   6.5
+%       reduction factor        2.5   3.2
+%                               60%   69%
+%      ----------------------------------
+%   

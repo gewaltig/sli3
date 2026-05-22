@@ -1,0 +1,9 @@
+% Harvested example for copy
+% src: src/builtins/sli_stack.cpp:133
+% summary: Copy the top n stack objects
+% synopsis: ... obj_n ... obj1 n copy -> ... obj_n ... obj1 obj_n ... obj1
+%
+% Examples (verbatim from docstring):
+%   1 2 3 4 2 copy
+%   -> after this execution 1 2 3 4 3 4 lies on the stack (the last two elements
+%   were copied).

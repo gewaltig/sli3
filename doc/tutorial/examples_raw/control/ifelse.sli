@@ -1,0 +1,8 @@
+% Harvested example for ifelse
+% src: src/builtins/sli_control.cpp:174
+% summary: conditionaly execute a procedure
+% synopsis: boolean  {proc1}  {proc2}   ifelse -> - boolean anytoken1 anytoken1 ifelse -> -
+%
+% Examples (verbatim from docstring):
+%        0 1 gt { (1 > 0) = } { (1 <= 0) =} ifelse -> (0 <= 1)
+%   

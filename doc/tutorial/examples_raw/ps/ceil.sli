@@ -1,0 +1,7 @@
+% Harvested example for ceil
+% src: lib/sli/ps-lib.sli:133
+% summary: Return nearest integer larger than or equal to the argument.
+%
+% Examples (verbatim from docstring):
+%   2.87 ceil -> 3
+%   1.001 ceil -> 2

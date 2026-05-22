@@ -1,0 +1,10 @@
+% Harvested example for abs
+% src: lib/sli/typeinit.sli:652
+% summary: absolute value
+% synopsis: value abs -> value
+%
+% Examples (verbatim from docstring):
+%   	   -3 abs -> 3
+%   	    3 abs -> 3
+%   	   -3.456 abs -> 3.456
+%   

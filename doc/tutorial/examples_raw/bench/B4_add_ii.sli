@@ -1,0 +1,5 @@
+% B4 bypasses the trie via the typed leaf add_ii. Even though
+% Stage 9 made the bare /add a single-function binding, the
+% _ii leaves remain registered so addtotrie users keep working.
+tic 100000000 { 1 1 add_ii pop } repeat toc ==
+quit

@@ -1,0 +1,12 @@
+% Harvested example for setverbosity
+% src: lib/sli/misc_helpers.sli:167
+% summary: Set verbosity level for message
+% synopsis: VerbosityLevel setverbosity -> - M_DEBUG        setverbosity -> - M_STATUS       setverbosity -> - M_INFO         setverbosity -> - M_DEPRECATED   setverbosity -> - M_WARNING      setverbosity -> - M_ERROR        setverbosity -> - M_FATAL        setverbosity -> -
+%
+% Examples (verbatim from docstring):
+%     1. M_INFO    setverbosity
+%        % Don't display any debugging- or status-messages, only informational and
+%        % above.
+%     2. M_ERROR setverbosity
+%        % Do inform me about severe errors only.
+%   

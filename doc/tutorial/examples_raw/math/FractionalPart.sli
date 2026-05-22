@@ -1,0 +1,7 @@
+% Harvested example for FractionalPart
+% src: lib/sli/mathematica.sli:3317
+% summary: Return fractional part of the argument.
+% synopsis: double FractionalPart -> fractionalpartpart
+%
+% Examples (verbatim from docstring):
+%        -2.3 FractionalPart -> -0.3

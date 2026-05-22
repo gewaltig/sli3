@@ -1,0 +1,18 @@
+% Harvested example for for
+% src: src/builtins/sli_control.cpp:531
+% summary: execute a procedure for a sequence of numbers
+% synopsis: n1 s n2 proc for -> -
+%
+% Examples (verbatim from docstring):
+%   SLI ] 1 1 10 {=} for
+%   1
+%   2
+%   3
+%   4
+%   5
+%   6
+%   7
+%   8
+%   9
+%   10
+%   SLI ]

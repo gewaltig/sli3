@@ -1,0 +1,7 @@
+% Harvested example for debug
+% src: src/builtins/sli_control.cpp:1835
+% summary: execute an object in debug mode.
+% synopsis: any debug -> -
+%
+% Examples (verbatim from docstring):
+%   {1 2 add} debug -> 3

@@ -1,0 +1,18 @@
+% Harvested example for get
+% src: lib/sli/sli-init.sli:84
+% summary: retrieve element indexed Object of a container
+% synopsis: array/proc/litproc/string int --> obj dict literal                  --> obj dict array                    --> obj
+%
+% Examples (verbatim from docstring):
+%      (Hello World!)      0                  get --> 184
+%      [(Hello) 1 /a 12]   1                  get --> 1
+%      {(Hello World!) ==} 1                  get --> ==
+%      systemdict          /get               get --> +get+
+%      [/a /b /c /d] [0 2]                    get -> [/a /c]
+%      << /a 3 /c 2 >>  /c                    get --> 2
+%      << /a 3 /c 2 >>  [/c]                  get --> 2
+%      << /a 3 /c 2 >>  [[/c]]                get --> [2]
+%      << /a 3 /c 2 >>  [[/c /a /a]]          get --> [2 3 3]
+%      << /a << /b 3 /c 2 >> >>  [/a /c]      get --> 2
+%      << /a << /b 3 /c 2 >> >>  [/a [/b /c]] get --> [3 2]
+%   

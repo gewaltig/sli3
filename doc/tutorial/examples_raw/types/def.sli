@@ -1,0 +1,27 @@
+% Harvested example for def
+% src: lib/sli/typeinit.sli:37
+% summary: define a variable or function
+% synopsis: /name obj def -> - /name [/type1 .. /typen] any def -> -
+%
+% Examples (verbatim from docstring):
+%   SLI ] /a 1 def
+%   SLI ] a =
+%   1
+%   
+%   SLI ] /f [/integertype /integertype] {add_ii} def
+%   SLI ] 1 2 f
+%   SLI [1] =
+%   3
+%   SLI ] 1 2.0 f
+%   TypeTrie::lookup error at parameter level 0
+%   Operand      : 2
+%   Operand type : doubletype
+%   Expected type: integertype
+%   Error: /ArgumentType in f
+%   SLI ]  /f [/integertype /doubletype] {add_id} def
+%   SLI ] 1 2.0 f =
+%   2
+%   SLI ] 1 2 f
+%   SLI [1] =
+%   3
+%   

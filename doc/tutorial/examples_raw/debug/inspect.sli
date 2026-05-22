@@ -1,0 +1,29 @@
+% Harvested example for inspect
+% src: lib/sli/debug.sli:112
+% summary: inspect an object
+% synopsis: any inspect -> - any  ?      -> -
+%
+% Examples (verbatim from docstring):
+%       /stack inspect
+%   
+%       /stack : proceduretype :=
+%       {
+%         0i
+%         1i
+%         -count-
+%         3i
+%         -sub_ii-
+%         {
+%           -index-
+%           =
+%         }
+%         -for-
+%       }
+%   
+%       SLI ] [10] Range inspect
+%       [ 1i 2i 3i 4i 5i   ...  ]
+%   
+%       SLI ] [1. 10.] Range inspect
+%       [ 1d 2d 3d 4d 5d   ...  ]
+%   
+%   

@@ -1,0 +1,11 @@
+% Harvested example for ToMathematicaExpression
+% src: lib/sli/mathematica.sli:3107
+% summary: converts SLI data to Mathematica input
+% synopsis: any ToMathematicaExpression -> string
+%
+% Examples (verbatim from docstring):
+%   [3.4 (hello) [2 3] ] ToMathematicaExpression -->
+%        ({ImportString["3.4","List"][[1]], "hello", {2, 3}})
+%   << /i 6 /s (hello) >> ToMathematicaExpression -->
+%        ({i -> 6, s -> "hello"})
+%   

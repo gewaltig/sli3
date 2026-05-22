@@ -1,0 +1,8 @@
+% Harvested example for addpath
+% src: lib/sli/sli-init.sli:1240
+% summary: add a path to SLISearchPath
+% synopsis: string addpath -> -
+%
+% Examples (verbatim from docstring):
+%        (~/MySliRoutines) addpath --> sli files will additionally be looked
+%                                      for in ~/MySliRoutines now.

@@ -1,0 +1,8 @@
+% Harvested example for sin
+% src: src/builtins/sli_math.cpp:671
+% summary: Calculate the sine of double number.
+% synopsis: double sin -> double
+%
+% Examples (verbatim from docstring):
+%   1.0 sin -> 0.841471
+%   

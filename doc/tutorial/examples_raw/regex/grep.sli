@@ -1,0 +1,11 @@
+% Harvested example for grep
+% src: lib/sli/regexp.sli:432
+% summary: extract lines matching a regular expression pattern
+% synopsis: (filename) (expression) grep -> [(line1) (line2) ...] [(string1) (string2) ...] (expression) grep -> [(match1) (match2) ...]
+%
+% Examples (verbatim from docstring):
+%   [(hello) (world)] (^hell)       grep -> [(hello)]
+%   [(hello) (world)] (not in here) grep -> []
+%   [(hello) (world)] ()            grep -> [(hello) (world)]
+%   statusdict /prgdocdir get (LICENSE) joinpath (http) grep -> [(or visit https://www.nest-simulator.org)]
+%   

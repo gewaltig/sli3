@@ -1,0 +1,8 @@
+% Harvested example for TensorRank
+% src: lib/sli/mathematica.sli:1383
+% summary: Determine the level to which an array is a full vector
+% synopsis: [array] TensorRank -> n
+%
+% Examples (verbatim from docstring):
+%              [1 2 3] TensorRank -> 1
+%              [[1 2] [3 4]] TensorRank -> 2

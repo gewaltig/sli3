@@ -1,0 +1,12 @@
+% Harvested example for repeat
+% src: src/builtins/sli_control.cpp:212
+% summary: execute a procedure n times
+% synopsis: n proc repeat
+%
+% Examples (verbatim from docstring):
+%   SLI ] 3 { (Hello world) = } repeat
+%   Hello world
+%   Hello world
+%   Hello world
+%   SLI ]
+%   

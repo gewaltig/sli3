@@ -1,0 +1,13 @@
+% Chapter 07 -- dict literals
+%
+% Expected output:
+%   << /a 1 /b 2 >>
+%   1
+%   true
+%   false
+
+<< /a 1 /b 2 >> ==
+<< /a 1 /b 2 >> /a get =
+<< /a 1 >> /a known =
+<< /a 1 >> /c known =
+quit

@@ -1,0 +1,12 @@
+% Harvested example for :regerror
+% src: lib/sli/regexp.sli:79
+% summary: return message of what went wrong with "regcomp_"
+% synopsis: regex integer -> string
+%
+% Examples (verbatim from docstring):
+%   preparation:
+%              (\() regcomp_     -> <regextype> 8 False
+%              pop
+%              now there's a wrong regex and an errorcode on the stack
+%              :regerror = -> Unmatched ( or \(
+%   

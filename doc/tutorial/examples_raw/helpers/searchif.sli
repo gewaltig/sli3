@@ -1,0 +1,8 @@
+% Harvested example for searchif
+% src: lib/sli/misc_helpers.sli:546
+% summary: check wether a substring is contained within a string
+% synopsis: string1 string2 searchif -> bool array1  array2  searchif -> bool
+%
+% Examples (verbatim from docstring):
+%   (Hello world!) (Hello) searchif -> true
+%                [1 3 2 5 2] [3 2]      searchif -> true

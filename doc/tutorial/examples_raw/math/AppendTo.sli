@@ -1,0 +1,7 @@
+% Harvested example for AppendTo
+% src: lib/sli/mathematica.sli:416
+% summary: Append an object to a container
+% synopsis: any literal AppendTo -> --
+%
+% Examples (verbatim from docstring):
+%   /j [4 5] def  7 /j AppendTo j --> [4 5 7]

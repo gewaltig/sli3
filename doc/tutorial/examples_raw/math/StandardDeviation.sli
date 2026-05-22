@@ -1,0 +1,7 @@
+% Harvested example for StandardDeviation
+% src: lib/sli/mathematica.sli:3500
+% summary: returns the standard deviation of the elements of an array
+% synopsis: array StandardDeviation -> double, standard deviation
+%
+% Examples (verbatim from docstring):
+%    [8 4 3 6 9 5] StandardDeviation --> 2.3166

@@ -1,0 +1,19 @@
+% Harvested example for SFWdumpparameters
+% src: lib/sli/misc_helpers.sli:1180
+% summary: Dump parameters of a SLIFunctionWrapper routine.
+% synopsis: SWFdumpparameters -> -
+%
+% Examples (verbatim from docstring):
+%   /myfunc [/integertype /doubletype] [/x /y]
+%     { (hello) =
+%       SFW_dumpparameters
+%       (hello) =
+%     } SLIFunctionWrapper
+%   
+%   SLI ] 1 1.0 myfunc
+%   hello
+%   Dumping parameters for SLIFunctionWrapper routine /myfunc
+%      y = 1.000000e+00
+%      x = 1
+%   hello
+%   

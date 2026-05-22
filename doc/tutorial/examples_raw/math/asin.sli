@@ -1,0 +1,8 @@
+% Harvested example for asin
+% src: src/builtins/sli_math.cpp:692
+% summary: Calculate the arc sine of double number.
+% synopsis: double asin -> double
+%
+% Examples (verbatim from docstring):
+%   1.0 asin -> 1.570796
+%   

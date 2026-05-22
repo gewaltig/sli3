@@ -1,0 +1,7 @@
+% Harvested example for sqr
+% src: src/builtins/sli_math.cpp:820
+% summary: Compute the square of a number.
+% synopsis: number sqr -> double
+%
+% Examples (verbatim from docstring):
+%   2.0 sqr -> 4.0

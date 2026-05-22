@@ -1,0 +1,9 @@
+% Chapter 09 -- the stream-based output operators <- and <--
+%
+% Expected output:
+%   the answer is 42
+%   (hello)
+
+cout (the answer is ) <- 42 <- endl
+cout (hello) <-- endl
+quit

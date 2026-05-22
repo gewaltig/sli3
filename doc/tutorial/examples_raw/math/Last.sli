@@ -1,0 +1,10 @@
+% Harvested example for Last
+% src: lib/sli/mathematica.sli:1137
+% summary: Return the last element of an array or string
+% synopsis: string Last -> char array Last -> arrayelement
+%
+% Examples (verbatim from docstring):
+%   (train) Last -> 110
+%   [1 2 3] Last -> 3
+%   [(this) (is) (an) (example)] Last -> (example)
+%   

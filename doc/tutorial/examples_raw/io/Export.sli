@@ -1,0 +1,8 @@
+% Harvested example for Export
+% src: lib/sli/FormattedIO.sli:268
+% summary: save in a foreign file format
+% synopsis: (fname) any         Export -> (fname) any literal Export ->
+%
+% Examples (verbatim from docstring):
+%   (spike.gdf) [ [1 121] [2 127] ]         Export -->
+%   (hello.dat) [ [3 121 4.3] [9 127 4.2] ] Export -->

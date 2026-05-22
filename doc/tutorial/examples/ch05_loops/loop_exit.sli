@@ -1,0 +1,10 @@
+% Chapter 05 -- loop with explicit exit
+% Count up to 5 by accumulating on the stack.
+%
+% Expected output:
+%   5
+
+0
+{ dup 5 geq { exit } if 1 add } loop
+=
+quit

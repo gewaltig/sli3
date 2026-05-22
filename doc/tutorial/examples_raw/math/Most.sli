@@ -1,0 +1,10 @@
+% Harvested example for Most
+% src: lib/sli/mathematica.sli:1173
+% summary: Remove the last element of an array or string and return the rest.
+% synopsis: string Most -> string array Most -> array
+%
+% Examples (verbatim from docstring):
+%   (computer) Most -> (compute)
+%   [1 2 3] Most -> [1 2]
+%   [(this) (is) (an) (example)] Rest -> [(this) (is) (an)]
+%   

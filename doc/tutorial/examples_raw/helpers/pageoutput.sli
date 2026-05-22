@@ -1,0 +1,11 @@
+% Harvested example for pageoutput
+% src: lib/sli/misc_helpers.sli:1232
+% summary: Display the output of a procedure through "page".
+% synopsis: {procedure} pageoutput -> result_of_procedure
+%
+% Examples (verbatim from docstring):
+%   {(This is my output.) =} pageoutput
+%   {MemoryInfo} pageoutput
+%   {whos} pageoutput
+%   {mydir info} pageoutput
+%   

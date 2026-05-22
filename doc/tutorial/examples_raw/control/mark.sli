@@ -1,0 +1,8 @@
+% Harvested example for mark
+% src: src/builtins/sli_control.cpp:1980
+% summary: puts a mark on the stack
+%
+% Examples (verbatim from docstring):
+%   [ 1 2 add ] -> [3]
+%   mark 1 2 add ] -> [3]
+%   

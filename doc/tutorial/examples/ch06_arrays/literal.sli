@@ -1,0 +1,10 @@
+% Chapter 06 -- array literals
+% Whatever happens between [ and ] runs and ends up as one element each.
+%
+% Expected output:
+%   [3 56]
+%   [1 (two) 3 /four]
+
+[1 2 add 7 8 mul] ==
+[1 (two) 3.0 /four] ==
+quit

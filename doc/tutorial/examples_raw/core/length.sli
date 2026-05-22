@@ -1,0 +1,8 @@
+% Harvested example for length
+% src: lib/sli/sli-init.sli:57
+% summary: counts elements of a container object
+% synopsis: proc/literal/array/string/dict length -> int
+%
+% Examples (verbatim from docstring):
+%      (Hello world!)      length --> 12
+%      {(Hello world!) ==} length --> 2

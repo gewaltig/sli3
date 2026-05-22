@@ -1,0 +1,11 @@
+% Harvested example for cvd
+% src: lib/sli/typeinit.sli:438
+% summary: Convert integer/string to double
+% synopsis: integer cvd -> double string cvd -> double
+%
+% Examples (verbatim from docstring):
+%      3 cvd -> 3.0
+%      (23) cvd -> 23.0
+%      (23.2323) cvd -> 23.2323
+%      (hello) cvd -> 0.0
+%   

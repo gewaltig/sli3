@@ -1,0 +1,9 @@
+% Harvested example for Flatten
+% src: lib/sli/mathematica.sli:1221
+% summary: flatten out a nested list
+% synopsis: array         Flatten -> array array integer Flatten -> array
+%
+% Examples (verbatim from docstring):
+%           [3 [4 [5 [6]]] 7] Flatten   -->  [3 4 5 6 7]
+%           [3 [4 [5 [6]]] 7] 1 Flatten -->  [3 4 [5 [6]] 7]
+%           [3 [4 [5 [6]]] 7] 2 Flatten -->  [3 4 5 [6] 7]

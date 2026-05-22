@@ -1,0 +1,11 @@
+% Harvested example for reverse
+% src: lib/sli/misc_helpers.sli:479
+% summary: Reverse a string or array.
+% synopsis: MyStr reverse -> rtSyM MyArr reverse -> rrAyM
+%
+% Examples (verbatim from docstring):
+%   (Madam I'm Adam) reverse -> (madA m'I madaM)
+%                (Lagerregal)     reverse -> (lagerregaL)
+%                (Aide-moi o media) reverse -> (aidem  o iom-ediA)
+%                [1 2 3] reverse -> [3 2 1]
+%   

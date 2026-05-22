@@ -1,0 +1,11 @@
+% Harvested example for stack
+% src: lib/sli/sli-init.sli:372
+% summary: Display operand stack
+% synopsis: stack --> -
+%
+% Examples (verbatim from docstring):
+%   1 2 3 stack
+%            --> 3
+%                2
+%                1
+%              {123} stack --> <proceduretype>

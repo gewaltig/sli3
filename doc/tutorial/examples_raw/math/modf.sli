@@ -1,0 +1,7 @@
+% Harvested example for modf
+% src: src/builtins/sli_math.cpp:901
+% summary: Decomposes its argument into fractional and integral part
+% synopsis: double modf -> double double
+%
+% Examples (verbatim from docstring):
+%   2.5 modf -> 0.5 2

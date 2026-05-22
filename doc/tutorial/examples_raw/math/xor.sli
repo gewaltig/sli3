@@ -1,0 +1,9 @@
+% Harvested example for xor
+% src: src/builtins/sli_math.cpp:1354
+% summary: logical xor operator.
+% synopsis: bool1 bool2 xor -> bool
+%
+% Examples (verbatim from docstring):
+%   true  false xor -> true
+%             true  true  xor -> false
+%             false false xor -> false

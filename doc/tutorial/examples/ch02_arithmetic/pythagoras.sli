@@ -1,0 +1,7 @@
+% Chapter 02 -- hypotenuse from two sides
+%
+% Expected output:
+%   5
+
+3 dup mul 4 dup mul add sqrt =
+quit
