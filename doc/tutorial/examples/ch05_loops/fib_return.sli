@@ -1,0 +1,64 @@
+% Chapter 05 -- recursive Fibonacci with /return
+%
+% Two ways to write the same recursive Fibonacci function.
+% The /return version uses early exits for the base cases,
+% leaving the recursive step as a single un-nested
+% expression.  The /ifelse version has to nest the branches
+% one inside the other, so the recursive step ends up
+% buried two levels deep.
+%
+% (This convention has fib(0) = fib(1) = 1, so the series
+%  starts 1, 1, 2, 3, 5, 8, 13, 21, 34, ... -- one of the
+%  several index conventions for the Fibonacci sequence.)
+%
+% Expected output:
+%   1
+%   1
+%   2
+%   3
+%   8
+%   34
+%   --
+%   1
+%   1
+%   2
+%   3
+%   8
+%   34
+
+% -- with /return: base cases exit early, recursive step is flat
+/fib {
+  dup 0 eq { ; 1 return } if
+  dup 1 eq { ; 1 return } if
+  dup 2 sub fib exch 1 sub fib add
+} def
+
+0 fib =
+1 fib =
+2 fib =
+3 fib =
+5 fib =
+8 fib =
+
+(--) =
+
+% -- without /return: every branch is wrapped in ifelse
+/fib {
+  dup 0 eq
+    { ; 1 }
+    { dup 1 eq
+        { ; 1 }
+        { dup 2 sub fib exch 1 sub fib add }
+      ifelse
+    }
+  ifelse
+} def
+
+0 fib =
+1 fib =
+2 fib =
+3 fib =
+5 fib =
+8 fib =
+
+quit

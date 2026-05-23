@@ -194,6 +194,12 @@ after loop
 
 ## Examples
 
+- [`examples/ch05_loops/repeat.sli`](examples/ch05_loops/repeat.sli)
+- [`examples/ch05_loops/for.sli`](examples/ch05_loops/for.sli)
+- [`examples/ch05_loops/loop_exit.sli`](examples/ch05_loops/loop_exit.sli)
+- [`examples/ch05_loops/forall.sli`](examples/ch05_loops/forall.sli)
+- [`examples/ch05_loops/fib_return.sli`](examples/ch05_loops/fib_return.sli) — recursive Fibonacci with and without `return`, showing the readability win.
+
 ---
 
 Next: [chapter 06 — arrays](06_arrays.md).
