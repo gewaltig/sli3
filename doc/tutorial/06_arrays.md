@@ -1,11 +1,11 @@
 # 06. Arrays
 
-An array in SLI is an ordered, indexable, mutable sequence of tokens.
-The elements can be of any type, including other arrays — arrays nest.
+An array in SLI is indexable, mutable sequence of tokens.
+The elements can be of any type, including other arrays.
 
 ## Array literals
 
-Surround a list of tokens with square brackets:
+To produce an array, surround a list of tokens with square brackets:
 
 ```
 [1 2 3]
@@ -99,9 +99,7 @@ bounds. Negative indices are not supported.
 ## First, Rest, and friends
 
 `First` `(arr -- value)` returns the first element. `Rest` `(arr -- arr')`
-returns the array with the first element removed. These are
-SLI-defined helpers (not built-in C++ operators) that come from
-`lib/sli/sli-init.sli`.
+returns the array with the first element removed.
 
 ```
 [10 20 30] First =
@@ -151,18 +149,87 @@ The chapter on loops covered `forall` and `forallindexed`. Recapping:
 15
 ```
 
+## `Map` — transform each element
+
 For element-by-element transformation without writing a `forall`
 yourself, the standard library provides `Map`. It takes an array and a
 procedure; the procedure runs once per element with the element on the
-stack, and `Map` collects the result.
+stack, and is expected to leave exactly one value behind. `Map`
+collects those values into a new array of the same length.
 
 ```
 [1 2 3 4] { dup mul } Map ==
 [1 4 9 16]
 ```
 
-Map is part of `lib/sli/mathematica.sli` rather than the built-in core,
-but it is loaded by default and behaves like any other SLI operator.
+The body sees one element at a time and must leave one result:
+
+```
+[10 20 30] { 100 add } Map ==
+[110 120 130]
+
+[(red) (green) (blue)] { length } Map ==
+[3 5 4]
+```
+
+An empty input gives an empty output:
+
+```
+[] { 1 add } Map ==
+[]
+```
+
+`Map` is the right tool when you want a transformed copy of an array.
+Compare with `forall`, which runs the body for side effects (or for an
+accumulator left on the stack) but does not build a result array.
+
+## `MapThread` — zip several arrays together
+
+`MapThread` `([[r1] [r2] ...] proc -- arr)` takes an outer array
+whose entries are equal-length inner arrays, and walks them in
+lockstep. On each step it pushes one element from each row at the
+same column index, then runs the body, which must leave exactly one
+value behind. The collected values form the result array, one per
+column.
+
+Elementwise add of two vectors:
+
+```
+[[1 2 3] [10 20 30]] { add } MapThread ==
+[11 22 33]
+```
+
+`MapThread` is the SLI analogue of Python's `zip(...)` combined with a
+list comprehension — given parallel arrays, run a body once per
+column.
+
+Three rows work the same way, with three values on the stack per
+iteration:
+
+```
+[[1 2 3] [10 20 30] [100 200 300]] { add add } MapThread ==
+[111 222 333]
+```
+
+Zip pairs into 2-element arrays using `arraystore`:
+
+```
+[[1 2 3] [4 5 6]] { 2 arraystore } MapThread ==
+[[1 4] [2 5] [3 6]]
+
+[[/a /b /c] [1 2 3]] { 2 arraystore } MapThread ==
+[[/a 1] [/b 2] [/c 3]]
+```
+
+The inner arrays must all have the same length — `MapThread` raises
+`RangeCheck` if they do not — and the outer array must contain only
+arrays (else `ArgumentType`).
+
+`Map` and `MapThread` are implemented as native C++ operators (with
+trie dispatch wired up in `lib/sli/mathematica.sli`); they are loaded
+by default and behave like any other SLI operator. There is also
+`MapIndexed`, which works like `Map` but pushes the 1-based index
+alongside each element: `[10 20 30] { add } MapIndexed -> [11 22 33]`.
 
 ## Examples
 
@@ -170,6 +237,7 @@ but it is loaded by default and behaves like any other SLI operator.
 - [`examples/ch06_arrays/length_get.sli`](examples/ch06_arrays/length_get.sli)
 - [`examples/ch06_arrays/append_join.sli`](examples/ch06_arrays/append_join.sli)
 - [`examples/ch06_arrays/range_map.sli`](examples/ch06_arrays/range_map.sli)
+- [`examples/ch06_arrays/map_mapthread.sli`](examples/ch06_arrays/map_mapthread.sli) — `Map` transforms, `MapThread` zips.
 
 ---
 

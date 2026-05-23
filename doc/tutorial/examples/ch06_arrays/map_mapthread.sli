@@ -1,0 +1,36 @@
+% Chapter 06 -- Map and MapThread
+%
+% Map runs a body once per element of one array; MapThread runs it
+% once per column of an outer array of equal-length inner arrays.
+% The body must leave exactly one value behind per call, and the
+% result is a new array of those values.
+%
+% Expected output:
+%   [1 4 9 16]
+%   [110 120 130]
+%   [3 5 4]
+%   []
+%   [11 22 33]
+%   [111 222 333]
+%   [[1 4] [2 5] [3 6]]
+%   [[/a 1] [/b 2] [/c 3]]
+%   [11 22 33]
+
+% -- Map: transform each element
+[1 2 3 4] { dup mul }   Map ==
+[10 20 30] { 100 add }  Map ==
+[(red) (green) (blue)] { length } Map ==
+[] { 1 add } Map ==
+
+% -- MapThread: zip parallel arrays, run body once per column
+[[1 2 3] [10 20 30]] { add } MapThread ==
+[[1 2 3] [10 20 30] [100 200 300]] { add add } MapThread ==
+
+% Pair up two arrays into 2-element rows
+[[1 2 3] [4 5 6]]    { 2 arraystore } MapThread ==
+[[/a /b /c] [1 2 3]] { 2 arraystore } MapThread ==
+
+% -- MapIndexed: like Map, but the 1-based index is also pushed
+[10 20 30] { add } MapIndexed ==
+
+quit
