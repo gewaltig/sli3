@@ -124,6 +124,64 @@ int main()
     EVAL_INT(i,   "0 (abc) { add_ii add_ii } forallindexed_s",
                    97+0 + 98+1 + 99+2);  // 297
 
+    // -------- return (Python-style early proc exit) ---------------
+    // /return walks the e-stack to the nearest iiteratetype marker
+    // (a plain procedure invocation) and pops the frame through the
+    // proc. Loop bodies execute inline against the loop's own
+    // marker (iforalltype / ifortype / ...) and never push a
+    // per-body iiterate frame, so /return inside a loop body
+    // unwinds the loop and the enclosing proc together.
+    //
+    // Interaction with the dispatcher's single-level iiterate TCO
+    // (sli_interpreter.cpp body_walk): when the very last token of
+    // an iiterate-framed proc body is fetched, the frame is
+    // collapsed before that token runs. Consequence: /return as
+    // the LAST statement of a nested proc body (e.g. the body of
+    // /exec / /if / /ifelse) unwinds the *outer* proc, mirroring
+    // Python's `return` exiting the enclosing function. A non-tail
+    // /return (something follows it in the body) keeps the inner
+    // frame intact and unwinds only that frame.
+
+    // 1. Plain proc body: /return abandons the rest of the body.
+    EVAL_INT(i,   "{ 1 2 add_ii return 99 mul_ii } exec",   3);
+
+    // 2. /exec with a mid-body /return: inner iiterate frame is
+    //    intact, /return unwinds only that, outer proc continues.
+    EVAL_INT(i,   "{ { 10 return 99 } exec 20 add_ii } exec", 30);
+
+    // 3. /forall_a body runs inline → /return unwinds the loop
+    //    AND the enclosing proc. The iter pushed 10 before the
+    //    body ran, so that value is left on the stack.
+    EVAL_INT(i,   "{ [10 20 30] { return } forall_a } exec",  10);
+
+    // 4. /for body: same shape. First counter (1) survives; the
+    //    trailing `999` in the outer proc is never reached.
+    EVAL_INT(i,   "{ 1 1 100 { return } for 999 } exec",       1);
+
+    // 5. /repeat body: pre-loop ostack value (42) survives, the
+    //    post-loop code in the outer proc is skipped.
+    EVAL_INT(i,   "{ 42 3 { return } repeat 99 add_ii } exec", 42);
+
+    // 6. Nested loops collapse with the enclosing proc.
+    //    Outer iter pushes 1, inner iter pushes 4, then /return
+    //    unwinds everything. Two values left on the ostack.
+    EVAL_DEPTH(i,
+        "{ [1 2 3] { [4 5 6] { return } forall_a } forall_a 99 } exec",
+        2);
+
+    // 7. /if-branch with tail-/return: dispatcher's iiterate TCO
+    //    collapses the branch frame before /return runs, so the
+    //    return unwinds the OUTER proc. End state: just the 7 the
+    //    branch pushed prior to /if. (Python-like.)
+    EVAL_INT(i,   "{ 7 true { return } if 99 add_ii } exec",   7);
+
+    // 8. /if-branch with non-tail /return: branch frame intact,
+    //    /return unwinds only the branch; outer proc continues.
+    EVAL_INT(i,   "{ 1 true  { return noop } if 99 add_ii } exec", 100);
+
+    // 9. /if-branch not taken: /return never runs.
+    EVAL_INT(i,   "{ 1 false { return } if 99 add_ii } exec",     100);
+
     // -------- math doubles: trig ----------------------------------
     // Note: pi ≈ 3.141592653589793, e ≈ 2.718281828459045
     EVAL_DOUBLE(i, "0.0 sin_d",                 0.0,  1e-12);

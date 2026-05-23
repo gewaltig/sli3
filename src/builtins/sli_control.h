@@ -70,8 +70,26 @@ namespace sli3
     ExitFunction() {}
     void execute(SLIInterpreter *) const;
   };
-  
-  
+
+  /**
+   * return - Python-style early return from the enclosing
+   * procedure. Walks the e-stack from the top, skipping any loop
+   * frames (irepeat / ifor / iforall / iloop / ...), and unwinds
+   * down to and including the first iiteratetype frame — i.e. the
+   * nearest plain procedure invocation. Loop frames have their own
+   * marker tags, so the walk passes over their body's pos/proc/
+   * state slots naturally. If no iiteratetype is found on the
+   * stack, raises InvalidReturn (return called outside a
+   * procedure).
+   */
+  class ReturnFunction: public SLIFunction
+  {
+  public:
+    ReturnFunction() {}
+    void execute(SLIInterpreter *) const;
+  };
+
+
   class IfFunction: public SLIFunction
   {
   public:

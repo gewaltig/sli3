@@ -151,6 +151,88 @@ void ExitFunction::execute(SLIInterpreter *i) const
 }
 
 /*BeginDocumentation
+Name: return - early return from the enclosing procedure
+Synopsis: return -> -
+Description:
+  return unwinds the execution stack up to and including the
+  nearest enclosing procedure invocation, much like Python's
+  `return` statement. Any loop frames (repeat / for / forall /
+  loop / ...) between the call site and the enclosing procedure
+  are unwound as well.
+
+  Mechanically: walk the e-stack downward looking for the first
+  iiteratetype marker (the marker pushed when a procedure body
+  starts executing). Loop bodies have their own marker tags
+  (irepeattype, ifortype, iforalltype, ilooptype, ...) so the walk
+  passes over them transparently. The matched iiterate frame --
+  marker, position counter, and body procedure -- is dropped from
+  the e-stack; execution resumes at whatever lies below.
+
+  Calling return outside a procedure (e.g. at the interactive
+  prompt) raises an InvalidReturn error.
+Examples:
+  { 1 2 add return 99 mul } exec  -> 3
+  { [1 2 3] { return } forall } exec  -> 1
+SeeAlso: exit, stop, stopped
+*/
+void ReturnFunction::execute(SLIInterpreter *i) const
+{
+    // Walk the e-stack from the top, skipping past loop frames by
+    // their known sizes, until we either land on an iiteratetype
+    // (the enclosing procedure's frame) or fall off the last iter
+    // frame onto something else (parser / quit / ...).
+    //
+    // Two terminations:
+    //   - iiteratetype found at pick(n): pop n+3 -- everything
+    //     above plus the iiterate frame (marker / pos / proc).
+    //   - non-iter slot reached after stepping past >=1 loop
+    //     frame: the enclosing proc was eaten by the dispatcher's
+    //     single-level iiterate TCO (a procedure body ending in a
+    //     tail call has its iiterate frame collapsed before the
+    //     tail dispatches). Unwind only the loop frames we walked
+    //     over by popping n slots.
+    //   - no iter frame at all (e.g. /return at the interactive
+    //     prompt): raise InvalidReturn.
+    size_t n = 0;
+    size_t const l = i->EStack().load();
+    while (n < l) {
+        unsigned const tag = i->EStack().pick(n).tag();
+        size_t frame = 0;
+        switch (tag) {
+            case sli3::iiteratetype:
+                i->EStack().pop(n + 3);
+                return;
+            case sli3::iforalltype:
+            case sli3::iforallstringtype:        frame = 6; break;
+            case sli3::ifortype:
+            case sli3::iforallindexedarraytype:
+            case sli3::iforallindexedstringtype:
+            case sli3::imaptype:
+            case sli3::imapindexedtype:          frame = 7; break;
+            case sli3::ilooptype:                frame = 4; break;
+            case sli3::irepeattype:              frame = 5; break;
+            case sli3::imapthreadtype:           frame = 8; break;
+            default:
+                // Non-iter slot. If we have walked past >=1 loop
+                // frame, the enclosing iiterate was TCO'd away --
+                // unwind the loops we stepped over. Otherwise the
+                // caller invoked /return outside any procedure.
+                if (n == 0) {
+                    i->raiseerror("InvalidReturn");
+                    return;
+                }
+                i->EStack().pop(n);
+                return;
+        }
+        n += frame;
+    }
+    // Walked off the bottom of the e-stack -- the parser frame
+    // (xistreamtype / quittype / ...) at the base would normally
+    // have stopped us in the default arm. Treat as an error.
+    i->raiseerror("InvalidReturn");
+}
+
+/*BeginDocumentation
 Name: if - conditionaly execute a procedure
 Synopsis:
   boolean {procedure} if -> -
@@ -1923,6 +2005,7 @@ void NoopFunction::execute(SLIInterpreter *i) const
  EStackdumpFunction        estackdumpfunction;
  LoopFunction             loopfunction;
  ExitFunction             exitfunction;
+ ReturnFunction           returnfunction;
  IfFunction               iffunction;
  IfelseFunction           ifelsefunction;
  RepeatFunction           repeatfunction;
@@ -2012,6 +2095,7 @@ void  init_slicontrol(SLIInterpreter *i)
   i->createcommand("ostackdump",  &ostackdumpfunction);
   i->createcommand("loop",  &loopfunction);
   i->createcommand("exit",  &exitfunction);
+  i->createcommand("return",&returnfunction);
   i->createcommand("if",    &iffunction);
   i->createcommand("ifelse",&ifelsefunction);
   i->createcommand("repeat",&repeatfunction);

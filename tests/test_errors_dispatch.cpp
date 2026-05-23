@@ -244,6 +244,17 @@ void test_attrib_user_trie_mismatch(SLIInterpreter& i)
         "mytrie");
 }
 
+// ---------- ReturnFunction --------------------------------------------
+//
+// /return at the top level (no enclosing iiteratetype frame on the
+// e-stack) must raise InvalidReturn rather than silently popping the
+// harness's parser frame and leaving the interpreter wedged.
+
+void test_return_outside_proc_raises(SLIInterpreter& i)
+{
+    expect_error(i, "return", "InvalidReturn");
+}
+
 }  // namespace
 
 int main()
@@ -266,6 +277,8 @@ int main()
     test_attrib_cvi_string(i);
     test_attrib_trie_mismatch(i);
     test_attrib_user_trie_mismatch(i);
+
+    test_return_outside_proc_raises(i);
 
     std::cout << "test_errors_dispatch: ok\n";
     return 0;
