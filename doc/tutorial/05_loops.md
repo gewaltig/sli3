@@ -146,12 +146,53 @@ Loops do not have a "return value" the way Python functions do — they
 just leave whatever they leave on the stack. The accumulator pattern
 (see `repeat` and `forall` above) is the usual way to compute one.
 
-## Examples
+## `return` — early exit from the enclosing procedure
 
-- [`examples/ch05_loops/repeat.sli`](examples/ch05_loops/repeat.sli)
-- [`examples/ch05_loops/for.sli`](examples/ch05_loops/for.sli)
-- [`examples/ch05_loops/loop_exit.sli`](examples/ch05_loops/loop_exit.sli)
-- [`examples/ch05_loops/forall.sli`](examples/ch05_loops/forall.sli)
+`return` `( -- )` is SLI's analogue of Python's `return`. It abandons
+the rest of the enclosing procedure body — and any loops between the
+call site and that procedure — and resumes execution wherever the
+procedure was invoked.
+
+Use it to break out of a search loop the moment a hit is found:
+
+```
+/findFirst {
+  /target Set
+  [1 2 3 4 5 6] { dup target eq { return } if pop } forall
+  -1
+} def
+
+4 findFirst =
+4
+
+99 findFirst =
+-1
+```
+
+`findFirst` walks the array; on each iteration it `dup`s the element
+and compares to `target`. On a hit the body leaves the element on the
+stack and calls `return` — which unwinds the `forall` frame *and* the
+enclosing procedure frame together, so the trailing `-1` (the
+"not found" fallback) never runs. On a miss the body just pops the
+element and the loop continues; when the loop finishes naturally
+`-1` is pushed instead.
+
+Contrast with `exit`: `exit` terminates only the innermost loop and
+falls through to the code after the loop in the same procedure;
+`return` jumps all the way out of the procedure.
+
+```
+{ [1 2 3 4 5] { dup 3 eq { exit } if pop } forall (after loop) = } exec
+after loop
+
+{ [1 2 3 4 5] { dup 3 eq { return } if pop } forall (after loop) = } exec
+(no output — `return` skipped the trailing `=`)
+```
+
+`return` outside any procedure (e.g. at the prompt) raises an
+`InvalidReturn` error — there is no enclosing procedure to leave.
+
+## Examples
 
 ---
 

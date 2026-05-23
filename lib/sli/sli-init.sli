@@ -269,6 +269,52 @@ def
 /bind /bind_ load def
 
 /** @BeginDocumentation
+ Name: return - early exit from the enclosing procedure
+ Synopsis: return --> -
+ Description:
+   return abandons the remainder of the enclosing procedure body
+   and continues execution at whatever invoked that procedure --
+   the SLI analogue of Python's `return` statement.
+
+   Mechanics: return walks the execution stack from the top,
+   stepping past any loop frames (forall, for, repeat, loop,
+   forallindexed, Map, MapIndexed, MapThread, forall_s, ...) by
+   their known sizes, and stops at the first plain-procedure
+   marker (iiteratetype). That frame -- marker, position counter,
+   and procedure body -- is removed, so any loops between the call
+   site and the enclosing procedure are unwound along with it.
+
+   Interaction with tail-call optimization: when a procedure body
+   ends in a tail call (e.g. `{ ... forall_a }`), the dispatcher
+   collapses the procedure's frame before that tail dispatches, so
+   /return inside the loop body unwinds the loop only -- there is
+   no surviving procedure frame to return through. The user-visible
+   effect is unchanged: execution resumes wherever the (now-tail-
+   called) procedure was invoked.
+
+   /return outside any procedure (e.g. at the interactive prompt)
+   raises an InvalidReturn error.
+
+ Examples:
+   { 1 2 add return 99 mul } exec --> 3
+   { [10 20 30] { dup 20 eq { return } if pop } forall } exec --> 20
+   /findFirst {
+     /target Set
+     [1 2 3 4 5] { dup target eq { exch pop return } if pop } forall
+     -1
+   } def
+   42 4 findFirst --> 4
+
+ Author: Gewaltig
+ FirstVersion: 2026-05
+ SeeAlso: exit, stop, stopped, exec
+*/
+
+% /return is a C++ leaf: ReturnFunction in sli_control.cpp walks
+% the e-stack to the nearest iiteratetype frame and unwinds it,
+% stepping past intervening loop frames by their known sizes.
+
+/** @BeginDocumentation
  Name: = - Print object to screen.
  Synopsis: any = --> -
  Description:

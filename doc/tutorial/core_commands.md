@@ -66,6 +66,7 @@ the table compact.
 | `repeat` | `src/builtins/sli_control.cpp:2017` | Run a procedure `n` times. |
 | `loop` | `src/builtins/sli_control.cpp:2013` | Infinite loop; terminate with `exit`. |
 | `exit` | `src/builtins/sli_control.cpp:2014` | Break out of the innermost loop. |
+| `return` | `src/builtins/sli_control.cpp:2098` | Early exit from the enclosing procedure (Python-style). |
 | `forall` | `src/builtins/sli_control.cpp:2038` | Iterate a procedure over each array element. |
 | `forallindexed` | `src/builtins/sli_control.cpp:2043` | `forall` that also pushes the index. |
 | `exec` | `src/builtins/sli_control.cpp:2049` | Execute a procedure object on the operand stack. |
