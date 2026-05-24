@@ -1099,6 +1099,69 @@ void test_patterns(SLIInterpreter& i)
     run_op(i, "closepage");
 }
 
+// Compositing operators: setoperator + currentoperator round-trip,
+// the compositors dict is populated and read-only, unknown names raise.
+void test_compositors(SLIInterpreter& i)
+{
+    i.push(int_token(i, 40));
+    i.push(int_token(i, 40));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    // Default is /over -- check currentoperator before any setoperator.
+    run_op(i, "currentoperator");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::literaltype));
+    CHECK(Name(i.top().data_.name_val) == Name("over"));
+    i.pop(1);
+
+    // setoperator + currentoperator round-trip through multiply, clear,
+    // and back to over.
+    for (char const* name : {"multiply", "clear", "difference", "over"})
+    {
+        i.push(i.new_token<sli3::literaltype, Name>(Name(name)));
+        run_op(i, "setoperator");
+        CHECK(i.load() == 0);
+        run_op(i, "currentoperator");
+        CHECK(i.load() == 1);
+        CHECK(Name(i.top().data_.name_val) == Name(name));
+        i.pop(1);
+    }
+
+    // Unknown name -> UnknownOperatorError
+    Dictionary& ed = i.error_dict();
+    ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+    i.push(i.new_token<sli3::literaltype, Name>(Name("not_a_real_op")));
+    Token& fn = i.lookup(Name("setoperator"));
+    fn.data_.func_val->execute(&i);
+    Token ne;
+    CHECK(ed.lookup(Name("newerror"), ne));
+    CHECK(ne.data_.bool_val == true);
+    ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+    i.OStack().clear();
+    i.EStack().clear();
+
+    // compositors dict exists and contains the expected names.
+    Token cd;
+    CHECK(i.lookup(Name("compositors"), cd));
+    CHECK(cd.is_of_type(sli3::dictionarytype));
+    Dictionary* d = cd.data_.dict_val;
+    for (char const* name : {"over", "clear", "multiply", "screen",
+                              "difference", "hsl_color"})
+    {
+        Token t;
+        CHECK(d->lookup(Name(name), t));
+        CHECK(t.is_of_type(sli3::integertype));
+    }
+    CHECK(d->is_readable());
+    // Read-only: insert should be rejected, but we don't drive that
+    // through the SLI surface here -- just confirm the access flag.
+    CHECK(!d->is_writable());
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
 // listfonts must return a non-empty array of string-type entries.
 void test_listfonts(SLIInterpreter& i)
 {
@@ -1180,6 +1243,7 @@ int main()
     test_flattenpath_and_pathforall(i);
     test_transparency(i);
     test_patterns(i);
+    test_compositors(i);
     test_listfonts(i);
 
     std::cout << "test_graphics_module: OK\n";

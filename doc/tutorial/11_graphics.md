@@ -534,6 +534,70 @@ The pattern can be used for either `fill` or `stroke`. Patterns are
 refcounted; you can hold one in a variable and reuse it across
 multiple paints.
 
+## Compositing operators
+
+Every paint operation (`stroke`, `fill`, `drawimage`) combines the
+new pixels with what's already on the surface. By default that
+combination is "source over destination" — standard alpha blending.
+You can replace that step with one of ~30 alternatives:
+
+```sli
+/multiply setoperator       % darken: source * destination per channel
+color /red get setrgbcolor
+50 50 100 100 rect fill     % painted with MULTIPLY blending
+/over setoperator           % reset to default
+```
+
+The most commonly useful are:
+
+| Name | What it does |
+|---|---|
+| `/over` | Default. Source α-blended over destination. |
+| `/clear` | Source = transparent black (a "punch a hole" operator). |
+| `/source` | Source replaces destination, ignoring alpha. |
+| `/multiply` | Channel-wise multiply. Darkens; white is identity. |
+| `/screen` | `1 - (1-s)(1-d)`. Lightens; black is identity. |
+| `/add` | Saturating channel add. Additive lighting / glow. |
+| `/dest_out` | Keeps destination where source is *transparent* — silhouette cutter. |
+| `/difference` | `\|s - d\|` per channel. Inverts overlaps; great for diff visualization. |
+
+Plus the photo-editor family: `/overlay`, `/hard_light`,
+`/soft_light`, `/darken`, `/lighten`, `/color_dodge`, `/color_burn`,
+`/exclusion`, and the HSL family `/hsl_hue`, `/hsl_saturation`,
+`/hsl_color`, `/hsl_luminosity`.
+
+`compositors` is a dictionary of `name → integer` containing every
+supported operator name. List them:
+
+```sli
+compositors keys =
+```
+
+`currentoperator` returns the current operator as a literal name.
+The operator state is part of the graphics state, so `gsave` /
+`grestore` save and restore it automatically — a common pattern:
+
+```sli
+gsave
+  /multiply setoperator
+  ... draw with multiply blending ...
+grestore                       % operator restored to whatever it was
+```
+
+`/clear` is the only operator that fills a real gap in the rest of
+the module — it's the one way to *erase a region to transparency*
+on an image surface:
+
+```sli
+gsave
+  /clear setoperator
+  100 100 50 circle fill       % punches a transparent hole
+grestore
+```
+
+`erasepage` by contrast clears to opaque white — useful for "blank
+the page" but not for compositing.
+
 ## Font enumeration
 
 Cairo's text API renders any font name your OS knows about, but it

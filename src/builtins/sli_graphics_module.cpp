@@ -2125,6 +2125,105 @@ public:
     }
 };
 
+//------------------------------------------------------------------------
+// Compositing operators. Maps a small set of literal names to Cairo's
+// cairo_operator_t enum so SLI code can say `/multiply setoperator`
+// instead of remembering an integer.
+//------------------------------------------------------------------------
+
+namespace
+{
+
+struct CompositorEntry { char const* name; cairo_operator_t op; };
+
+constexpr CompositorEntry k_compositors[] = {
+    {"clear",          CAIRO_OPERATOR_CLEAR},
+    {"source",         CAIRO_OPERATOR_SOURCE},
+    {"over",           CAIRO_OPERATOR_OVER},
+    {"in",             CAIRO_OPERATOR_IN},
+    {"out",            CAIRO_OPERATOR_OUT},
+    {"atop",           CAIRO_OPERATOR_ATOP},
+    {"dest",           CAIRO_OPERATOR_DEST},
+    {"dest_over",      CAIRO_OPERATOR_DEST_OVER},
+    {"dest_in",        CAIRO_OPERATOR_DEST_IN},
+    {"dest_out",       CAIRO_OPERATOR_DEST_OUT},
+    {"dest_atop",      CAIRO_OPERATOR_DEST_ATOP},
+    {"xor",            CAIRO_OPERATOR_XOR},
+    {"add",            CAIRO_OPERATOR_ADD},
+    {"saturate",       CAIRO_OPERATOR_SATURATE},
+    {"multiply",       CAIRO_OPERATOR_MULTIPLY},
+    {"screen",         CAIRO_OPERATOR_SCREEN},
+    {"overlay",        CAIRO_OPERATOR_OVERLAY},
+    {"darken",         CAIRO_OPERATOR_DARKEN},
+    {"lighten",        CAIRO_OPERATOR_LIGHTEN},
+    {"color_dodge",    CAIRO_OPERATOR_COLOR_DODGE},
+    {"color_burn",     CAIRO_OPERATOR_COLOR_BURN},
+    {"hard_light",     CAIRO_OPERATOR_HARD_LIGHT},
+    {"soft_light",     CAIRO_OPERATOR_SOFT_LIGHT},
+    {"difference",     CAIRO_OPERATOR_DIFFERENCE},
+    {"exclusion",      CAIRO_OPERATOR_EXCLUSION},
+    {"hsl_hue",        CAIRO_OPERATOR_HSL_HUE},
+    {"hsl_saturation", CAIRO_OPERATOR_HSL_SATURATION},
+    {"hsl_color",      CAIRO_OPERATOR_HSL_COLOR},
+    {"hsl_luminosity", CAIRO_OPERATOR_HSL_LUMINOSITY},
+};
+
+bool name_to_operator_(Name n, cairo_operator_t& out)
+{
+    std::string const& s = n.toString();
+    for (auto const& e : k_compositors)
+        if (s == e.name) { out = e.op; return true; }
+    return false;
+}
+
+Name operator_to_name_(cairo_operator_t op)
+{
+    for (auto const& e : k_compositors)
+        if (e.op == op) return Name(e.name);
+    return Name("unknown");
+}
+
+}  // namespace
+
+// `name setoperator -> -`. Accepts either a literal name or a string.
+class SetOperatorFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        std::string s;
+        if (!token_to_string(i->pick(0), s))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        cairo_operator_t op;
+        if (!name_to_operator_(Name(s), op))
+        {
+            i->raiseerror(Name("setoperator"), Name("UnknownOperatorError"));
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("setoperator"));
+        if (!g) return;
+        cairo_set_operator(g->cr(), op);
+        i->pop(1);
+    }
+};
+
+// `currentoperator -> name` (literal name).
+class CurrentOperatorFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentoperator"));
+        if (!g) return;
+        cairo_operator_t op = cairo_get_operator(g->cr());
+        i->push(i->new_token<sli3::literaltype, Name>(operator_to_name_(op)));
+    }
+};
+
 // `listfonts -> [array of strings]`. Returns every installed font
 // family known to FontConfig, deduplicated and lexicographically
 // sorted. On macOS where Cairo's toy text API actually goes through
@@ -2341,12 +2440,32 @@ ShowFunction         show_fn;
 StringWidthFunction  stringwidth_fn;
 CharPathFunction     charpath_fn;
 ListFontsFunction    listfonts_fn;
+SetOperatorFunction     setoperator_fn;
+CurrentOperatorFunction currentoperator_fn;
 ShowPageFunction     showpage_fn;
 FlushPageFunction    flushpage_fn;
 WaitFunction         wait_fn;
 WindowClosedFunction windowclosed_fn;
 
 }  // namespace
+
+// Build the read-only /compositors dictionary in systemdict, mapping
+// each operator name to its underlying cairo_operator_t value. Lets
+// SLI code introspect (compositors keys, compositors /multiply known)
+// without needing to remember the table. The integer values are an
+// implementation detail; user code passes /name to /setoperator, not
+// the integer.
+void install_compositors_dict_(SLIInterpreter* i)
+{
+    Dictionary* d = new Dictionary;
+    for (auto const& e : k_compositors)
+        d->insert(Name(e.name),
+                  i->new_token<sli3::integertype, long>(
+                      static_cast<long>(e.op)));
+    d->set_access(sli3::ACCESS_READONLY);
+    i->def(Name("compositors"),
+           i->new_token<sli3::dictionarytype, Dictionary*>(d));
+}
 
 // Build the `color` dictionary and bind it in systemdict. Each entry
 // is a 3-element double array [r g b] in [0,1]; the polymorphic
@@ -2400,6 +2519,7 @@ void install_color_dict_(SLIInterpreter* i)
 void init_sligraphics(SLIInterpreter* i)
 {
     install_color_dict_(i);
+    install_compositors_dict_(i);
 
     // Surface lifecycle
     i->createcommand("newpage",      &newpage_fn);
@@ -2500,6 +2620,10 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("stringwidth",  &stringwidth_fn);
     i->createcommand("charpath",     &charpath_fn);
     i->createcommand("listfonts",    &listfonts_fn);
+
+    // Compositing
+    i->createcommand("setoperator",     &setoperator_fn);
+    i->createcommand("currentoperator", &currentoperator_fn);
 
     // Display
     i->createcommand("showpage",     &showpage_fn);

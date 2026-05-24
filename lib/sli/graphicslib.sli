@@ -107,6 +107,12 @@
  *    listfonts     ( -> [strings...] ) all installed font families
  *                                      via FontConfig
  *
+ *  Compositing
+ *    setoperator     ( /name -> - )    cairo_set_operator by name
+ *    currentoperator ( -> /name )      cairo_get_operator as a name
+ *    compositors                       dict of name -> integer for
+ *                                      all supported operators
+ *
  *  IMPORTANT: there is intentionally no blocking /interact. Always use
  *  /wait with a finite second count. See the leading comment in
  *  src/containers/sli_graphics.cpp for the macOS rationale.
@@ -375,6 +381,42 @@
   20 225 moveto (gradients: linearpattern + radialpattern) show
 
   (/tmp/sli3-gradient.png) currentpage writepng
+  currentpage closepage
+} def
+
+% /compositdemo  three side-by-side blocks demonstrating how
+% /setoperator changes blending behavior. Same rectangle + circle
+% drawn under three different operators; the visual differences
+% match the documented Porter-Duff and PDF blend modes.
+/compositdemo
+{
+  (compositdemo: writing /tmp/sli3-compositdemo.png) =
+  500 200 newoffscreen pop
+  color /white get setrgbcolor 0 0 500 200 rect fill
+
+  % Block 1: OVER (default) -- yellow on red
+  color /red get setrgbcolor    10 50 130 100 rect fill
+  color /yellow get setrgbcolor 90 100 50 circle fill
+
+  % Block 2: MULTIPLY -- yellow * red = red (yellow disappears)
+  color /red get setrgbcolor 170 50 130 100 rect fill
+  /multiply setoperator
+  color /yellow get setrgbcolor 250 100 50 circle fill
+  /over setoperator
+
+  % Block 3: DIFFERENCE -- |yellow - red| = green
+  color /red get setrgbcolor 330 50 130 100 rect fill
+  /difference setoperator
+  color /yellow get setrgbcolor 410 100 50 circle fill
+  /over setoperator
+
+  (sans) findfont 11 scalefont setfont
+  color /black get setrgbcolor
+   10 30 moveto (over) show
+  170 30 moveto (multiply) show
+  330 30 moveto (difference) show
+
+  (/tmp/sli3-compositdemo.png) currentpage writepng
   currentpage closepage
 } def
 
