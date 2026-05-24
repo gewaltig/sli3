@@ -327,6 +327,81 @@ void test_offscreen_curve_clip_png(SLIInterpreter& i)
     CHECK(i.load() == 0);
 }
 
+// arct exercise on an offscreen surface. Builds a rounded rectangle
+// path (4 corner fillets via arct), fills it, and writes a PNG to
+// confirm nothing crashes on the analytic-geometry path. Also asserts
+// that calling arct without a current point raises NoCurrentPointError.
+void test_arct(SLIInterpreter& i)
+{
+    // Open a small offscreen page.
+    i.push(int_token(i, 80));
+    i.push(int_token(i, 60));
+    run_op(i, "newoffscreen");
+    CHECK(i.load() == 1);
+    i.pop(1);
+
+    // Missing current point -> NoCurrentPointError. Newpath clears any
+    // current point left by the white-background fill in finish_cairo_setup_.
+    run_op(i, "newpath");
+    Dictionary& ed = i.error_dict();
+    ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+    i.push(int_token(i, 10)); i.push(int_token(i, 10));
+    i.push(int_token(i, 70)); i.push(int_token(i, 10));
+    i.push(int_token(i, 5));
+    Token& arct_fn = i.lookup(Name("arct"));
+    arct_fn.data_.func_val->execute(&i);
+    Token ne;
+    CHECK(ed.lookup(Name("newerror"), ne));
+    CHECK(ne.is_of_type(sli3::booltype));
+    CHECK(ne.data_.bool_val == true);
+    ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+    i.OStack().clear();
+    i.EStack().clear();
+
+    // Rounded rectangle via 4 arct fillets (corners at (10,10),
+    // (70,10), (70,50), (10,50), radius 8). Start with moveto on the
+    // top edge so each arct rounds the next corner.
+    i.push(int_token(i, 18)); i.push(int_token(i, 10));
+    run_op(i, "moveto");
+    i.push(int_token(i, 70)); i.push(int_token(i, 10));
+    i.push(int_token(i, 70)); i.push(int_token(i, 50));
+    i.push(int_token(i, 8));
+    run_op(i, "arct");
+    i.push(int_token(i, 70)); i.push(int_token(i, 50));
+    i.push(int_token(i, 10)); i.push(int_token(i, 50));
+    i.push(int_token(i, 8));
+    run_op(i, "arct");
+    i.push(int_token(i, 10)); i.push(int_token(i, 50));
+    i.push(int_token(i, 10)); i.push(int_token(i, 10));
+    i.push(int_token(i, 8));
+    run_op(i, "arct");
+    i.push(int_token(i, 10)); i.push(int_token(i, 10));
+    i.push(int_token(i, 70)); i.push(int_token(i, 10));
+    i.push(int_token(i, 8));
+    run_op(i, "arct");
+    run_op(i, "closepath");
+    i.push(double_token(i, 0.0)); i.push(double_token(i, 0.5));
+    i.push(double_token(i, 0.8)); run_op(i, "setrgbcolor");
+    run_op(i, "fill");
+
+    std::string path = "/tmp/sli3-test-arct.png";
+    std::remove(path.c_str());
+    i.push(i.new_token<sli3::stringtype, std::string>(path));
+    run_op(i, "currentpage");
+    run_op(i, "writepng");
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    CHECK(f.good());
+    CHECK(f.tellg() > 0);
+    f.close();
+    std::remove(path.c_str());
+
+    // Drain (writepng raises on PDF reject elsewhere; on success it pops
+    // both operands itself, so just close the page).
+    i.OStack().clear();
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
 // Text round-trip: findfont returns a dict with the expected slots,
 // setfont mutates globaldict /:currentfont, currentfont can recover it.
 void test_text_findfont_setfont(SLIInterpreter& i)
@@ -484,6 +559,7 @@ int main()
 
     // Extension-pass coverage.
     test_offscreen_curve_clip_png(i);
+    test_arct(i);
     test_text_findfont_setfont(i);
     test_pdf_backend(i);
     test_writepng_rejects_pdf(i);

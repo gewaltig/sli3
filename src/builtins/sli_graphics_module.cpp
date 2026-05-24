@@ -559,6 +559,109 @@ private:
     Name op_name_;
 };
 
+// `x1 y1 x2 y2 r arct -> -` -- arc-tangent fillet (PS arct).
+//
+// Round the corner of the polyline (currentpoint) -> (x1,y1) -> (x2,y2)
+// with a circular arc of radius r tangent to both segments. Equivalent
+// to a /lineto to the first tangent point on segment 1, then an arc
+// from there to the tangent point on segment 2, leaving the current
+// point on segment 2.
+//
+// Degenerate cases per PS spec: no current point, zero-length segments,
+// r <= 0, or collinear/anti-parallel segments all degenerate to a
+// straight /lineto P1. NoCurrentPointError is raised only for the
+// missing-current-point case (the others are PS-legal).
+class ArctFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(5);
+        for (int k = 0; k < 5; ++k)
+            if (!is_numeric(i->pick(k)))
+            {
+                i->raiseerror(i->ArgumentTypeError);
+                return;
+            }
+        GraphicsContext* g = require_current_gc(i, Name("arct"));
+        if (!g) return;
+        cairo_t* cr = g->cr();
+        if (!cairo_has_current_point(cr))
+        {
+            i->raiseerror(Name("arct"), Name("NoCurrentPointError"));
+            return;
+        }
+        double x1 = as_double(i->pick(4));
+        double y1 = as_double(i->pick(3));
+        double x2 = as_double(i->pick(2));
+        double y2 = as_double(i->pick(1));
+        double r  = as_double(i->pick(0));
+
+        double x0 = 0.0, y0 = 0.0;
+        cairo_get_current_point(cr, &x0, &y0);
+
+        // v1: from corner back toward current point. v2: from corner
+        // forward to the next vertex. Both used for the tangent-point
+        // and arc-center geometry; the cross product of the FORWARD
+        // directions (-v1, v2) carries the turn sign.
+        double v1x = x0 - x1, v1y = y0 - y1;
+        double v2x = x2 - x1, v2y = y2 - y1;
+        double len1 = std::sqrt(v1x * v1x + v1y * v1y);
+        double len2 = std::sqrt(v2x * v2x + v2y * v2y);
+        if (len1 == 0.0 || len2 == 0.0 || r <= 0.0)
+        {
+            cairo_line_to(cr, x1, y1);
+            i->pop(5);
+            return;
+        }
+        v1x /= len1; v1y /= len1;
+        v2x /= len2; v2y /= len2;
+
+        double cos_alpha = v1x * v2x + v1y * v2y;
+        // sin²(alpha) ~ 0 means alpha is 0 or 180 -- segments are
+        // collinear (or anti-parallel). No arc fits; fall back to a
+        // straight line at the corner, matching PS.
+        double sin_alpha_sq = 1.0 - cos_alpha * cos_alpha;
+        if (sin_alpha_sq < 1e-12)
+        {
+            cairo_line_to(cr, x1, y1);
+            i->pop(5);
+            return;
+        }
+
+        // tan(alpha/2) via half-angle identity. Both sides are >= 0
+        // because 0 < alpha < pi here (collinear cases filtered above).
+        double tan_half  = std::sqrt((1.0 - cos_alpha) / (1.0 + cos_alpha));
+        double d         = r / tan_half;            // tangent-point offset from P1
+        double sin_half  = std::sqrt((1.0 - cos_alpha) * 0.5);
+        // Bisector direction (v1+v2 normalized). Length is 2*cos(alpha/2),
+        // which is non-zero because sin²(alpha) is non-degenerate.
+        double bisx = v1x + v2x, bisy = v1y + v2y;
+        double bisl = std::sqrt(bisx * bisx + bisy * bisy);
+        bisx /= bisl; bisy /= bisl;
+
+        double t1x = x1 + v1x * d, t1y = y1 + v1y * d;
+        double t2x = x1 + v2x * d, t2y = y1 + v2y * d;
+        double cx  = x1 + bisx * (r / sin_half);
+        double cy  = y1 + bisy * (r / sin_half);
+
+        cairo_line_to(cr, t1x, t1y);
+        double a1 = std::atan2(t1y - cy, t1x - cx);
+        double a2 = std::atan2(t2y - cy, t2x - cx);
+        // Forward-direction cross product: positive => CCW user turn,
+        // matching the same convention /arc draws under our Y-flipped
+        // CTM (cairo_arc visually sweeps CCW when angles increase in
+        // user space). Use cairo_arc_negative for CW turns.
+        double cross = (-v1x) * v2y - (-v1y) * v2x;  // = v1y*v2x - v1x*v2y
+        if (cross >= 0.0)
+            cairo_arc(cr, cx, cy, r, a1, a2);
+        else
+            cairo_arc_negative(cr, cx, cy, r, a1, a2);
+
+        i->pop(5);
+    }
+};
+
 // `cx cy r a1 a2 arcn -> -` -- negative-direction arc (PS arcn).
 class ArcNFunction : public SLIFunction
 {
@@ -1284,6 +1387,7 @@ XYFunction<cairo_scale>       scale_fn    {Name("scale")};
 CurveFunction<cairo_curve_to>     curveto_fn  {Name("curveto")};
 CurveFunction<cairo_rel_curve_to> rcurveto_fn {Name("rcurveto")};
 ArcNFunction         arcn_fn;
+ArctFunction         arct_fn;
 RectFunction         rect_fn;
 ArcFunction          arc_fn;
 CircleFunction       circle_fn;
@@ -1341,6 +1445,7 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("curveto",      &curveto_fn);
     i->createcommand("rcurveto",     &rcurveto_fn);
     i->createcommand("arcn",         &arcn_fn);
+    i->createcommand("arct",         &arct_fn);
 
     // Shape shortcuts
     i->createcommand("rect",         &rect_fn);

@@ -19,6 +19,8 @@
  *    rcurveto      ( dx1 ... dy3 -> - )          relative version
  *    arc           ( cx cy r a1 a2 -> - )        positive direction (degrees)
  *    arcn          ( cx cy r a1 a2 -> - )        negative direction
+ *    arct          ( x1 y1 x2 y2 r -> - )        arc-tangent fillet between
+ *                                                two line segments (PS arct)
  *    rect          ( x y w h -> - )
  *    circle        ( cx cy r -> - )
  *
