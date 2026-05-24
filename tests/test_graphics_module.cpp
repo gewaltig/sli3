@@ -1162,6 +1162,110 @@ void test_compositors(SLIInterpreter& i)
     run_op(i, "closepage");
 }
 
+// Hi-DPI offscreen: logical size matches what was requested, but the
+// underlying pixel buffer (and the written PNG) is scale times denser.
+void test_hidpi(SLIInterpreter& i)
+{
+    i.push(int_token(i, 60));
+    i.push(int_token(i, 40));
+    i.push(double_token(i, 2.0));
+    run_op(i, "newhidpioffscreen");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::graphicscontexttype));
+    GraphicsContext* g = i.top().data_.graphics_val;
+    CHECK(g != nullptr && g->valid());
+    CHECK(g->width() == 60);
+    CHECK(g->height() == 40);
+    CHECK(g->pixel_width()  == 120);
+    CHECK(g->pixel_height() == 80);
+    CHECK(g->device_scale() == 2.0);
+    i.pop(1);
+
+    // Draw in logical coords -- bounds stay (60, 40).
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 0.0));
+    run_op(i, "setrgbcolor");
+    i.push(int_token(i, 0)); i.push(int_token(i, 0));
+    i.push(int_token(i, 60)); i.push(int_token(i, 40));
+    run_op(i, "rect");
+    run_op(i, "fill");
+
+    // pagesize reports the LOGICAL size, not the pixel size.
+    run_op(i, "pagesize");
+    CHECK(i.load() == 2);
+    CHECK(i.pick(1).data_.long_val == 60);
+    CHECK(i.pick(0).data_.long_val == 40);
+    i.pop(2);
+
+    // writepng dumps the full pixel buffer.
+    std::string path = "/tmp/sli3-test-hidpi.png";
+    std::remove(path.c_str());
+    i.push(i.new_token<sli3::stringtype, std::string>(path));
+    run_op(i, "currentpage");
+    run_op(i, "writepng");
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    CHECK(f.good());
+    CHECK(f.tellg() > 0);
+    f.close();
+    std::remove(path.c_str());
+
+    i.OStack().clear();
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// Font-quality knobs: name<->name round-trip for each of the three.
+void test_font_quality_options(SLIInterpreter& i)
+{
+    i.push(int_token(i, 40));
+    i.push(int_token(i, 40));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    for (char const* aa : {"best", "subpixel", "gray", "none"})
+    {
+        i.push(i.new_token<sli3::literaltype, Name>(Name(aa)));
+        run_op(i, "setantialias");
+        CHECK(i.load() == 0);
+        run_op(i, "currentantialias");
+        CHECK(Name(i.top().data_.name_val) == Name(aa));
+        i.pop(1);
+    }
+    for (char const* h : {"full", "medium", "slight", "none"})
+    {
+        i.push(i.new_token<sli3::literaltype, Name>(Name(h)));
+        run_op(i, "sethinting");
+        run_op(i, "currenthinting");
+        CHECK(Name(i.top().data_.name_val) == Name(h));
+        i.pop(1);
+    }
+    for (char const* m : {"on", "off"})
+    {
+        i.push(i.new_token<sli3::literaltype, Name>(Name(m)));
+        run_op(i, "sethintmetrics");
+        run_op(i, "currenthintmetrics");
+        CHECK(Name(i.top().data_.name_val) == Name(m));
+        i.pop(1);
+    }
+
+    // Unknown name -> UnknownAntialiasError
+    Dictionary& ed = i.error_dict();
+    ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+    i.push(i.new_token<sli3::literaltype, Name>(Name("not_a_thing")));
+    Token& fn = i.lookup(Name("setantialias"));
+    fn.data_.func_val->execute(&i);
+    Token ne;
+    CHECK(ed.lookup(Name("newerror"), ne));
+    CHECK(ne.data_.bool_val == true);
+    ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+    i.OStack().clear();
+    i.EStack().clear();
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
 // listfonts must return a non-empty array of string-type entries.
 void test_listfonts(SLIInterpreter& i)
 {
@@ -1244,6 +1348,8 @@ int main()
     test_transparency(i);
     test_patterns(i);
     test_compositors(i);
+    test_hidpi(i);
+    test_font_quality_options(i);
     test_listfonts(i);
 
     std::cout << "test_graphics_module: OK\n";

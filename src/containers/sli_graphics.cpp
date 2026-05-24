@@ -72,11 +72,32 @@ void GraphicsContext::finish_cairo_setup_(bool paint_background)
         cairo_restore(cr_);
     }
 
+    // Hi-DPI: scale all logical user-space units by device_scale_
+    // before the Y-flip baseline. Surface is allocated at
+    // (width_ * device_scale_, height_ * device_scale_) pixels, but
+    // user code keeps drawing in (width_, height_) coordinates.
+    if (device_scale_ != 1.0)
+        cairo_scale(cr_, device_scale_, device_scale_);
+
     // PostScript bottom-left origin. Applied once before any user
     // operator touches the context; cairo_save / cairo_restore via
     // /gsave / /grestore preserve the base CTM.
     cairo_translate(cr_, 0.0, static_cast<double>(height_));
     cairo_scale(cr_, 1.0, -1.0);
+}
+
+int GraphicsContext::pixel_width() const
+{
+    if (surface_ && is_image_surface())
+        return cairo_image_surface_get_width(surface_);
+    return static_cast<int>(width_ * device_scale_);
+}
+
+int GraphicsContext::pixel_height() const
+{
+    if (surface_ && is_image_surface())
+        return cairo_image_surface_get_height(surface_);
+    return static_cast<int>(height_ * device_scale_);
 }
 
 GraphicsContext* GraphicsContext::open_window(int width, int height, std::string const& title)
@@ -116,6 +137,23 @@ GraphicsContext* GraphicsContext::open_offscreen(int width, int height)
 {
     std::unique_ptr<GraphicsContext> g(new GraphicsContext(Backend::OFFSCREEN, width, height));
     g->surface_ = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    if (cairo_surface_status(g->surface_) != CAIRO_STATUS_SUCCESS)
+        throw_cairo_status_(g->surface_, "cairo_image_surface_create failed");
+    g->finish_cairo_setup_();
+    return g.release();
+}
+
+GraphicsContext* GraphicsContext::open_hidpi_offscreen(int width, int height, double scale)
+{
+    if (scale <= 0.0)
+        throw std::runtime_error("hidpi_offscreen: scale must be positive");
+    int pw = static_cast<int>(width  * scale);
+    int ph = static_cast<int>(height * scale);
+    if (pw <= 0 || ph <= 0)
+        throw std::runtime_error("hidpi_offscreen: resulting pixel size is zero");
+    std::unique_ptr<GraphicsContext> g(new GraphicsContext(Backend::OFFSCREEN, width, height));
+    g->device_scale_ = scale;
+    g->surface_ = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, pw, ph);
     if (cairo_surface_status(g->surface_) != CAIRO_STATUS_SUCCESS)
         throw_cairo_status_(g->surface_, "cairo_image_surface_create failed");
     g->finish_cairo_setup_();

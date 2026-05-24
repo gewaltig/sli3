@@ -624,6 +624,68 @@ the argument to `findfont`:
 If the family isn't installed, Cairo silently substitutes a default
 — no error, you just get whatever the system thinks is closest.
 
+## Crisper rendering
+
+A 600×800 PNG displayed on a 2× Retina screen at "actual size" is
+soft because every PNG pixel covers a 2×2 block of physical pixels.
+The same issue affects live windows on hi-DPI displays. Two knobs
+together usually fix it:
+
+**Hi-DPI offscreen surfaces.** `newhidpioffscreen w h scale` opens
+an offscreen GC whose *logical* user-space coordinates are
+`(w, h)` but whose backing pixel buffer is `(w*scale, h*scale)`.
+Drawing code stays unchanged; the resulting PNG just has more
+pixels to display.
+
+```sli
+% 600x800 logical page rendered into a 1200x1600 pixel buffer.
+600 800 2 newhidpioffscreen pop
+... usual drawing ops ...
+(/tmp/page-2x.png) currentpage writepng
+currentpage closepage
+```
+
+`pagesize` returns the *logical* dimensions; `pixel_width` /
+`pixel_height` aren't exposed at the SLI level, but you can derive
+them from `device_scale` (3×, 4× also work; 2× is the macOS Retina
+standard).
+
+**Font and shape antialiasing knobs.** Cairo's defaults are
+conservative. Three operators turn on the crisp-text settings:
+
+```sli
+/best setantialias       % default | none | gray | subpixel | fast | good | best
+/full sethinting         % default | none | slight | medium | full
+/on   sethintmetrics     % default | on | off
+```
+
+- `setantialias` affects both shape and text rendering. `/best` is
+  the highest-quality mode Cairo offers; `/subpixel` is the
+  RGB-stripe-aware mode that produces extra-sharp text on most
+  LCDs.
+- `sethinting` snaps glyph stems to the pixel grid. Helps small
+  sizes (8–14 pt); above ~18 pt the difference is subtle.
+- `sethintmetrics /on` rounds glyph advance widths to whole pixels
+  so successive characters land on the grid — crisper kerning at
+  small sizes.
+
+Each has a matching `current*` query. The state is part of the
+graphics state, so `gsave` / `grestore` save and restore it.
+
+A typical "make it crisp" preamble:
+
+```sli
+600 800 2 newhidpioffscreen pop
+/best setantialias
+/full sethinting
+/on   sethintmetrics
+... draw ...
+```
+
+The built-in `/fontdemopng` writes a 1× rendering; `/fontdemopng2x`
+uses this preamble and writes the 1200×1600 hi-DPI version. Side
+by side at the same display size, the difference is obvious.
+
 ## What else there is
 
 The chapter has covered the operators you reach for most often. The
@@ -666,6 +728,7 @@ SLI ] gradientdemo       % linear + radial gradients
 SLI ] compositdemo       % the same shape painted under three operators
 SLI ] fontdemo           % 11 typefaces, 5 sizes, slant + weight variants
 SLI ] fontdemopng        % the font specimen, written to /tmp/sli3-fontdemo.png
+SLI ] fontdemopng2x      % the same specimen, 2x hi-DPI to /tmp/sli3-fontdemo-2x.png
 ```
 
 `/testpage` is the best place to look for a quick visual summary of

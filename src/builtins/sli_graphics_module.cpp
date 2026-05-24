@@ -365,6 +365,52 @@ public:
     }
 };
 
+// `w h scale newhidpioffscreen -> gc`. Same as /newoffscreen but with
+// a backing pixel buffer of (w*scale, h*scale). Drawing happens in
+// the original logical (w, h) frame; the larger buffer is invisible
+// to user code until /writepng dumps it. Useful for crisp rendering
+// on Retina / high-DPI displays where 1:1 PNGs look soft.
+class NewHidpiOffscreenFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(3);
+        if (!is_numeric(i->pick(2)) || !is_numeric(i->pick(1))
+            || !is_numeric(i->pick(0)))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        long w = static_cast<long>(as_double(i->pick(2)));
+        long h = static_cast<long>(as_double(i->pick(1)));
+        double s = as_double(i->pick(0));
+        if (w <= 0 || h <= 0 || s <= 0.0)
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        GraphicsContext* g = nullptr;
+        try
+        {
+            g = GraphicsContext::open_hidpi_offscreen(
+                    static_cast<int>(w), static_cast<int>(h), s);
+        }
+        catch (std::exception const& e)
+        {
+            i->message(sli3::M_ERROR, "newhidpioffscreen", e.what());
+            i->raiseerror(Name("newhidpioffscreen"),
+                          Name("GraphicsBackendError"));
+            return;
+        }
+        Token tok(i->get_type(sli3::graphicscontexttype));
+        tok.data_.graphics_val = g;
+        set_current_page(i, tok);
+        i->pop(3);
+        i->push(tok);
+    }
+};
+
 // `(file.png) loadpng -> gc`. Build an OFFSCREEN-backed context whose
 // initial pixels are the PNG file's content; width/height come from
 // the file. The result does NOT replace /:currentpage -- caller
@@ -2126,6 +2172,240 @@ public:
 };
 
 //------------------------------------------------------------------------
+// Font / rendering quality options. Cairo has three knobs that affect
+// how crisp text and shapes come out:
+//
+//   antialias    -- /default /none /gray /subpixel /fast /good /best
+//                   set on both the cairo_t (shape AA) and the font
+//                   options (text AA) so users get a single switch.
+//   hinting      -- /default /none /slight /medium /full
+//                   text only; snaps glyph stems to the pixel grid.
+//   hintmetrics  -- /default /on /off
+//                   text only; rounds glyph metrics for crisper kerning.
+//
+// Helpers below build cairo_font_options_t, mutate one field, push
+// it back to the context, and destroy. Idiomatic, but verbose enough
+// to factor.
+//------------------------------------------------------------------------
+
+namespace
+{
+
+struct AAEntry { char const* name; cairo_antialias_t v; };
+constexpr AAEntry k_antialias[] = {
+    {"default",  CAIRO_ANTIALIAS_DEFAULT},
+    {"none",     CAIRO_ANTIALIAS_NONE},
+    {"gray",     CAIRO_ANTIALIAS_GRAY},
+    {"subpixel", CAIRO_ANTIALIAS_SUBPIXEL},
+    {"fast",     CAIRO_ANTIALIAS_FAST},
+    {"good",     CAIRO_ANTIALIAS_GOOD},
+    {"best",     CAIRO_ANTIALIAS_BEST},
+};
+bool aa_from_name_(Name n, cairo_antialias_t& out)
+{
+    std::string const& s = n.toString();
+    for (auto const& e : k_antialias)
+        if (s == e.name) { out = e.v; return true; }
+    return false;
+}
+Name aa_to_name_(cairo_antialias_t v)
+{
+    for (auto const& e : k_antialias)
+        if (e.v == v) return Name(e.name);
+    return Name("default");
+}
+
+struct HintStyleEntry { char const* name; cairo_hint_style_t v; };
+constexpr HintStyleEntry k_hint_style[] = {
+    {"default", CAIRO_HINT_STYLE_DEFAULT},
+    {"none",    CAIRO_HINT_STYLE_NONE},
+    {"slight",  CAIRO_HINT_STYLE_SLIGHT},
+    {"medium",  CAIRO_HINT_STYLE_MEDIUM},
+    {"full",    CAIRO_HINT_STYLE_FULL},
+};
+bool hint_style_from_name_(Name n, cairo_hint_style_t& out)
+{
+    std::string const& s = n.toString();
+    for (auto const& e : k_hint_style)
+        if (s == e.name) { out = e.v; return true; }
+    return false;
+}
+Name hint_style_to_name_(cairo_hint_style_t v)
+{
+    for (auto const& e : k_hint_style)
+        if (e.v == v) return Name(e.name);
+    return Name("default");
+}
+
+struct HintMetricsEntry { char const* name; cairo_hint_metrics_t v; };
+constexpr HintMetricsEntry k_hint_metrics[] = {
+    {"default", CAIRO_HINT_METRICS_DEFAULT},
+    {"off",     CAIRO_HINT_METRICS_OFF},
+    {"on",      CAIRO_HINT_METRICS_ON},
+};
+bool hint_metrics_from_name_(Name n, cairo_hint_metrics_t& out)
+{
+    std::string const& s = n.toString();
+    for (auto const& e : k_hint_metrics)
+        if (s == e.name) { out = e.v; return true; }
+    return false;
+}
+Name hint_metrics_to_name_(cairo_hint_metrics_t v)
+{
+    for (auto const& e : k_hint_metrics)
+        if (e.v == v) return Name(e.name);
+    return Name("default");
+}
+
+// Read-modify-write helper for font options. The fn callback modifies
+// the options struct in place; the surrounding code handles get / set
+// / destroy.
+template <class Fn>
+void mutate_font_options_(cairo_t* cr, Fn&& fn)
+{
+    cairo_font_options_t* opts = cairo_font_options_create();
+    cairo_get_font_options(cr, opts);
+    fn(opts);
+    cairo_set_font_options(cr, opts);
+    cairo_font_options_destroy(opts);
+}
+
+}  // namespace
+
+// `/name setantialias -> -`. Affects BOTH cairo_set_antialias (shape
+// AA) and cairo_font_options_set_antialias (text AA) so a single op
+// upgrades the whole page.
+class SetAntialiasFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        std::string s;
+        if (!token_to_string(i->pick(0), s))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        cairo_antialias_t aa;
+        if (!aa_from_name_(Name(s), aa))
+        {
+            i->raiseerror(Name("setantialias"), Name("UnknownAntialiasError"));
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("setantialias"));
+        if (!g) return;
+        cairo_set_antialias(g->cr(), aa);
+        mutate_font_options_(g->cr(), [&](cairo_font_options_t* o) {
+            cairo_font_options_set_antialias(o, aa);
+        });
+        i->pop(1);
+    }
+};
+
+// `currentantialias -> /name`. Reports the cairo_t's shape AA mode;
+// font and shape are kept in sync by /setantialias, so this is the
+// authoritative read-back.
+class CurrentAntialiasFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentantialias"));
+        if (!g) return;
+        cairo_antialias_t aa = cairo_get_antialias(g->cr());
+        i->push(i->new_token<sli3::literaltype, Name>(aa_to_name_(aa)));
+    }
+};
+
+// `/name sethinting -> -`. Text-only (cairo_font_options_set_hint_style).
+class SetHintingFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        std::string s;
+        if (!token_to_string(i->pick(0), s))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        cairo_hint_style_t hs;
+        if (!hint_style_from_name_(Name(s), hs))
+        {
+            i->raiseerror(Name("sethinting"), Name("UnknownHintingError"));
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("sethinting"));
+        if (!g) return;
+        mutate_font_options_(g->cr(), [&](cairo_font_options_t* o) {
+            cairo_font_options_set_hint_style(o, hs);
+        });
+        i->pop(1);
+    }
+};
+
+class CurrentHintingFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currenthinting"));
+        if (!g) return;
+        cairo_font_options_t* opts = cairo_font_options_create();
+        cairo_get_font_options(g->cr(), opts);
+        cairo_hint_style_t hs = cairo_font_options_get_hint_style(opts);
+        cairo_font_options_destroy(opts);
+        i->push(i->new_token<sli3::literaltype, Name>(hint_style_to_name_(hs)));
+    }
+};
+
+// `/name sethintmetrics -> -`. Text-only.
+class SetHintMetricsFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        std::string s;
+        if (!token_to_string(i->pick(0), s))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        cairo_hint_metrics_t hm;
+        if (!hint_metrics_from_name_(Name(s), hm))
+        {
+            i->raiseerror(Name("sethintmetrics"),
+                          Name("UnknownHintMetricsError"));
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("sethintmetrics"));
+        if (!g) return;
+        mutate_font_options_(g->cr(), [&](cairo_font_options_t* o) {
+            cairo_font_options_set_hint_metrics(o, hm);
+        });
+        i->pop(1);
+    }
+};
+
+class CurrentHintMetricsFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currenthintmetrics"));
+        if (!g) return;
+        cairo_font_options_t* opts = cairo_font_options_create();
+        cairo_get_font_options(g->cr(), opts);
+        cairo_hint_metrics_t hm = cairo_font_options_get_hint_metrics(opts);
+        cairo_font_options_destroy(opts);
+        i->push(i->new_token<sli3::literaltype, Name>(hint_metrics_to_name_(hm)));
+    }
+};
+
+//------------------------------------------------------------------------
 // Compositing operators. Maps a small set of literal names to Cairo's
 // cairo_operator_t enum so SLI code can say `/multiply setoperator`
 // instead of remembering an integer.
@@ -2368,6 +2648,7 @@ public:
 
 NewPageFunction      newpage_fn;
 NewOffscreenFunction newoffscreen_fn;
+NewHidpiOffscreenFunction newhidpioffscreen_fn;
 NewFileBackendFunction<&GraphicsContext::open_pdf> newpdf_fn{Name("newpdf")};
 NewFileBackendFunction<&GraphicsContext::open_svg> newsvg_fn{Name("newsvg")};
 ClosePageFunction    closepage_fn;
@@ -2442,6 +2723,12 @@ CharPathFunction     charpath_fn;
 ListFontsFunction    listfonts_fn;
 SetOperatorFunction     setoperator_fn;
 CurrentOperatorFunction currentoperator_fn;
+SetAntialiasFunction       setantialias_fn;
+CurrentAntialiasFunction   currentantialias_fn;
+SetHintingFunction         sethinting_fn;
+CurrentHintingFunction     currenthinting_fn;
+SetHintMetricsFunction     sethintmetrics_fn;
+CurrentHintMetricsFunction currenthintmetrics_fn;
 ShowPageFunction     showpage_fn;
 FlushPageFunction    flushpage_fn;
 WaitFunction         wait_fn;
@@ -2524,6 +2811,7 @@ void init_sligraphics(SLIInterpreter* i)
     // Surface lifecycle
     i->createcommand("newpage",      &newpage_fn);
     i->createcommand("newoffscreen", &newoffscreen_fn);
+    i->createcommand("newhidpioffscreen", &newhidpioffscreen_fn);
     i->createcommand("newpdf",       &newpdf_fn);
     i->createcommand("newsvg",       &newsvg_fn);
     i->createcommand("closepage",    &closepage_fn);
@@ -2624,6 +2912,14 @@ void init_sligraphics(SLIInterpreter* i)
     // Compositing
     i->createcommand("setoperator",     &setoperator_fn);
     i->createcommand("currentoperator", &currentoperator_fn);
+
+    // Rendering-quality controls
+    i->createcommand("setantialias",       &setantialias_fn);
+    i->createcommand("currentantialias",   &currentantialias_fn);
+    i->createcommand("sethinting",         &sethinting_fn);
+    i->createcommand("currenthinting",     &currenthinting_fn);
+    i->createcommand("sethintmetrics",     &sethintmetrics_fn);
+    i->createcommand("currenthintmetrics", &currenthintmetrics_fn);
 
     // Display
     i->createcommand("showpage",     &showpage_fn);

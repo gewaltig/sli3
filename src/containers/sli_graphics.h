@@ -79,6 +79,19 @@ public:
      */
     static GraphicsContext* open_image(std::string const& path);
 
+    /**
+     * Hi-DPI offscreen: logical page size (width, height) but a
+     * backing pixel buffer that is `scale` times denser in each
+     * axis. The user-facing user-space stays the same -- drawing at
+     * logical (10, 10) lands at logical (10, 10) regardless of scale
+     * -- but writepng produces an image of (width*scale, height*scale)
+     * pixels, which displays crisply on Retina / high-DPI displays
+     * when the viewer fits-to-window. width() / height() report the
+     * logical size; pixel_width() / pixel_height() report the buffer
+     * size. Pass scale == 1 to behave exactly like /newoffscreen.
+     */
+    static GraphicsContext* open_hidpi_offscreen(int width, int height, double scale);
+
     GraphicsContext(GraphicsContext const&) = delete;
     GraphicsContext& operator=(GraphicsContext const&) = delete;
 
@@ -99,6 +112,15 @@ public:
     Backend backend() const { return backend_; }
     int width()  const { return width_; }
     int height() const { return height_; }
+
+    /** Backing-buffer dimensions in physical pixels. Equals width() /
+     *  height() except for hi-DPI offscreen surfaces, where it equals
+     *  width() * device_scale() / height() * device_scale(). */
+    int pixel_width()  const;
+    int pixel_height() const;
+
+    /** Pixels-per-user-unit. 1.0 unless this is a hi-DPI surface. */
+    double device_scale() const { return device_scale_; }
 
     /** True until close() (or destructor) runs. */
     bool valid() const { return cr_ != nullptr; }
@@ -193,6 +215,12 @@ private:
     cairo_t*         cr_       = nullptr;
 
     bool window_closed_ = false;
+
+    // Hi-DPI scaling. 1.0 for everything except hidpi_offscreen, where
+    // it's the user-supplied multiplier. finish_cairo_setup_ pre-pends
+    // cairo_scale(device_scale_, device_scale_) before the Y-flip
+    // baseline so user-space coords stay logical regardless.
+    double device_scale_ = 1.0;
 
     std::uint32_t refs_ = 1;
 };

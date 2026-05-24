@@ -6,6 +6,9 @@
  *  Surface lifecycle
  *    newpage       ( w h -> gc )         open SDL2 window
  *    newoffscreen  ( w h -> gc )         windowless Cairo image surface
+ *    newhidpioffscreen ( w h scale -> gc ) like newoffscreen but the
+ *                                          backing buffer is denser
+ *                                          (Retina-crisp rendering)
  *    newpdf        ( path w h -> gc )    multi-page PDF backend
  *    newsvg        ( path w h -> gc )    single-page SVG backend
  *    loadpng       ( path -> gc )        OFFSCREEN gc holding PNG content
@@ -112,6 +115,18 @@
  *    currentoperator ( -> /name )      cairo_get_operator as a name
  *    compositors                       dict of name -> integer for
  *                                      all supported operators
+ *
+ *  Rendering quality
+ *    setantialias       ( /name -> - ) /default /none /gray /subpixel
+ *                                      /fast /good /best.  Affects
+ *                                      both shape and text AA.
+ *    currentantialias   ( -> /name )
+ *    sethinting         ( /name -> - ) /default /none /slight /medium
+ *                                      /full.  Text only.
+ *    currenthinting     ( -> /name )
+ *    sethintmetrics     ( /name -> - ) /default /on /off.  Snaps glyph
+ *                                      metrics to whole pixels.
+ *    currenthintmetrics ( -> /name )
  *
  *  IMPORTANT: there is intentionally no blocking /interact. Always use
  *  /wait with a finite second count. See the leading comment in
@@ -342,6 +357,23 @@
   600 800 newoffscreen pop
   :render-fontdemo
   (/tmp/sli3-fontdemo.png) currentpage writepng
+  currentpage closepage
+} def
+
+% /fontdemopng2x  hi-DPI variant: same specimen at the same logical
+% size, but the backing buffer is 1200x1600. With /best antialiasing
+% and /full hinting on top, the output is markedly crisper on Retina
+% displays (where the standard 600x800 PNG ends up softened by the
+% 1:2 pixel-doubling at "actual size").
+/fontdemopng2x
+{
+  (fontdemopng2x: writing /tmp/sli3-fontdemo-2x.png at 1200x1600) =
+  600 800 2 newhidpioffscreen pop
+  /best setantialias
+  /full sethinting
+  /on   sethintmetrics
+  :render-fontdemo
+  (/tmp/sli3-fontdemo-2x.png) currentpage writepng
   currentpage closepage
 } def
 
