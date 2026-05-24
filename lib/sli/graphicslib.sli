@@ -136,6 +136,34 @@
  *  / newpdf / newsvg; SLI code uses page coordinates directly.
  */
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Demo output directory.
+%%
+%% Demos that write PNG / PDF files use /:gfxoutdir as the
+%% destination. It defaults to $HOME so casual users don't have
+%% to clean up /tmp. Override with:
+%%
+%%     globaldict /:gfxoutdir (/some/where) put
+%%
+%% Then re-invoke any demo. /gfxoutpath joins :gfxoutdir and a
+%% filename with a single '/' between, so demo bodies can write
+%% `(sli3-fontdemo.png) gfxoutpath currentpage writepng` without
+%% repeating the directory.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+globaldict /:gfxoutdir
+  statusdict /environment get
+  dup /HOME known
+  { /HOME get }
+  { pop (.) }
+  ifelse
+put
+
+/gfxoutpath        % filename -> fullpath
+{
+  :gfxoutdir (/) join_s exch join_s
+} def
+
 % /gfxdemo  sanity demo. Opens a 400 x 400 window with a red square
 % and a blue circle, holds it for 4 seconds (or until the user clicks
 % the close button), then tears the window down and returns to the REPL.
@@ -184,7 +212,7 @@
 % surface, save it as a PNG (no window opens), and report the path.
 /offscreendemo
 {
-  (offscreendemo: writing /tmp/sli3-gfxdemo.png) =
+  (offscreendemo: writing ) =only :gfxoutdir =only (/sli3-gfxdemo.png) =
   400 400 newoffscreen pop
   1 0 0 setrgbcolor
   50 50 100 100 rect fill
@@ -193,7 +221,7 @@
   (sans) findfont 18 scalefont setfont
   0 0 0 setrgbcolor
   50 370 moveto (sli3 offscreen demo) show
-  (/tmp/sli3-gfxdemo.png) currentpage writepng
+  (sli3-gfxdemo.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 
@@ -201,21 +229,22 @@
 % page with two copies side by side, save the result as another PNG.
 /imagedemo
 {
-  (imagedemo: writing /tmp/sli3-source.png and /tmp/sli3-imagedemo.png) =
+  (imagedemo: writing ) =only :gfxoutdir =only
+  (/sli3-source.png and ) =only :gfxoutdir =only (/sli3-imagedemo.png) =
   % 1. Build a source image: 80x60 red rect with a label.
   80 60 newoffscreen pop
   1 0.3 0 setrgbcolor 0 0 80 60 rect fill
   (sans) findfont 16 scalefont setfont
   1 1 1 setrgbcolor 8 22 moveto (sli3) show
-  (/tmp/sli3-source.png) currentpage writepng
+  (sli3-source.png) gfxoutpath currentpage writepng
   currentpage closepage
   % 2. Fresh canvas, load the PNG, paint two copies at different sizes.
   240 120 newoffscreen pop
   0.95 0.95 0.95 setrgbcolor 0 0 240 120 rect fill
-  (/tmp/sli3-source.png) loadpng    % gc on stack
+  (sli3-source.png) gfxoutpath loadpng    % gc on stack
   dup 10 30 80 60 drawimage         % full-size copy
   110 20 120 90 drawimage           % scaled-up copy
-  (/tmp/sli3-imagedemo.png) currentpage writepng
+  (sli3-imagedemo.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 
@@ -334,7 +363,7 @@
   (sans) findfont 9 scalefont setfont
   color /gray get setrgbcolor
   50 20 moveto
-  (/fontdemopng writes /tmp/sli3-fontdemo.png -- /listfonts enumerates all installed families) show
+  (/fontdemopng writes sli3-fontdemo.png to :gfxoutdir -- /listfonts enumerates all installed families) show
 } def
 
 % /fontdemo  live-window variant. Opens a 600x800 window, paints the
@@ -349,14 +378,14 @@
   currentpage closepage
 } def
 
-% /fontdemopng  same specimen, written to /tmp/sli3-fontdemo.png. The
-% variant CI / scripts should call -- no window, deterministic.
+% /fontdemopng  same specimen, written to <:gfxoutdir>/sli3-fontdemo.png.
+% The variant CI / scripts should call -- no window, deterministic.
 /fontdemopng
 {
-  (fontdemopng: writing /tmp/sli3-fontdemo.png) =
+  (fontdemopng: writing ) =only :gfxoutdir =only (/sli3-fontdemo.png) =
   600 800 newoffscreen pop
   :render-fontdemo
-  (/tmp/sli3-fontdemo.png) currentpage writepng
+  (sli3-fontdemo.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 
@@ -367,13 +396,14 @@
 % 1:2 pixel-doubling at "actual size").
 /fontdemopng2x
 {
-  (fontdemopng2x: writing /tmp/sli3-fontdemo-2x.png at 1200x1600) =
+  (fontdemopng2x: writing ) =only :gfxoutdir =only
+  (/sli3-fontdemo-2x.png at 1200x1600) =
   600 800 2 newhidpioffscreen pop
   /best setantialias
   /full sethinting
   /on   sethintmetrics
   :render-fontdemo
-  (/tmp/sli3-fontdemo-2x.png) currentpage writepng
+  (sli3-fontdemo-2x.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 
@@ -499,7 +529,7 @@
   (sans) findfont 9 scalefont setfont
   color /gray get setrgbcolor
   50 20 moveto
-  (sli3 graphics module -- /testpagepng writes /tmp/sli3-testpage.png) show
+  (sli3 graphics module -- /testpagepng writes sli3-testpage.png to :gfxoutdir) show
 } def
 
 % /testpage  live-window variant. Opens a 600x800 window, paints the
@@ -514,22 +544,22 @@
   currentpage closepage
 } def
 
-% /testpagepng  same content, written to /tmp/sli3-testpage.png. No
-% window opens, so this is the variant CI / scripts should call.
+% /testpagepng  same content, written to <:gfxoutdir>/sli3-testpage.png.
+% No window opens, so this is the variant CI / scripts should call.
 /testpagepng
 {
-  (testpagepng: writing /tmp/sli3-testpage.png) =
+  (testpagepng: writing ) =only :gfxoutdir =only (/sli3-testpage.png) =
   600 800 newoffscreen pop
   :render-testpage
-  (/tmp/sli3-testpage.png) currentpage writepng
+  (sli3-testpage.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 
 % /gradientdemo  builds linear and radial gradients, paints a 400x250
-% offscreen surface with them, and saves /tmp/sli3-gradient.png.
+% offscreen surface with them, and saves <:gfxoutdir>/sli3-gradient.png.
 /gradientdemo
 {
-  (gradientdemo: writing /tmp/sli3-gradient.png) =
+  (gradientdemo: writing ) =only :gfxoutdir =only (/sli3-gradient.png) =
   400 250 newoffscreen pop
   color /white get setrgbcolor 0 0 400 250 rect fill
 
@@ -553,7 +583,7 @@
   color /black get setrgbcolor
   20 225 moveto (gradients: linearpattern + radialpattern) show
 
-  (/tmp/sli3-gradient.png) currentpage writepng
+  (sli3-gradient.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 
@@ -563,7 +593,7 @@
 % match the documented Porter-Duff and PDF blend modes.
 /compositdemo
 {
-  (compositdemo: writing /tmp/sli3-compositdemo.png) =
+  (compositdemo: writing ) =only :gfxoutdir =only (/sli3-compositdemo.png) =
   500 200 newoffscreen pop
   color /white get setrgbcolor 0 0 500 200 rect fill
 
@@ -589,7 +619,7 @@
   170 30 moveto (multiply) show
   330 30 moveto (difference) show
 
-  (/tmp/sli3-compositdemo.png) currentpage writepng
+  (sli3-compositdemo.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 
@@ -597,8 +627,8 @@
 % page in file backends.
 /pdfdemo
 {
-  (pdfdemo: writing /tmp/sli3-gfxdemo.pdf) =
-  (/tmp/sli3-gfxdemo.pdf) 300 300 newpdf pop
+  (pdfdemo: writing ) =only :gfxoutdir =only (/sli3-gfxdemo.pdf) =
+  (sli3-gfxdemo.pdf) gfxoutpath 300 300 newpdf pop
   (sans) findfont 24 scalefont setfont
   0 0 0 setrgbcolor
   50 250 moveto (page 1) show
