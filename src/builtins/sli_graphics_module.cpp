@@ -858,11 +858,37 @@ public:
 // State
 //------------------------------------------------------------------------
 
+// `r g b setrgbcolor -> -` or `[r g b] setrgbcolor -> -`.
+// The array form pairs naturally with the /color dictionary
+// (`color /red get setrgbcolor`).
 class SetRgbColorFunction : public SLIFunction
 {
 public:
     void execute(SLIInterpreter* i) const override
     {
+        i->require_stack_load(1);
+        // Array form: a single 3-element numeric array on top.
+        if (i->pick(0).is_of_type(sli3::arraytype))
+        {
+            TokenArray const* a = i->pick(0).data_.array_val;
+            if (a->size() != 3
+                || !is_numeric(a->get(0))
+                || !is_numeric(a->get(1))
+                || !is_numeric(a->get(2)))
+            {
+                i->raiseerror(Name("setrgbcolor"), Name("ColorShapeError"));
+                return;
+            }
+            GraphicsContext* g = require_current_gc(i, Name("setrgbcolor"));
+            if (!g) return;
+            cairo_set_source_rgb(g->cr(),
+                                 as_double(a->get(0)),
+                                 as_double(a->get(1)),
+                                 as_double(a->get(2)));
+            i->pop(1);
+            return;
+        }
+        // Three-scalar form (current behavior).
         i->require_stack_load(3);
         for (int k = 0; k < 3; ++k)
             if (!is_numeric(i->pick(k)))
@@ -1148,6 +1174,156 @@ public:
         i->push<double>(y1);
         i->push<double>(x2);
         i->push<double>(y2);
+    }
+};
+
+// `clippath -> -`. Replace the current path with a rectangle covering
+// the current clip extents. Cairo doesn't expose the actual clip
+// region as a path -- we approximate with the bounding box, which
+// matches the common case (rectangular clips). For curve-shaped clips
+// the user loses precision, but PS programs typically only need the
+// bounding box for layout anyway.
+class ClipPathFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("clippath"));
+        if (!g) return;
+        cairo_t* cr = g->cr();
+        double x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+        cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
+        cairo_new_path(cr);
+        cairo_rectangle(cr, x1, y1, x2 - x1, y2 - y1);
+    }
+};
+
+// `flattenpath -> -`. Replace the current path with a curve-free
+// approximation. Walks cairo_copy_path_flat and re-emits the segments
+// via cairo_move_to / cairo_line_to / cairo_close_path; curves are
+// already broken down into line segments by the flat-copy call.
+class FlattenPathFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("flattenpath"));
+        if (!g) return;
+        cairo_t* cr = g->cr();
+        cairo_path_t* flat = cairo_copy_path_flat(cr);
+        if (flat->status != CAIRO_STATUS_SUCCESS)
+        {
+            cairo_status_t st = flat->status;
+            cairo_path_destroy(flat);
+            i->message(sli3::M_ERROR, "flattenpath", cairo_status_to_string(st));
+            i->raiseerror(Name("flattenpath"), Name("PathError"));
+            return;
+        }
+        cairo_new_path(cr);
+        for (int k = 0; k < flat->num_data; k += flat->data[k].header.length)
+        {
+            cairo_path_data_t* d = &flat->data[k];
+            switch (d->header.type)
+            {
+                case CAIRO_PATH_MOVE_TO:
+                    cairo_move_to(cr, d[1].point.x, d[1].point.y); break;
+                case CAIRO_PATH_LINE_TO:
+                    cairo_line_to(cr, d[1].point.x, d[1].point.y); break;
+                case CAIRO_PATH_CLOSE_PATH:
+                    cairo_close_path(cr); break;
+                case CAIRO_PATH_CURVE_TO:
+                    // cairo_copy_path_flat guarantees no curves remain,
+                    // but the switch needs the case to silence warnings.
+                    break;
+            }
+        }
+        cairo_path_destroy(flat);
+    }
+};
+
+// `move_proc line_proc curve_proc close_proc pathforall -> -`.
+//
+// Synthesize a procedure whose body is a flattened sequence of
+// "<args> <proc>" runs -- one per path segment -- and hand it to the
+// dispatcher via the e-stack. We don't need a new iterator type or
+// dispatcher hook; the standard procedure-execution path naturally
+// runs each segment's args + proc in order.
+class PathForAllFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(4);
+        for (int k = 0; k < 4; ++k)
+        {
+            unsigned tag = i->pick(k).tag();
+            if (tag != sli3::proceduretype && tag != sli3::litproceduretype)
+            {
+                i->raiseerror(i->ArgumentTypeError);
+                return;
+            }
+        }
+        GraphicsContext* g = require_current_gc(i, Name("pathforall"));
+        if (!g) return;
+
+        // Copy the user procs before we touch the stack -- the
+        // tokens get embedded into the synthesized body and shared
+        // by every segment (Token copy bumps the array refcount).
+        Token move_p  = i->pick(3);
+        Token line_p  = i->pick(2);
+        Token curve_p = i->pick(1);
+        Token close_p = i->pick(0);
+
+        cairo_path_t* path = cairo_copy_path(g->cr());
+        if (path->status != CAIRO_STATUS_SUCCESS)
+        {
+            cairo_status_t st = path->status;
+            cairo_path_destroy(path);
+            i->message(sli3::M_ERROR, "pathforall", cairo_status_to_string(st));
+            i->raiseerror(Name("pathforall"), Name("PathError"));
+            return;
+        }
+
+        TokenArray* body = new TokenArray();
+        // Reserve a guess: 3 tokens per moveto/lineto, 7 per curveto,
+        // 1 per close. num_data is "header + points" packed, so this
+        // is a loose upper bound.
+        body->reserve(static_cast<size_t>(path->num_data));
+
+        auto push_d = [&](double v) {
+            body->push_back(i->new_token<sli3::doubletype, double>(v));
+        };
+        for (int k = 0; k < path->num_data; k += path->data[k].header.length)
+        {
+            cairo_path_data_t* d = &path->data[k];
+            switch (d->header.type)
+            {
+                case CAIRO_PATH_MOVE_TO:
+                    push_d(d[1].point.x); push_d(d[1].point.y);
+                    body->push_back(move_p);
+                    break;
+                case CAIRO_PATH_LINE_TO:
+                    push_d(d[1].point.x); push_d(d[1].point.y);
+                    body->push_back(line_p);
+                    break;
+                case CAIRO_PATH_CURVE_TO:
+                    push_d(d[1].point.x); push_d(d[1].point.y);
+                    push_d(d[2].point.x); push_d(d[2].point.y);
+                    push_d(d[3].point.x); push_d(d[3].point.y);
+                    body->push_back(curve_p);
+                    break;
+                case CAIRO_PATH_CLOSE_PATH:
+                    body->push_back(close_p);
+                    break;
+            }
+        }
+        cairo_path_destroy(path);
+
+        i->pop(4);
+        // Hand the synthesized procedure to the dispatcher. It pushes
+        // an iiterate marker and walks the body tokens, which runs
+        // each segment's args + proc in order.
+        i->EStack().push(i->new_token<sli3::proceduretype, TokenArray*>(body));
     }
 };
 
@@ -1878,6 +2054,9 @@ ClipFunction         clip_fn;
 EoClipFunction       eoclip_fn;
 CurrentPointFunction currentpoint_fn;
 PathBBoxFunction     pathbbox_fn;
+ClipPathFunction     clippath_fn;
+FlattenPathFunction  flattenpath_fn;
+PathForAllFunction   pathforall_fn;
 GSaveFunction        gsave_fn;
 GRestoreFunction     grestore_fn;
 RotateFunction       rotate_fn;
@@ -1895,8 +2074,59 @@ WindowClosedFunction windowclosed_fn;
 
 }  // namespace
 
+// Build the `color` dictionary and bind it in systemdict. Each entry
+// is a 3-element double array [r g b] in [0,1]; the polymorphic
+// /setrgbcolor accepts the array form, so SLI code can write
+// `color /red get setrgbcolor` instead of remembering RGB triples.
+//
+// Names follow CSS Color Module Level 3 spelling where they overlap;
+// `gray` and `grey` are both bound so neither dialect surprises a
+// user. This is not a full CSS palette -- just the obvious 20 or so
+// that come up in demos.
+void install_color_dict_(SLIInterpreter* i)
+{
+    Dictionary* d = new Dictionary;
+    auto add = [&](char const* name, double r, double g, double b)
+    {
+        TokenArray* a = new TokenArray;
+        a->reserve(3);
+        a->push_back(i->new_token<sli3::doubletype, double>(r));
+        a->push_back(i->new_token<sli3::doubletype, double>(g));
+        a->push_back(i->new_token<sli3::doubletype, double>(b));
+        a->set_access(sli3::ACCESS_READONLY);
+        d->insert(Name(name),
+                  i->new_token<sli3::arraytype, TokenArray*>(a));
+    };
+    add("black",     0.00, 0.00, 0.00);
+    add("white",     1.00, 1.00, 1.00);
+    add("gray",      0.50, 0.50, 0.50);
+    add("grey",      0.50, 0.50, 0.50);
+    add("darkgray",  0.25, 0.25, 0.25);
+    add("lightgray", 0.75, 0.75, 0.75);
+    add("red",       1.00, 0.00, 0.00);
+    add("green",     0.00, 0.50, 0.00);   // CSS 'green' is half-bright
+    add("blue",      0.00, 0.00, 1.00);
+    add("lime",      0.00, 1.00, 0.00);   // pure green
+    add("cyan",      0.00, 1.00, 1.00);
+    add("magenta",   1.00, 0.00, 1.00);
+    add("yellow",    1.00, 1.00, 0.00);
+    add("orange",    1.00, 0.65, 0.00);
+    add("purple",    0.50, 0.00, 0.50);
+    add("brown",     0.65, 0.16, 0.16);
+    add("pink",      1.00, 0.75, 0.80);
+    add("navy",      0.00, 0.00, 0.50);
+    add("olive",     0.50, 0.50, 0.00);
+    add("teal",      0.00, 0.50, 0.50);
+    add("silver",    0.75, 0.75, 0.75);
+    d->set_access(sli3::ACCESS_READONLY);
+    i->def(Name("color"),
+           i->new_token<sli3::dictionarytype, Dictionary*>(d));
+}
+
 void init_sligraphics(SLIInterpreter* i)
 {
+    install_color_dict_(i);
+
     // Surface lifecycle
     i->createcommand("newpage",      &newpage_fn);
     i->createcommand("newoffscreen", &newoffscreen_fn);
@@ -1936,6 +2166,9 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("eoclip",       &eoclip_fn);
     i->createcommand("currentpoint", &currentpoint_fn);
     i->createcommand("pathbbox",     &pathbbox_fn);
+    i->createcommand("clippath",     &clippath_fn);
+    i->createcommand("flattenpath",  &flattenpath_fn);
+    i->createcommand("pathforall",   &pathforall_fn);
 
     // CTM / matrix
     i->createcommand("currentmatrix", &currentmatrix_fn);

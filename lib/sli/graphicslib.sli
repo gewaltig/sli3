@@ -35,12 +35,25 @@
  *    eoclip        ( -> - )       even-odd clip
  *    currentpoint  ( -> x y )
  *    pathbbox      ( -> llx lly urx ury )
+ *    clippath      ( -> - )       replace current path with clip extents rect
+ *    flattenpath   ( -> - )       replace curves with line approximation
+ *    pathforall    ( move_proc line_proc curve_proc close_proc -> - )
+ *                                 walk current path, calling one proc per
+ *                                 segment with its coords on the stack
  *
  *  Color
- *    setrgbcolor   ( r g b -> - )       components in [0,1]
+ *    setrgbcolor   ( r g b -> - | [r g b] -> - )  scalars or array form
  *    setgray       ( g -> - )
  *    sethsbcolor   ( h s b -> - )       HSB -> RGB conversion
  *    setrgbacolor  ( r g b a -> - )     RGBA (GS extension)
+ *    color                              dict of named colors as [r g b]
+ *                                       arrays. Usage: `color /red get
+ *                                       setrgbcolor`. Names: black, white,
+ *                                       gray/grey, darkgray, lightgray,
+ *                                       red, green (CSS half-bright), lime
+ *                                       (pure green), blue, cyan, magenta,
+ *                                       yellow, orange, purple, brown,
+ *                                       pink, navy, olive, teal, silver.
  *
  *  Line state
  *    setlinewidth  ( w -> - )

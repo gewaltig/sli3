@@ -26,6 +26,7 @@
 #include "sli_token.h"
 #include "sli_tokenstack.h"
 #include "sli_type.h"
+#include "test_harness.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -756,6 +757,145 @@ void test_loadpng_drawimage(SLIInterpreter& i)
     run_op(i, "closepage");
 }
 
+// Color dict + polymorphic setrgbcolor: `color /red get setrgbcolor`
+// must round-trip through currentrgbcolor as (1, 0, 0).
+void test_color_dict(SLIInterpreter& i)
+{
+    i.push(int_token(i, 30));
+    i.push(int_token(i, 30));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    // Resolve `color` dict, look up /red, push as the array operand.
+    Token color_tok;
+    CHECK(i.lookup(Name("color"), color_tok));
+    CHECK(color_tok.is_of_type(sli3::dictionarytype));
+    Dictionary* cd = color_tok.data_.dict_val;
+    Token red_arr;
+    CHECK(cd->lookup(Name("red"), red_arr));
+    CHECK(red_arr.is_of_type(sli3::arraytype));
+    TokenArray const* a = red_arr.data_.array_val;
+    CHECK(a->size() == 3);
+    CHECK(std::fabs(a->get(0).data_.double_val - 1.0) < 1e-9);
+    CHECK(std::fabs(a->get(1).data_.double_val - 0.0) < 1e-9);
+    CHECK(std::fabs(a->get(2).data_.double_val - 0.0) < 1e-9);
+
+    // The polymorphic setrgbcolor path: push the array, call setrgbcolor,
+    // confirm currentrgbcolor reads back (1, 0, 0).
+    i.push(red_arr);
+    run_op(i, "setrgbcolor");
+    CHECK(i.load() == 0);
+    run_op(i, "currentrgbcolor");
+    CHECK(i.load() == 3);
+    CHECK(std::fabs(i.pick(2).data_.double_val - 1.0) < 1e-9);
+    CHECK(std::fabs(i.pick(1).data_.double_val - 0.0) < 1e-9);
+    CHECK(std::fabs(i.pick(0).data_.double_val - 0.0) < 1e-9);
+    i.pop(3);
+
+    // The scalar form must still work after polymorphism.
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 0.0));
+    run_op(i, "setrgbcolor");
+    run_op(i, "currentrgbcolor");
+    CHECK(std::fabs(i.pick(1).data_.double_val - 1.0) < 1e-9);
+    i.pop(3);
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// clippath: build a clip, then verify clippath replaces the current
+// path with a rect covering the clip extents.
+void test_clippath(SLIInterpreter& i)
+{
+    i.push(int_token(i, 100));
+    i.push(int_token(i, 100));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    // Establish a rectangular clip at (20, 30, 40, 50).
+    run_op(i, "newpath");
+    i.push(int_token(i, 20)); i.push(int_token(i, 30));
+    i.push(int_token(i, 40)); i.push(int_token(i, 50));
+    run_op(i, "rect");
+    run_op(i, "clip");
+
+    // After clippath, pathbbox should report the clip rect's extents.
+    run_op(i, "clippath");
+    run_op(i, "pathbbox");
+    CHECK(i.load() == 4);
+    CHECK(std::fabs(i.pick(3).data_.double_val - 20.0) < 1e-9);
+    CHECK(std::fabs(i.pick(2).data_.double_val - 30.0) < 1e-9);
+    CHECK(std::fabs(i.pick(1).data_.double_val - 60.0) < 1e-9);
+    CHECK(std::fabs(i.pick(0).data_.double_val - 80.0) < 1e-9);
+    i.pop(4);
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// flattenpath: build a path with curves, count segments via pathforall,
+// then flattenpath, count again. The flattened version has strictly
+// more segments and no curves.
+void test_flattenpath_and_pathforall(SLIInterpreter& i)
+{
+    i.push(int_token(i, 100));
+    i.push(int_token(i, 100));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    // Path: M, curveto, lineto, closepath.
+    run_op(i, "newpath");
+    i.push(int_token(i, 10)); i.push(int_token(i, 10));
+    run_op(i, "moveto");
+    i.push(int_token(i, 30)); i.push(int_token(i, 10));
+    i.push(int_token(i, 50)); i.push(int_token(i, 50));
+    i.push(int_token(i, 60)); i.push(int_token(i, 30));
+    run_op(i, "curveto");
+    i.push(int_token(i, 70)); i.push(int_token(i, 30));
+    run_op(i, "lineto");
+    run_op(i, "closepath");
+
+    // pathforall with counter procs. Bottom-of-stack counter accumulates.
+    // We feed 4 procs that each push the proc-type identifier; not
+    // for performance, just to verify each kind is reached.
+    //
+    // SLI source: 0 { pop pop 1 add } { pop pop 1 add } { pop pop pop
+    // pop pop pop 1 add } { 1 add } pathforall
+    using sli_test::eval;
+    sli_test::clear_stacks(i);
+    eval(i,
+         "0 "
+         "{ pop pop 1 add } "      // move
+         "{ pop pop 1 add } "      // line
+         "{ pop pop pop pop pop pop 1 add } "  // curve
+         "{ 1 add } "              // close
+         "pathforall");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::integertype));
+    long pre_count = i.top().data_.long_val;
+    CHECK(pre_count >= 4);   // at least moveto + curveto + lineto + closepath
+    i.pop(1);
+
+    // Flatten and recount: must have strictly more (curve becomes many lines).
+    run_op(i, "flattenpath");
+    eval(i,
+         "0 "
+         "{ pop pop 1 add } "
+         "{ pop pop 1 add } "
+         "{ pop pop pop pop pop pop 1 add } "
+         "{ 1 add } "
+         "pathforall");
+    CHECK(i.load() == 1);
+    long post_count = i.top().data_.long_val;
+    CHECK(post_count > pre_count);
+    i.pop(1);
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
 // writepng on a PDF surface must raise UnsupportedSurfaceError.
 void test_writepng_rejects_pdf(SLIInterpreter& i)
 {
@@ -817,6 +957,9 @@ int main()
     test_pagesize(i);
     test_textextents(i);
     test_loadpng_drawimage(i);
+    test_color_dict(i);
+    test_clippath(i);
+    test_flattenpath_and_pathforall(i);
 
     std::cout << "test_graphics_module: OK\n";
     return 0;
