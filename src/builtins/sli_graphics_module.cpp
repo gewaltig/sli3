@@ -858,37 +858,57 @@ public:
 // State
 //------------------------------------------------------------------------
 
-// `r g b setrgbcolor -> -` or `[r g b] setrgbcolor -> -`.
-// The array form pairs naturally with the /color dictionary
-// (`color /red get setrgbcolor`).
+namespace
+{
+
+// Shared array-form parser for /setrgbcolor and /setrgbacolor: accepts
+// a 3-element [r g b] array (opaque) or a 4-element [r g b a] array.
+// On success, calls cairo_set_source_rgba and pops; on shape mismatch,
+// raises and returns. Returns true if handled (array form was taken),
+// false if the operand isn't an array (caller falls through to the
+// scalar form).
+bool try_color_array_(SLIInterpreter* i, Name op_name)
+{
+    if (!i->pick(0).is_of_type(sli3::arraytype)) return false;
+    TokenArray const* a = i->pick(0).data_.array_val;
+    if (a->size() != 3 && a->size() != 4)
+    {
+        i->raiseerror(op_name, Name("ColorShapeError"));
+        return true;
+    }
+    for (size_t k = 0; k < a->size(); ++k)
+        if (!is_numeric(a->get(k)))
+        {
+            i->raiseerror(op_name, Name("ColorShapeError"));
+            return true;
+        }
+    GraphicsContext* g = require_current_gc(i, op_name);
+    if (!g) return true;  // raise already issued
+    double alpha = a->size() == 4 ? as_double(a->get(3)) : 1.0;
+    cairo_set_source_rgba(g->cr(),
+                          as_double(a->get(0)),
+                          as_double(a->get(1)),
+                          as_double(a->get(2)),
+                          alpha);
+    i->pop(1);
+    return true;
+}
+
+}  // namespace
+
+// `r g b setrgbcolor -> -` | `[r g b] setrgbcolor -> -` |
+// `[r g b a] setrgbcolor -> -`. The array forms pair naturally with the
+// /color dictionary (`color /red get setrgbcolor`); 4-element arrays
+// carry alpha, 3-element arrays are opaque. The 3-scalar form remains
+// opaque -- explicit alpha via /setrgbacolor or the 4-element array.
 class SetRgbColorFunction : public SLIFunction
 {
 public:
     void execute(SLIInterpreter* i) const override
     {
         i->require_stack_load(1);
-        // Array form: a single 3-element numeric array on top.
-        if (i->pick(0).is_of_type(sli3::arraytype))
-        {
-            TokenArray const* a = i->pick(0).data_.array_val;
-            if (a->size() != 3
-                || !is_numeric(a->get(0))
-                || !is_numeric(a->get(1))
-                || !is_numeric(a->get(2)))
-            {
-                i->raiseerror(Name("setrgbcolor"), Name("ColorShapeError"));
-                return;
-            }
-            GraphicsContext* g = require_current_gc(i, Name("setrgbcolor"));
-            if (!g) return;
-            cairo_set_source_rgb(g->cr(),
-                                 as_double(a->get(0)),
-                                 as_double(a->get(1)),
-                                 as_double(a->get(2)));
-            i->pop(1);
-            return;
-        }
-        // Three-scalar form (current behavior).
+        if (try_color_array_(i, Name("setrgbcolor"))) return;
+        // Three-scalar form, opaque alpha=1.
         i->require_stack_load(3);
         for (int k = 0; k < 3; ++k)
             if (!is_numeric(i->pick(k)))
@@ -898,10 +918,11 @@ public:
             }
         GraphicsContext* g = require_current_gc(i, Name("setrgbcolor"));
         if (!g) return;
-        double r = as_double(i->pick(2));
-        double gr = as_double(i->pick(1));
-        double b = as_double(i->pick(0));
-        cairo_set_source_rgb(g->cr(), r, gr, b);
+        cairo_set_source_rgba(g->cr(),
+                              as_double(i->pick(2)),
+                              as_double(i->pick(1)),
+                              as_double(i->pick(0)),
+                              1.0);
         i->pop(3);
     }
 };
@@ -969,12 +990,18 @@ public:
     }
 };
 
-// `r g b a setrgbacolor -> -` (PS extension matching GS; sets alpha).
+// `r g b a setrgbacolor -> -` | `[r g b] setrgbacolor -> -` |
+// `[r g b a] setrgbacolor -> -`. The array forms match /setrgbcolor's;
+// 3-element arrays are opaque. The 4-scalar form is the explicit-RGBA
+// variant.
 class SetRgbaColorFunction : public SLIFunction
 {
 public:
     void execute(SLIInterpreter* i) const override
     {
+        i->require_stack_load(1);
+        if (try_color_array_(i, Name("setrgbacolor"))) return;
+        // Four-scalar form.
         i->require_stack_load(4);
         for (int k = 0; k < 4; ++k)
             if (!is_numeric(i->pick(k)))
@@ -984,12 +1011,36 @@ public:
             }
         GraphicsContext* g = require_current_gc(i, Name("setrgbacolor"));
         if (!g) return;
-        double r = as_double(i->pick(3));
-        double gn = as_double(i->pick(2));
-        double b = as_double(i->pick(1));
-        double a = as_double(i->pick(0));
-        cairo_set_source_rgba(g->cr(), r, gn, b, a);
+        cairo_set_source_rgba(g->cr(),
+                              as_double(i->pick(3)),
+                              as_double(i->pick(2)),
+                              as_double(i->pick(1)),
+                              as_double(i->pick(0)));
         i->pop(4);
+    }
+};
+
+// `currentrgbacolor -> r g b a`. Same source-pattern restriction as
+// /currentrgbcolor (raises NonSolidSourceError on gradients / images).
+class CurrentRgbaColorFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentrgbacolor"));
+        if (!g) return;
+        cairo_pattern_t* p = cairo_get_source(g->cr());
+        if (!p || cairo_pattern_get_type(p) != CAIRO_PATTERN_TYPE_SOLID)
+        {
+            i->raiseerror(Name("currentrgbacolor"), Name("NonSolidSourceError"));
+            return;
+        }
+        double r = 0, gn = 0, b = 0, a = 0;
+        cairo_pattern_get_rgba(p, &r, &gn, &b, &a);
+        i->push<double>(r);
+        i->push<double>(gn);
+        i->push<double>(b);
+        i->push<double>(a);
     }
 };
 
@@ -2030,6 +2081,7 @@ CurrentLineWidthFunction currentlinewidth_fn;
 CurrentLineCapFunction   currentlinecap_fn;
 CurrentLineJoinFunction  currentlinejoin_fn;
 CurrentRgbColorFunction  currentrgbcolor_fn;
+CurrentRgbaColorFunction currentrgbacolor_fn;
 CurrentDashFunction      currentdash_fn;
 SetWindowTitleFunction   setwindowtitle_fn;
 ResizeFunction           resize_fn;
@@ -2183,6 +2235,7 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("currentlinecap",   &currentlinecap_fn);
     i->createcommand("currentlinejoin",  &currentlinejoin_fn);
     i->createcommand("currentrgbcolor",  &currentrgbcolor_fn);
+    i->createcommand("currentrgbacolor", &currentrgbacolor_fn);
     i->createcommand("currentdash",      &currentdash_fn);
 
     // Text metrics

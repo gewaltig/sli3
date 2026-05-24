@@ -896,6 +896,114 @@ void test_flattenpath_and_pathforall(SLIInterpreter& i)
     run_op(i, "closepage");
 }
 
+// Alpha / transparency round-trips through every entry point:
+//   - 3-scalar setrgbcolor      -> alpha defaults to 1
+//   - 3-array  setrgbcolor      -> alpha defaults to 1
+//   - 4-array  setrgbcolor      -> alpha is the 4th element
+//   - 4-scalar setrgbacolor     -> alpha is the 4th element
+//   - 4-array  setrgbacolor     -> alpha is the 4th element
+// each verified via /currentrgbacolor.
+void test_transparency(SLIInterpreter& i)
+{
+    i.push(int_token(i, 30));
+    i.push(int_token(i, 30));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    auto expect_rgba = [&](double r, double g, double b, double a) {
+        run_op(i, "currentrgbacolor");
+        CHECK(i.load() == 4);
+        CHECK(std::fabs(i.pick(3).data_.double_val - r) < 1e-9);
+        CHECK(std::fabs(i.pick(2).data_.double_val - g) < 1e-9);
+        CHECK(std::fabs(i.pick(1).data_.double_val - b) < 1e-9);
+        CHECK(std::fabs(i.pick(0).data_.double_val - a) < 1e-9);
+        i.pop(4);
+    };
+
+    // 3-scalar setrgbcolor: implicit alpha=1
+    i.push(double_token(i, 0.2));
+    i.push(double_token(i, 0.4));
+    i.push(double_token(i, 0.6));
+    run_op(i, "setrgbcolor");
+    expect_rgba(0.2, 0.4, 0.6, 1.0);
+
+    // 3-array setrgbcolor: implicit alpha=1
+    {
+        TokenArray* a = new TokenArray;
+        a->push_back(i.new_token<sli3::doubletype, double>(0.3));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.5));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.7));
+        i.push(i.new_token<sli3::arraytype, TokenArray*>(a));
+    }
+    run_op(i, "setrgbcolor");
+    expect_rgba(0.3, 0.5, 0.7, 1.0);
+
+    // 4-array setrgbcolor: alpha is 4th element
+    {
+        TokenArray* a = new TokenArray;
+        a->push_back(i.new_token<sli3::doubletype, double>(1.0));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.0));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.0));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.5));
+        i.push(i.new_token<sli3::arraytype, TokenArray*>(a));
+    }
+    run_op(i, "setrgbcolor");
+    expect_rgba(1.0, 0.0, 0.0, 0.5);
+
+    // 4-scalar setrgbacolor
+    i.push(double_token(i, 0.1));
+    i.push(double_token(i, 0.2));
+    i.push(double_token(i, 0.3));
+    i.push(double_token(i, 0.25));
+    run_op(i, "setrgbacolor");
+    expect_rgba(0.1, 0.2, 0.3, 0.25);
+
+    // 4-array setrgbacolor (same shape rule as setrgbcolor's array form)
+    {
+        TokenArray* a = new TokenArray;
+        a->push_back(i.new_token<sli3::doubletype, double>(0.9));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.8));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.7));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.6));
+        i.push(i.new_token<sli3::arraytype, TokenArray*>(a));
+    }
+    run_op(i, "setrgbacolor");
+    expect_rgba(0.9, 0.8, 0.7, 0.6);
+
+    // ColorShapeError: array of wrong length
+    {
+        Dictionary& ed = i.error_dict();
+        ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+        TokenArray* a = new TokenArray;
+        a->push_back(i.new_token<sli3::doubletype, double>(1.0));
+        a->push_back(i.new_token<sli3::doubletype, double>(0.0));
+        i.push(i.new_token<sli3::arraytype, TokenArray*>(a));
+        Token& fn = i.lookup(Name("setrgbcolor"));
+        fn.data_.func_val->execute(&i);
+        Token ne;
+        CHECK(ed.lookup(Name("newerror"), ne));
+        CHECK(ne.data_.bool_val == true);
+        ed.insert(Name("newerror"), i.new_token<sli3::booltype, bool>(false));
+        i.OStack().clear();
+        i.EStack().clear();
+    }
+
+    // currentrgbcolor still drops alpha and returns 3 values.
+    i.push(double_token(i, 0.4));
+    i.push(double_token(i, 0.5));
+    i.push(double_token(i, 0.6));
+    i.push(double_token(i, 0.7));
+    run_op(i, "setrgbacolor");
+    run_op(i, "currentrgbcolor");
+    CHECK(i.load() == 3);
+    CHECK(std::fabs(i.pick(2).data_.double_val - 0.4) < 1e-9);
+    CHECK(std::fabs(i.pick(0).data_.double_val - 0.6) < 1e-9);
+    i.pop(3);
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
 // writepng on a PDF surface must raise UnsupportedSurfaceError.
 void test_writepng_rejects_pdf(SLIInterpreter& i)
 {
@@ -960,6 +1068,7 @@ int main()
     test_color_dict(i);
     test_clippath(i);
     test_flattenpath_and_pathforall(i);
+    test_transparency(i);
 
     std::cout << "test_graphics_module: OK\n";
     return 0;

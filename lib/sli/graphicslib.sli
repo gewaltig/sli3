@@ -42,16 +42,26 @@
  *                                 segment with its coords on the stack
  *
  *  Color
- *    setrgbcolor   ( r g b -> - | [r g b] -> - )  scalars or array form
- *    setgray       ( g -> - )
- *    sethsbcolor   ( h s b -> - )       HSB -> RGB conversion
- *    setrgbacolor  ( r g b a -> - )     RGBA (GS extension)
- *    color                              dict of named colors as [r g b]
- *                                       arrays. Usage: `color /red get
- *                                       setrgbcolor`. Names: black, white,
- *                                       gray/grey, darkgray, lightgray,
- *                                       red, green (CSS half-bright), lime
- *                                       (pure green), blue, cyan, magenta,
+ *    setrgbcolor   ( r g b -> - | [r g b] -> - | [r g b a] -> - )
+ *                                       scalar or array form; 4-element
+ *                                       array carries alpha (0..1).
+ *    setrgbacolor  ( r g b a -> - | [r g b] -> - | [r g b a] -> - )
+ *                                       explicit-RGBA variant; identical
+ *                                       array semantics as setrgbcolor.
+ *    setgray       ( g -> - )           opaque
+ *    sethsbcolor   ( h s b -> - )       opaque, HSB -> RGB
+ *    currentrgbcolor  ( -> r g b )      drops alpha
+ *    currentrgbacolor ( -> r g b a )    full read-back
+ *    color                              dict of named colors. Entries
+ *                                       are [r g b] (opaque) or [r g b a]
+ *                                       (with alpha). Built-ins are
+ *                                       3-element; users add 4-element
+ *                                       entries via `globaldict /color
+ *                                       get /red50 [1 0 0 0.5] put`.
+ *                                       Names: black, white, gray/grey,
+ *                                       darkgray, lightgray, red, green
+ *                                       (CSS half-bright), lime (pure
+ *                                       green), blue, cyan, magenta,
  *                                       yellow, orange, purple, brown,
  *                                       pink, navy, olive, teal, silver.
  *
