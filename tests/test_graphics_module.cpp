@@ -100,14 +100,14 @@ GraphicsContext* test_newpage(SLIInterpreter& i)
     CHECK(g->width() == 120);
     CHECK(g->height() == 80);
 
-    // /currentpage in globaldict points at the same wrapper.
-    Token gd;
-    CHECK(i.lookup(Name("globaldict"), gd));
-    CHECK(gd.is_of_type(sli3::dictionarytype));
-    Dictionary* d = gd.data_.dict_val;
+    // /currentpage in gfxstatus points at the same wrapper.
+    Token gs;
+    CHECK(i.lookup(Name("gfxstatus"), gs));
+    CHECK(gs.is_of_type(sli3::dictionarytype));
+    Dictionary* d = gs.data_.dict_val;
     CHECK(d != 0);
     Token cp;
-    CHECK(d->lookup(Name(":currentpage"), cp));
+    CHECK(d->lookup(Name("currentpage"), cp));
     CHECK(cp.is_of_type(sli3::graphicscontexttype));
     CHECK(cp.data_.graphics_val == g);
 
@@ -209,12 +209,12 @@ void test_closepage_invalidates(SLIInterpreter& i)
     CHECK(i.load() == 0);
     CHECK(!g->valid());  // window torn down
 
-    // /:currentpage should be gone from globaldict.
-    Token gd;
-    CHECK(i.lookup(Name("globaldict"), gd));
-    Dictionary* d = gd.data_.dict_val;
+    // /currentpage should be gone from gfxstatus.
+    Token gs;
+    CHECK(i.lookup(Name("gfxstatus"), gs));
+    Dictionary* d = gs.data_.dict_val;
     Token cp;
-    CHECK(!d->lookup(Name(":currentpage"), cp));
+    CHECK(!d->lookup(Name("currentpage"), cp));
 
     // A draw op now should raise -- we run it directly and watch
     // errordict /newerror flip on.
@@ -404,7 +404,7 @@ void test_arct(SLIInterpreter& i)
 }
 
 // Text round-trip: findfont returns a dict with the expected slots,
-// setfont mutates globaldict /:currentfont, currentfont can recover it.
+// setfont mutates gfxstatus /currentfont, currentfont can recover it.
 void test_text_findfont_setfont(SLIInterpreter& i)
 {
     // Need a current page so setfont has something to apply to.
@@ -441,14 +441,14 @@ void test_text_findfont_setfont(SLIInterpreter& i)
     CHECK(fd24->lookup(Name("Size"), sz));
     CHECK(sz.data_.double_val == 24.0);
 
-    // setfont mutates globaldict /:currentfont
+    // setfont mutates gfxstatus /currentfont
     run_op(i, "setfont");
     CHECK(i.load() == 0);
-    Token gd;
-    CHECK(i.lookup(Name("globaldict"), gd));
-    Dictionary* gdp = gd.data_.dict_val;
+    Token gs;
+    CHECK(i.lookup(Name("gfxstatus"), gs));
+    Dictionary* gsp = gs.data_.dict_val;
     Token cf;
-    CHECK(gdp->lookup(Name(":currentfont"), cf));
+    CHECK(gsp->lookup(Name("currentfont"), cf));
     CHECK(cf.is_of_type(sli3::dictionarytype));
     Dictionary* cfp = cf.data_.dict_val;
     Token cfsz;
@@ -461,11 +461,11 @@ void test_text_findfont_setfont(SLIInterpreter& i)
     CHECK(i.top().is_of_type(sli3::dictionarytype));
     i.pop(1);
 
-    // Tear down the offscreen surface and clean up /:currentfont so
+    // Tear down the offscreen surface and clean up /currentfont so
     // later tests don't see stale state.
     run_op(i, "currentpage");
     run_op(i, "closepage");
-    gdp->erase(Name(":currentfont"));
+    gsp->erase(Name("currentfont"));
 }
 
 // PDF backend: open a PDF, draw, close, confirm the file exists
@@ -674,9 +674,9 @@ void test_textextents(SLIInterpreter& i)
     i.pop(1);
 
     // Cleanup currentfont so the rest of the suite isn't polluted.
-    Token gd;
-    CHECK(i.lookup(Name("globaldict"), gd));
-    gd.data_.dict_val->erase(Name(":currentfont"));
+    Token gs;
+    CHECK(i.lookup(Name("gfxstatus"), gs));
+    gs.data_.dict_val->erase(Name("currentfont"));
     run_op(i, "currentpage");
     run_op(i, "closepage");
 }

@@ -714,18 +714,30 @@ The full op list with one-line signatures is at the top of
 
 `lib/sli/graphicslib.sli` defines several procedures you can run from
 the REPL. By default each one writes its output PNG / PDF into your
-home directory (`$HOME`). The destination is the `globaldict`
-variable `/:gfxoutdir`; override it once and every subsequent demo
-writes there instead:
+home directory (`$HOME`).
+
+The graphics module keeps its internal runtime state in a dedicated
+`gfxstatus` dictionary (installed in `systemdict` at boot):
+
+| Slot | Set by | Read by |
+|---|---|---|
+| `gfxstatus /currentpage`  | `newpage`, `newoffscreen`, `newpdf`, `newsvg`, `setpage` | every drawing op; cleared by `closepage` |
+| `gfxstatus /currentfont`  | `setfont` | `currentfont` |
+| `gfxstatus /gfxoutdir`    | initialized to `$HOME` at module load | demos, `gfxoutpath`, `gfxoutdir` |
+
+To send all subsequent demo output somewhere else:
 
 ```sli
-globaldict /:gfxoutdir (/Users/me/Pictures/sli3) put
+gfxstatus /gfxoutdir (/Users/me/Pictures/sli3) put
 gradientdemo                  % now writes to /Users/me/Pictures/sli3/
 ```
 
-If you want to use the same convention in your own code, the
-`/gfxoutpath name → fullpath` helper joins `:gfxoutdir` with a
-filename and a single `/` separator.
+Two convenience procedures live alongside `gfxstatus`:
+
+- `gfxoutdir` returns the current output directory (i.e. `gfxstatus /gfxoutdir get`).
+- `gfxoutpath` `( filename → fullpath )` joins it with a filename, single-slash separator.
+
+Inspect everything in one go: `gfxstatus pstack`.
 
 
 ```

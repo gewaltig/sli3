@@ -42,13 +42,14 @@ namespace
 // Helpers
 //------------------------------------------------------------------------
 
-// Stored in globaldict, NOT systemdict, so it isn't shadowed by the
-// /currentpage operator. The leading colon follows the NEST 2.x
-// convention for runtime-state names that live in globaldict
-// (e.g. /:tictime, /:cliccycles in lib/sli/sli-init.sli).
+// Stored in /gfxstatus -- a dedicated dictionary the graphics
+// module installs in systemdict at init time. Holding internal
+// runtime state in its own namespace keeps it out of globaldict
+// and lets it be inspected as a single unit (`gfxstatus pstack`,
+// `gfxstatus keys`).
 Name const& current_page_slot()
 {
-    static Name n(":currentpage");
+    static Name n("currentpage");
     return n;
 }
 
@@ -64,14 +65,13 @@ double as_double(Token const& t)
     return 0.0;  // unreachable after is_numeric checks
 }
 
-// Resolve globaldict via the dictstack lookup (no private accessor
-// required). globaldict was inserted into systemdict by
-// init_dictionaries, so the lookup always succeeds in a healthy
-// interpreter.
-Dictionary* get_globaldict(SLIInterpreter* i)
+// Resolve /gfxstatus via dictstack lookup. The dict is installed
+// in systemdict by install_gfxstatus_dict_ at init time, so the
+// lookup always succeeds in a healthy interpreter.
+Dictionary* get_gfxstatus(SLIInterpreter* i)
 {
     Token g;
-    if (!i->lookup(Name("globaldict"), g)) return nullptr;
+    if (!i->lookup(Name("gfxstatus"), g)) return nullptr;
     if (!g.is_of_type(sli3::dictionarytype)) return nullptr;
     return g.data_.dict_val;
 }
@@ -81,7 +81,7 @@ Dictionary* get_globaldict(SLIInterpreter* i)
 // caller decides what to do.
 GraphicsContext* peek_current_gc(SLIInterpreter* i)
 {
-    Dictionary* gd = get_globaldict(i);
+    Dictionary* gd = get_gfxstatus(i);
     if (!gd) return nullptr;
     TokenMap::iterator it = gd->find(current_page_slot());
     if (it == gd->end()) return nullptr;
@@ -106,14 +106,14 @@ GraphicsContext* require_current_gc(SLIInterpreter* i, Name op_name)
 // Save / clear the /currentpage slot.
 void set_current_page(SLIInterpreter* i, Token const& gc_tok)
 {
-    Dictionary* gd = get_globaldict(i);
+    Dictionary* gd = get_gfxstatus(i);
     if (gd) gd->insert(current_page_slot(), gc_tok);
 }
 
-// Stored in globaldict alongside /:currentpage. Mirrors PS's currentfont.
+// Stored in /gfxstatus alongside /currentpage. Mirrors PS's currentfont.
 Name const& current_font_slot()
 {
-    static Name n(":currentfont");
+    static Name n("currentfont");
     return n;
 }
 
@@ -191,7 +191,7 @@ bool dict_get_double(Dictionary* d, Name n, double& out)
 
 void clear_current_page(SLIInterpreter* i, GraphicsContext const* expected)
 {
-    Dictionary* gd = get_globaldict(i);
+    Dictionary* gd = get_gfxstatus(i);
     if (!gd) return;
     TokenMap::iterator it = gd->find(current_page_slot());
     if (it == gd->end()) return;
@@ -2087,7 +2087,7 @@ public:
                                slant_from_name_(slant_n),
                                weight_from_name_(weight_n));
         cairo_set_font_size(g->cr(), size);
-        Dictionary* gd = get_globaldict(i);
+        Dictionary* gd = get_gfxstatus(i);
         if (gd) gd->insert(current_font_slot(), i->pick(0));
         i->pop(1);
     }
@@ -2099,7 +2099,7 @@ class CurrentFontFunction : public SLIFunction
 public:
     void execute(SLIInterpreter* i) const override
     {
-        Dictionary* gd = get_globaldict(i);
+        Dictionary* gd = get_gfxstatus(i);
         Token t;
         if (!gd || !gd->lookup(current_font_slot(), t)
             || !t.is_of_type(sli3::dictionarytype))
@@ -2736,6 +2736,21 @@ WindowClosedFunction windowclosed_fn;
 
 }  // namespace
 
+// Build /gfxstatus and bind it in systemdict. This is the home for
+// runtime state the module needs to thread through user code without
+// requiring the user to plumb a context object: /currentpage (the
+// active drawing target), /currentfont (the active font dict),
+// /gfxoutdir (the output directory for demo files). Mutable -- ops
+// write into it during execution. graphicslib.sli sets /gfxoutdir
+// at module-load time; /currentpage and /currentfont start unset and
+// appear the first time their respective op writes them.
+void install_gfxstatus_dict_(SLIInterpreter* i)
+{
+    Dictionary* d = new Dictionary;
+    i->def(Name("gfxstatus"),
+           i->new_token<sli3::dictionarytype, Dictionary*>(d));
+}
+
 // Build the read-only /compositors dictionary in systemdict, mapping
 // each operator name to its underlying cairo_operator_t value. Lets
 // SLI code introspect (compositors keys, compositors /multiply known)
@@ -2805,6 +2820,7 @@ void install_color_dict_(SLIInterpreter* i)
 
 void init_sligraphics(SLIInterpreter* i)
 {
+    install_gfxstatus_dict_(i);
     install_color_dict_(i);
     install_compositors_dict_(i);
 
