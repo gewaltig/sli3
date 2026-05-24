@@ -68,6 +68,16 @@ public:
     static GraphicsContext* open_pdf      (std::string const& path, int width, int height);
     static GraphicsContext* open_svg      (std::string const& path, int width, int height);
 
+    /**
+     * Load a PNG into an OFFSCREEN-backed context. Width/height come
+     * from the PNG. The background paint is skipped so the loaded
+     * pixels survive. The PS-style Y-flip is applied as usual, so
+     * additional drawing into this context uses page coordinates
+     * (and the file-as-loaded shows in its original orientation when
+     * written back with /writepng).
+     */
+    static GraphicsContext* open_image(std::string const& path);
+
     GraphicsContext(GraphicsContext const&) = delete;
     GraphicsContext& operator=(GraphicsContext const&) = delete;
 
@@ -146,9 +156,29 @@ public:
      */
     bool write_png(std::string const& path);
 
+    /**
+     * Borrow accessors for the underlying Cairo surface (every
+     * backend) and the SDL window (WINDOW only; nullptr otherwise).
+     * Used by ops like /drawimage (cairo_set_source_surface needs
+     * the source) and /setwindowtitle (SDL_SetWindowTitle on the
+     * underlying window).
+     */
+    cairo_surface_t* surface() const { return surface_; }
+    SDL_Window*      sdl_window() const { return window_; }
+
+    /**
+     * WINDOW-only: resize the underlying SDL window + reallocate the
+     * texture + reallocate the Cairo image surface at the new size.
+     * The drawing context's CTM is reset to the new size's Y-flip
+     * baseline (so subsequent drawing stays oriented correctly).
+     * Throws on any backend failure. Raises std::runtime_error if the
+     * backend isn't WINDOW.
+     */
+    void resize_window(int width, int height);
+
 private:
     explicit GraphicsContext(Backend b, int width, int height);
-    void finish_cairo_setup_();   // background fill + PS-style CTM
+    void finish_cairo_setup_(bool paint_background = true);
     void release_resources_();
 
     Backend       backend_;

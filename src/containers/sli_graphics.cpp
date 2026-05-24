@@ -55,15 +55,16 @@ GraphicsContext::~GraphicsContext()
     release_resources_();
 }
 
-void GraphicsContext::finish_cairo_setup_()
+void GraphicsContext::finish_cairo_setup_(bool paint_background)
 {
     cr_ = cairo_create(surface_);
     if (cairo_status(cr_) != CAIRO_STATUS_SUCCESS)
         throw std::runtime_error("cairo_create failed");
 
-    // Opaque white background -- only meaningful for image surfaces;
-    // PDF/SVG surfaces ignore the paint (the page starts blank).
-    if (is_image_surface())
+    // Opaque white background -- only meaningful for image surfaces,
+    // and skipped when the surface was preloaded with content (e.g.
+    // /loadpng) so we don't clobber the loaded pixels.
+    if (is_image_surface() && paint_background)
     {
         cairo_save(cr_);
         cairo_set_source_rgb(cr_, 1.0, 1.0, 1.0);
@@ -118,6 +119,28 @@ GraphicsContext* GraphicsContext::open_offscreen(int width, int height)
     if (cairo_surface_status(g->surface_) != CAIRO_STATUS_SUCCESS)
         throw_cairo_status_(g->surface_, "cairo_image_surface_create failed");
     g->finish_cairo_setup_();
+    return g.release();
+}
+
+GraphicsContext* GraphicsContext::open_image(std::string const& path)
+{
+    // Load the PNG first so we can derive width/height from it.
+    cairo_surface_t* surf = cairo_image_surface_create_from_png(path.c_str());
+    if (cairo_surface_status(surf) != CAIRO_STATUS_SUCCESS)
+    {
+        cairo_status_t st = cairo_surface_status(surf);
+        std::string msg = std::string("cairo_image_surface_create_from_png failed: ")
+                          + cairo_status_to_string(st);
+        cairo_surface_destroy(surf);
+        throw std::runtime_error(msg);
+    }
+    int w = cairo_image_surface_get_width(surf);
+    int h = cairo_image_surface_get_height(surf);
+    std::unique_ptr<GraphicsContext> g(new GraphicsContext(Backend::OFFSCREEN, w, h));
+    g->surface_ = surf;
+    // false: do NOT paint the white background -- we want the PNG's
+    // pixels to survive.
+    g->finish_cairo_setup_(false);
     return g.release();
 }
 
@@ -263,6 +286,36 @@ bool GraphicsContext::write_png(std::string const& path)
     cairo_surface_flush(surface_);
     cairo_status_t st = cairo_surface_write_to_png(surface_, path.c_str());
     return st == CAIRO_STATUS_SUCCESS;
+}
+
+void GraphicsContext::resize_window(int width, int height)
+{
+    if (backend_ != Backend::WINDOW)
+        throw std::runtime_error("resize_window: not a WINDOW-backed context");
+    if (!window_)
+        throw std::runtime_error("resize_window: window is closed");
+    if (width <= 0 || height <= 0)
+        throw std::runtime_error("resize_window: width and height must be positive");
+
+    SDL_SetWindowSize(window_, width, height);
+
+    // Cairo surface + texture both depend on the buffer size; rebuild.
+    if (cr_)      { cairo_destroy(cr_); cr_ = nullptr; }
+    if (surface_) { cairo_surface_destroy(surface_); surface_ = nullptr; }
+    if (texture_) { SDL_DestroyTexture(texture_); texture_ = nullptr; }
+
+    texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888,
+                                 SDL_TEXTUREACCESS_STREAMING, width, height);
+    if (!texture_)
+        throw std::runtime_error(std::string("SDL_CreateTexture failed: ") + SDL_GetError());
+
+    surface_ = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    if (cairo_surface_status(surface_) != CAIRO_STATUS_SUCCESS)
+        throw_cairo_status_(surface_, "cairo_image_surface_create failed");
+
+    width_  = width;
+    height_ = height;
+    finish_cairo_setup_();
 }
 
 }  // namespace sli3

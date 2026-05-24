@@ -8,10 +8,15 @@
  *    newoffscreen  ( w h -> gc )         windowless Cairo image surface
  *    newpdf        ( path w h -> gc )    multi-page PDF backend
  *    newsvg        ( path w h -> gc )    single-page SVG backend
+ *    loadpng       ( path -> gc )        OFFSCREEN gc holding PNG content
+ *    drawimage     ( gc cx cy w h -> - ) paint gc onto current page
  *    closepage     ( gc -> -  )          tear down + flush file backends
  *    currentpage   ( -> gc    )          recall the active surface
  *    setpage       ( gc -> -  )          switch the active target
  *    writepng      ( path gc -> - )      save image surface as PNG
+ *    pagesize      ( -> w h )            current page width / height
+ *    setwindowtitle ( title -> - )       WINDOW only
+ *    resize        ( w h -> - )          WINDOW only
  *
  *  Path construction
  *    newpath, moveto, lineto, rlineto, closepath
@@ -46,6 +51,11 @@
  *
  *  State + transforms
  *    gsave, grestore, translate, scale, rotate
+ *    currentmatrix, setmatrix, concat, initmatrix
+ *    transform     ( x y -> tx ty )      user-space to device-space
+ *    itransform    ( tx ty -> x y )      device-space to user-space
+ *    currentlinewidth, currentlinecap, currentlinejoin
+ *    currentrgbcolor, currentdash
  *
  *  Text (Cairo "toy" font API; a font is a Dictionary)
  *    findfont      ( name|string -> font-dict )
@@ -54,6 +64,8 @@
  *    currentfont   ( -> font-dict )
  *    show          ( string -> - )
  *    stringwidth   ( string -> dx dy )
+ *    textextents   ( string -> dict )    /XBearing /YBearing /Width
+ *                                        /Height /XAdvance /YAdvance
  *    charpath      ( string [bool] -> - )
  *
  *  Display
@@ -128,6 +140,28 @@
   0 0 0 setrgbcolor
   50 370 moveto (sli3 offscreen demo) show
   (/tmp/sli3-gfxdemo.png) currentpage writepng
+  currentpage closepage
+} def
+
+% /imagedemo  build a PNG offscreen, reload it, composite into a fresh
+% page with two copies side by side, save the result as another PNG.
+/imagedemo
+{
+  (imagedemo: writing /tmp/sli3-source.png and /tmp/sli3-imagedemo.png) =
+  % 1. Build a source image: 80x60 red rect with a label.
+  80 60 newoffscreen pop
+  1 0.3 0 setrgbcolor 0 0 80 60 rect fill
+  (sans) findfont 16 scalefont setfont
+  1 1 1 setrgbcolor 8 22 moveto (sli3) show
+  (/tmp/sli3-source.png) currentpage writepng
+  currentpage closepage
+  % 2. Fresh canvas, load the PNG, paint two copies at different sizes.
+  240 120 newoffscreen pop
+  0.95 0.95 0.95 setrgbcolor 0 0 240 120 rect fill
+  (/tmp/sli3-source.png) loadpng    % gc on stack
+  dup 10 30 80 60 drawimage         % full-size copy
+  110 20 120 90 drawimage           % scaled-up copy
+  (/tmp/sli3-imagedemo.png) currentpage writepng
   currentpage closepage
 } def
 

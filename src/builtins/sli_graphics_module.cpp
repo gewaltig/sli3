@@ -23,6 +23,7 @@
 #include "sli_type.h"
 
 #include <cairo/cairo.h>
+#include <SDL2/SDL.h>
 
 #include <cmath>
 #include <exception>
@@ -358,6 +359,100 @@ public:
             return;
         }
         i->pop(2);
+    }
+};
+
+// `(file.png) loadpng -> gc`. Build an OFFSCREEN-backed context whose
+// initial pixels are the PNG file's content; width/height come from
+// the file. The result does NOT replace /:currentpage -- caller
+// chooses (drawimage onto current page, setpage to draw on top, or
+// just writepng to round-trip).
+class LoadPngFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        if (!i->pick(0).is_of_type(sli3::stringtype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        std::string path = i->pick(0).data_.string_val->str();
+        GraphicsContext* g = nullptr;
+        try { g = GraphicsContext::open_image(path); }
+        catch (std::exception const& e)
+        {
+            i->message(sli3::M_ERROR, "loadpng", e.what());
+            i->raiseerror(Name("loadpng"), Name("LoadPngError"));
+            return;
+        }
+        Token tok(i->get_type(sli3::graphicscontexttype));
+        tok.data_.graphics_val = g;
+        i->pop(1);
+        i->push(tok);
+    }
+};
+
+// `gc cx cy w h drawimage -> -`. Paint `gc`'s image surface onto the
+// current page at user-space rectangle (cx, cy, w, h). Compensates
+// for Cairo's Y-down pixel layout so the image lands right-side-up in
+// our PS-style Y-up frame.
+class DrawImageFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(5);
+        if (!i->pick(4).is_of_type(sli3::graphicscontexttype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        for (int k = 0; k < 4; ++k)
+            if (!is_numeric(i->pick(k)))
+            {
+                i->raiseerror(i->ArgumentTypeError);
+                return;
+            }
+        GraphicsContext* src = i->pick(4).data_.graphics_val;
+        if (!src || !src->valid() || !src->is_image_surface())
+        {
+            i->raiseerror(Name("drawimage"), Name("UnsupportedSurfaceError"));
+            return;
+        }
+        GraphicsContext* tgt = require_current_gc(i, Name("drawimage"));
+        if (!tgt) return;
+        double cx = as_double(i->pick(3));
+        double cy = as_double(i->pick(2));
+        double w  = as_double(i->pick(1));
+        double h  = as_double(i->pick(0));
+        if (w <= 0.0 || h <= 0.0)
+        {
+            i->raiseerror(i->RangeCheckError);
+            return;
+        }
+        int iw = cairo_image_surface_get_width(src->surface());
+        int ih = cairo_image_surface_get_height(src->surface());
+
+        cairo_t* cr = tgt->cr();
+        cairo_save(cr);
+        // PS user-space: (cx, cy) is the bottom-left of the destination
+        // rectangle; (cx + w, cy + h) is the top-right. Cairo's source
+        // surface has pixel (0,0) at its top-left. To paint the image
+        // upright at (cx, cy) sized (w, h):
+        //   1) translate to the destination's top-left in user space
+        //      (cx, cy + h), since user-Y grows up
+        //   2) scale (w/iw, -h/ih) so the image extends rightward (+X)
+        //      and downward (in user-Y, which is screen-up) into the
+        //      destination rectangle
+        //   3) set the source surface at the (now-flipped) origin
+        cairo_translate(cr, cx, cy + h);
+        cairo_scale(cr, w / static_cast<double>(iw), -h / static_cast<double>(ih));
+        cairo_set_source_surface(cr, src->surface(), 0.0, 0.0);
+        cairo_paint(cr);
+        cairo_restore(cr);
+        i->pop(5);
     }
 };
 
@@ -1056,6 +1151,365 @@ public:
     }
 };
 
+//------------------------------------------------------------------------
+// Matrix / CTM ops. PostScript represents a 2D affine as a 6-element
+// array [xx yx xy yy x0 y0] matching cairo_matrix_t's layout.
+//------------------------------------------------------------------------
+
+namespace
+{
+
+Token matrix_to_array_(SLIInterpreter* i, cairo_matrix_t const& m)
+{
+    TokenArray* a = new TokenArray();
+    a->reserve(6);
+    a->push_back(i->new_token<sli3::doubletype, double>(m.xx));
+    a->push_back(i->new_token<sli3::doubletype, double>(m.yx));
+    a->push_back(i->new_token<sli3::doubletype, double>(m.xy));
+    a->push_back(i->new_token<sli3::doubletype, double>(m.yy));
+    a->push_back(i->new_token<sli3::doubletype, double>(m.x0));
+    a->push_back(i->new_token<sli3::doubletype, double>(m.y0));
+    return i->new_token<sli3::arraytype, TokenArray*>(a);
+}
+
+bool array_to_matrix_(TokenArray const* a, cairo_matrix_t& m)
+{
+    if (a->size() != 6) return false;
+    for (size_t k = 0; k < 6; ++k)
+        if (!is_numeric(a->get(k))) return false;
+    m.xx = as_double(a->get(0));
+    m.yx = as_double(a->get(1));
+    m.xy = as_double(a->get(2));
+    m.yy = as_double(a->get(3));
+    m.x0 = as_double(a->get(4));
+    m.y0 = as_double(a->get(5));
+    return true;
+}
+
+}  // namespace
+
+// `currentmatrix -> [xx yx xy yy x0 y0]`
+class CurrentMatrixFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentmatrix"));
+        if (!g) return;
+        cairo_matrix_t m;
+        cairo_get_matrix(g->cr(), &m);
+        i->push(matrix_to_array_(i, m));
+    }
+};
+
+// `[a b c d tx ty] setmatrix -> -`
+class SetMatrixFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        if (!i->pick(0).is_of_type(sli3::arraytype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        cairo_matrix_t m;
+        if (!array_to_matrix_(i->pick(0).data_.array_val, m))
+        {
+            i->raiseerror(Name("setmatrix"), Name("MatrixShapeError"));
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("setmatrix"));
+        if (!g) return;
+        cairo_set_matrix(g->cr(), &m);
+        i->pop(1);
+    }
+};
+
+// `[a b c d tx ty] concat -> -` -- post-multiply: CTM := matrix * CTM.
+class ConcatFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        if (!i->pick(0).is_of_type(sli3::arraytype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        cairo_matrix_t m;
+        if (!array_to_matrix_(i->pick(0).data_.array_val, m))
+        {
+            i->raiseerror(Name("concat"), Name("MatrixShapeError"));
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("concat"));
+        if (!g) return;
+        cairo_transform(g->cr(), &m);
+        i->pop(1);
+    }
+};
+
+// `initmatrix -> -` -- reset CTM to the PS-style default (Y-flip
+// baseline that finish_cairo_setup_ applied at /newpage time).
+class InitMatrixFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("initmatrix"));
+        if (!g) return;
+        cairo_t* cr = g->cr();
+        cairo_identity_matrix(cr);
+        cairo_translate(cr, 0.0, static_cast<double>(g->height()));
+        cairo_scale(cr, 1.0, -1.0);
+    }
+};
+
+// `x y transform -> tx ty` -- user-space to device-space point.
+class TransformFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        if (!is_numeric(i->pick(1)) || !is_numeric(i->pick(0)))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("transform"));
+        if (!g) return;
+        double x = as_double(i->pick(1));
+        double y = as_double(i->pick(0));
+        cairo_user_to_device(g->cr(), &x, &y);
+        i->pop(2);
+        i->push<double>(x);
+        i->push<double>(y);
+    }
+};
+
+// `tx ty itransform -> x y` -- device-space to user-space point.
+class ITransformFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        if (!is_numeric(i->pick(1)) || !is_numeric(i->pick(0)))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("itransform"));
+        if (!g) return;
+        double x = as_double(i->pick(1));
+        double y = as_double(i->pick(0));
+        cairo_device_to_user(g->cr(), &x, &y);
+        i->pop(2);
+        i->push<double>(x);
+        i->push<double>(y);
+    }
+};
+
+//------------------------------------------------------------------------
+// State queries. The get-side of every setter we already shipped, in
+// PS's `current*` naming convention.
+//------------------------------------------------------------------------
+
+class CurrentLineWidthFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentlinewidth"));
+        if (!g) return;
+        i->push<double>(cairo_get_line_width(g->cr()));
+    }
+};
+
+class CurrentLineCapFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentlinecap"));
+        if (!g) return;
+        i->push<long>(static_cast<long>(cairo_get_line_cap(g->cr())));
+    }
+};
+
+class CurrentLineJoinFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentlinejoin"));
+        if (!g) return;
+        i->push<long>(static_cast<long>(cairo_get_line_join(g->cr())));
+    }
+};
+
+// `currentrgbcolor -> r g b`. Raises if the current source isn't a
+// solid color pattern (gradients / images can't be unpacked to RGB).
+class CurrentRgbColorFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentrgbcolor"));
+        if (!g) return;
+        cairo_pattern_t* p = cairo_get_source(g->cr());
+        if (!p || cairo_pattern_get_type(p) != CAIRO_PATTERN_TYPE_SOLID)
+        {
+            i->raiseerror(Name("currentrgbcolor"), Name("NonSolidSourceError"));
+            return;
+        }
+        double r = 0, gn = 0, b = 0, a = 0;
+        cairo_pattern_get_rgba(p, &r, &gn, &b, &a);
+        i->push<double>(r);
+        i->push<double>(gn);
+        i->push<double>(b);
+    }
+};
+
+// `currentdash -> [d0 d1 ...] offset`
+class CurrentDashFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("currentdash"));
+        if (!g) return;
+        int n = cairo_get_dash_count(g->cr());
+        TokenArray* arr = new TokenArray();
+        arr->reserve(static_cast<size_t>(n));
+        double offset = 0.0;
+        if (n > 0)
+        {
+            std::vector<double> dashes(static_cast<size_t>(n));
+            cairo_get_dash(g->cr(), dashes.data(), &offset);
+            for (double d : dashes)
+                arr->push_back(i->new_token<sli3::doubletype, double>(d));
+        }
+        i->push(i->new_token<sli3::arraytype, TokenArray*>(arr));
+        i->push<double>(offset);
+    }
+};
+
+//------------------------------------------------------------------------
+// Window / page ergonomics.
+//------------------------------------------------------------------------
+
+// `(title) setwindowtitle -> -`. WINDOW backend only.
+class SetWindowTitleFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        if (!i->pick(0).is_of_type(sli3::stringtype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("setwindowtitle"));
+        if (!g) return;
+        if (g->backend() != GraphicsContext::Backend::WINDOW
+            || !g->sdl_window())
+        {
+            i->raiseerror(Name("setwindowtitle"), Name("UnsupportedSurfaceError"));
+            return;
+        }
+        SDL_SetWindowTitle(g->sdl_window(), i->pick(0).data_.string_val->c_str());
+        i->pop(1);
+    }
+};
+
+// `w h resize -> -`. WINDOW backend only -- changes the SDL window
+// size and reallocates the backing Cairo image surface. The CTM is
+// reset to the new size's Y-flip baseline (otherwise scaled drawing
+// would silently spill outside the visible area).
+class ResizeFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        if (!is_numeric(i->pick(1)) || !is_numeric(i->pick(0)))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        long w = static_cast<long>(as_double(i->pick(1)));
+        long h = static_cast<long>(as_double(i->pick(0)));
+        if (w <= 0 || h <= 0) { i->raiseerror(i->RangeCheckError); return; }
+        GraphicsContext* g = require_current_gc(i, Name("resize"));
+        if (!g) return;
+        if (g->backend() != GraphicsContext::Backend::WINDOW)
+        {
+            i->raiseerror(Name("resize"), Name("UnsupportedSurfaceError"));
+            return;
+        }
+        try
+        {
+            g->resize_window(static_cast<int>(w), static_cast<int>(h));
+        }
+        catch (std::exception const& e)
+        {
+            i->message(sli3::M_ERROR, "resize", e.what());
+            i->raiseerror(Name("resize"), Name("GraphicsBackendError"));
+            return;
+        }
+        i->pop(2);
+    }
+};
+
+// `pagesize -> w h` -- width and height of the current page in user
+// units. Works for every backend.
+class PageSizeFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("pagesize"));
+        if (!g) return;
+        i->push<long>(g->width());
+        i->push<long>(g->height());
+    }
+};
+
+// `(text) textextents -> dict { /XBearing /YBearing /Width /Height
+//                               /XAdvance /YAdvance }`
+class TextExtentsFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        if (!i->pick(0).is_of_type(sli3::stringtype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("textextents"));
+        if (!g) return;
+        cairo_text_extents_t ext;
+        cairo_text_extents(g->cr(), i->pick(0).data_.string_val->c_str(), &ext);
+        Dictionary* d = new Dictionary();
+        d->insert(Name("XBearing"), i->new_token<sli3::doubletype, double>(ext.x_bearing));
+        d->insert(Name("YBearing"), i->new_token<sli3::doubletype, double>(ext.y_bearing));
+        d->insert(Name("Width"),    i->new_token<sli3::doubletype, double>(ext.width));
+        d->insert(Name("Height"),   i->new_token<sli3::doubletype, double>(ext.height));
+        d->insert(Name("XAdvance"), i->new_token<sli3::doubletype, double>(ext.x_advance));
+        d->insert(Name("YAdvance"), i->new_token<sli3::doubletype, double>(ext.y_advance));
+        i->pop(1);
+        i->push(i->new_token<sli3::dictionarytype, Dictionary*>(d));
+    }
+};
+
 class RotateFunction : public SLIFunction
 {
 public:
@@ -1377,6 +1831,8 @@ ClosePageFunction    closepage_fn;
 CurrentPageFunction  currentpage_fn;
 SetPageFunction      setpage_fn;
 WritePngFunction     writepng_fn;
+LoadPngFunction      loadpng_fn;
+DrawImageFunction    drawimage_fn;
 NewPathFunction      newpath_fn;
 ClosePathFunction    closepath_fn;
 XYFunction<cairo_move_to>     moveto_fn   {Name("moveto")};
@@ -1388,6 +1844,21 @@ CurveFunction<cairo_curve_to>     curveto_fn  {Name("curveto")};
 CurveFunction<cairo_rel_curve_to> rcurveto_fn {Name("rcurveto")};
 ArcNFunction         arcn_fn;
 ArctFunction         arct_fn;
+CurrentMatrixFunction currentmatrix_fn;
+SetMatrixFunction    setmatrix_fn;
+ConcatFunction       concat_fn;
+InitMatrixFunction   initmatrix_fn;
+TransformFunction    transform_fn;
+ITransformFunction   itransform_fn;
+CurrentLineWidthFunction currentlinewidth_fn;
+CurrentLineCapFunction   currentlinecap_fn;
+CurrentLineJoinFunction  currentlinejoin_fn;
+CurrentRgbColorFunction  currentrgbcolor_fn;
+CurrentDashFunction      currentdash_fn;
+SetWindowTitleFunction   setwindowtitle_fn;
+ResizeFunction           resize_fn;
+PageSizeFunction         pagesize_fn;
+TextExtentsFunction      textextents_fn;
 RectFunction         rect_fn;
 ArcFunction          arc_fn;
 CircleFunction       circle_fn;
@@ -1435,6 +1906,11 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("currentpage",  &currentpage_fn);
     i->createcommand("setpage",      &setpage_fn);
     i->createcommand("writepng",     &writepng_fn);
+    i->createcommand("loadpng",      &loadpng_fn);
+    i->createcommand("drawimage",    &drawimage_fn);
+    i->createcommand("pagesize",     &pagesize_fn);
+    i->createcommand("setwindowtitle", &setwindowtitle_fn);
+    i->createcommand("resize",       &resize_fn);
 
     // Path construction
     i->createcommand("newpath",      &newpath_fn);
@@ -1460,6 +1936,24 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("eoclip",       &eoclip_fn);
     i->createcommand("currentpoint", &currentpoint_fn);
     i->createcommand("pathbbox",     &pathbbox_fn);
+
+    // CTM / matrix
+    i->createcommand("currentmatrix", &currentmatrix_fn);
+    i->createcommand("setmatrix",     &setmatrix_fn);
+    i->createcommand("concat",        &concat_fn);
+    i->createcommand("initmatrix",    &initmatrix_fn);
+    i->createcommand("transform",     &transform_fn);
+    i->createcommand("itransform",    &itransform_fn);
+
+    // State queries
+    i->createcommand("currentlinewidth", &currentlinewidth_fn);
+    i->createcommand("currentlinecap",   &currentlinecap_fn);
+    i->createcommand("currentlinejoin",  &currentlinejoin_fn);
+    i->createcommand("currentrgbcolor",  &currentrgbcolor_fn);
+    i->createcommand("currentdash",      &currentdash_fn);
+
+    // Text metrics
+    i->createcommand("textextents",  &textextents_fn);
 
     // Color
     i->createcommand("setrgbcolor",  &setrgbcolor_fn);

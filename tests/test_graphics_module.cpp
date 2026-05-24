@@ -507,6 +507,255 @@ void test_pdf_backend(SLIInterpreter& i)
     std::remove(path.c_str());
 }
 
+// CTM round-trip: read currentmatrix, identity-multiply it via concat,
+// confirm the matrix is unchanged (modulo floating-point noise).
+// transform + itransform are inverses on any user point.
+void test_ctm(SLIInterpreter& i)
+{
+    i.push(int_token(i, 60));
+    i.push(int_token(i, 40));
+    run_op(i, "newoffscreen");
+    CHECK(i.load() == 1);
+    i.pop(1);
+
+    run_op(i, "currentmatrix");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::arraytype));
+    TokenArray* m0 = i.top().data_.array_val;
+    CHECK(m0->size() == 6);
+    // Save the matrix elements for the comparison.
+    double e0[6];
+    for (size_t k = 0; k < 6; ++k) e0[k] = m0->get(k).data_.double_val;
+
+    // Build [1 0 0 1 0 0] (identity) and concat. CTM should be unchanged.
+    TokenArray* id = new TokenArray();
+    id->reserve(6);
+    for (int k = 0; k < 6; ++k)
+    {
+        double v = (k == 0 || k == 3) ? 1.0 : 0.0;
+        id->push_back(i.new_token<sli3::doubletype, double>(v));
+    }
+    i.push(i.new_token<sli3::arraytype, TokenArray*>(id));
+    run_op(i, "concat");
+    CHECK(i.load() == 1);  // original CTM array still on stack
+    i.pop(1);
+
+    run_op(i, "currentmatrix");
+    TokenArray* m1 = i.top().data_.array_val;
+    for (size_t k = 0; k < 6; ++k)
+    {
+        double v = m1->get(k).data_.double_val;
+        CHECK(std::fabs(v - e0[k]) < 1e-9);
+    }
+    i.pop(1);
+
+    // transform + itransform round-trip on (10, 20).
+    i.push(double_token(i, 10.0));
+    i.push(double_token(i, 20.0));
+    run_op(i, "transform");
+    CHECK(i.load() == 2);
+    run_op(i, "itransform");
+    CHECK(i.load() == 2);
+    CHECK(std::fabs(i.pick(1).data_.double_val - 10.0) < 1e-9);
+    CHECK(std::fabs(i.pick(0).data_.double_val - 20.0) < 1e-9);
+    i.pop(2);
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// State queries: round-trip each setter with its current* peer.
+void test_state_queries(SLIInterpreter& i)
+{
+    i.push(int_token(i, 40));
+    i.push(int_token(i, 40));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    // line width
+    i.push(double_token(i, 3.5));
+    run_op(i, "setlinewidth");
+    run_op(i, "currentlinewidth");
+    CHECK(i.load() == 1);
+    CHECK(std::fabs(i.top().data_.double_val - 3.5) < 1e-9);
+    i.pop(1);
+
+    // line cap (1 = round)
+    i.push(int_token(i, 1));
+    run_op(i, "setlinecap");
+    run_op(i, "currentlinecap");
+    CHECK(i.load() == 1);
+    CHECK(i.top().data_.long_val == 1);
+    i.pop(1);
+
+    // line join (2 = bevel)
+    i.push(int_token(i, 2));
+    run_op(i, "setlinejoin");
+    run_op(i, "currentlinejoin");
+    CHECK(i.top().data_.long_val == 2);
+    i.pop(1);
+
+    // RGB color (solid source path)
+    i.push(double_token(i, 0.25));
+    i.push(double_token(i, 0.5));
+    i.push(double_token(i, 0.75));
+    run_op(i, "setrgbcolor");
+    run_op(i, "currentrgbcolor");
+    CHECK(i.load() == 3);
+    CHECK(std::fabs(i.pick(2).data_.double_val - 0.25) < 1e-9);
+    CHECK(std::fabs(i.pick(1).data_.double_val - 0.5)  < 1e-9);
+    CHECK(std::fabs(i.pick(0).data_.double_val - 0.75) < 1e-9);
+    i.pop(3);
+
+    // dash
+    TokenArray* dashes = new TokenArray();
+    dashes->push_back(i.new_token<sli3::doubletype, double>(4.0));
+    dashes->push_back(i.new_token<sli3::doubletype, double>(2.0));
+    i.push(i.new_token<sli3::arraytype, TokenArray*>(dashes));
+    i.push(double_token(i, 1.0));
+    run_op(i, "setdash");
+    run_op(i, "currentdash");
+    CHECK(i.load() == 2);
+    CHECK(i.pick(1).is_of_type(sli3::arraytype));
+    TokenArray* out = i.pick(1).data_.array_val;
+    CHECK(out->size() == 2);
+    CHECK(std::fabs(out->get(0).data_.double_val - 4.0) < 1e-9);
+    CHECK(std::fabs(out->get(1).data_.double_val - 2.0) < 1e-9);
+    CHECK(std::fabs(i.pick(0).data_.double_val - 1.0) < 1e-9);
+    i.pop(2);
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// pagesize reports the OFFSCREEN context's dimensions.
+void test_pagesize(SLIInterpreter& i)
+{
+    i.push(int_token(i, 123));
+    i.push(int_token(i, 45));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+    run_op(i, "pagesize");
+    CHECK(i.load() == 2);
+    CHECK(i.pick(1).data_.long_val == 123);
+    CHECK(i.pick(0).data_.long_val == 45);
+    i.pop(2);
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// textextents returns a dict with all six metric keys.
+void test_textextents(SLIInterpreter& i)
+{
+    i.push(int_token(i, 40));
+    i.push(int_token(i, 40));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    // Need a font set before measuring.
+    i.push(i.new_token<sli3::stringtype, std::string>(std::string("sans")));
+    run_op(i, "findfont");
+    i.push(double_token(i, 18.0));
+    run_op(i, "scalefont");
+    run_op(i, "setfont");
+
+    i.push(i.new_token<sli3::stringtype, std::string>(std::string("hi")));
+    run_op(i, "textextents");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::dictionarytype));
+    Dictionary* d = i.top().data_.dict_val;
+    for (char const* k : {"XBearing", "YBearing", "Width", "Height", "XAdvance", "YAdvance"})
+    {
+        Token t;
+        CHECK(d->lookup(Name(k), t));
+        CHECK(t.is_of_type(sli3::doubletype));
+    }
+    i.pop(1);
+
+    // Cleanup currentfont so the rest of the suite isn't polluted.
+    Token gd;
+    CHECK(i.lookup(Name("globaldict"), gd));
+    gd.data_.dict_val->erase(Name(":currentfont"));
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// loadpng + drawimage round-trip: write a PNG, load it, paint onto a
+// fresh offscreen, write a new PNG, confirm the new file exists.
+void test_loadpng_drawimage(SLIInterpreter& i)
+{
+    std::string src_path = "/tmp/sli3-test-src.png";
+    std::string out_path = "/tmp/sli3-test-out.png";
+    std::remove(src_path.c_str());
+    std::remove(out_path.c_str());
+
+    // Build a source PNG: 50x30 red rectangle.
+    i.push(int_token(i, 50));
+    i.push(int_token(i, 30));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 0.0));
+    run_op(i, "setrgbcolor");
+    i.push(int_token(i, 0)); i.push(int_token(i, 0));
+    i.push(int_token(i, 50)); i.push(int_token(i, 30));
+    run_op(i, "rect"); run_op(i, "fill");
+    i.push(i.new_token<sli3::stringtype, std::string>(src_path));
+    run_op(i, "currentpage");
+    run_op(i, "writepng");
+    std::ifstream src_f(src_path, std::ios::binary | std::ios::ate);
+    CHECK(src_f.good());
+    src_f.close();
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+
+    // Now: fresh page, loadpng, drawimage at offset (10, 5) sized (50, 30).
+    i.push(int_token(i, 80));
+    i.push(int_token(i, 60));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    i.push(i.new_token<sli3::stringtype, std::string>(src_path));
+    run_op(i, "loadpng");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::graphicscontexttype));
+    GraphicsContext* img = i.top().data_.graphics_val;
+    CHECK(img && img->valid());
+    CHECK(img->is_image_surface());
+    CHECK(img->width() == 50);
+    CHECK(img->height() == 30);
+    // drawimage takes [gc cx cy w h] and leaves the stack empty of
+    // its operands. Pass-through: dup the gc since we want to close it.
+    i.index(0);  // dup -- but we want to keep one for closepage
+    // Easier: push the args then call drawimage. The gc on top will be popped.
+    i.push(int_token(i, 10));
+    i.push(int_token(i, 5));
+    i.push(int_token(i, 50));
+    i.push(int_token(i, 30));
+    run_op(i, "drawimage");
+    // After drawimage, stack still has the dup'd loaded gc.
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::graphicscontexttype));
+    run_op(i, "closepage");  // close the loaded image
+    CHECK(i.load() == 0);
+
+    // Write the composed result.
+    i.push(i.new_token<sli3::stringtype, std::string>(out_path));
+    run_op(i, "currentpage");
+    run_op(i, "writepng");
+    std::ifstream out_f(out_path, std::ios::binary | std::ios::ate);
+    CHECK(out_f.good());
+    CHECK(out_f.tellg() > 0);
+    out_f.close();
+
+    std::remove(src_path.c_str());
+    std::remove(out_path.c_str());
+
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
 // writepng on a PDF surface must raise UnsupportedSurfaceError.
 void test_writepng_rejects_pdf(SLIInterpreter& i)
 {
@@ -563,6 +812,11 @@ int main()
     test_text_findfont_setfont(i);
     test_pdf_backend(i);
     test_writepng_rejects_pdf(i);
+    test_ctm(i);
+    test_state_queries(i);
+    test_pagesize(i);
+    test_textextents(i);
+    test_loadpng_drawimage(i);
 
     std::cout << "test_graphics_module: OK\n";
     return 0;
