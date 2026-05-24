@@ -507,6 +507,14 @@ Dictionary* build_statusdict(SLIInterpreter& i, int argc, char** argv,
     insert_str(i, *d, "prgdocdir",  datadir);
     insert_int(i, *d, "exitcode", EXIT_SUCCESS);
     insert_bool(i, *d, "interactive", true);
+    // Build-time graphics-support flag. lib/sli/sli-init.sli reads this
+    // to decide whether to load graphicslib.sli (the demo / sugar
+    // wrappers around newpage / showpage / …).
+#ifdef SLI3_HAS_GRAPHICS
+    insert_bool(i, *d, "have_graphics", true);
+#else
+    insert_bool(i, *d, "have_graphics", false);
+#endif
 
     // Architecture sub-dict — sli-init.sli inspects it to print build
     // info. Keep entries minimal; add more as scripts demand them.

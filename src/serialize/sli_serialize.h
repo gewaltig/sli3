@@ -23,7 +23,8 @@ constexpr uint32_t kSerializeMagic = 0x33494C53;  // "SLI3" little-endian
 //       EXECUTEONLY / NOACCESS) to TokenArray and SLIString bodies.
 //   3 — appended regextype (POSIX <regex.h> wrapper) to sli_typeid.
 //   4 — appended imaptype / imapindexedtype / imapthreadtype (C++ Map family) to sli_typeid.
-constexpr uint32_t kSerializeVersion = 4;
+//   5 — appended graphicscontexttype (Cairo + SDL2 surface) to sli_typeid.
+constexpr uint32_t kSerializeVersion = 5;
 
 /**
  * Abstract sink for serialization. Concrete implementations:

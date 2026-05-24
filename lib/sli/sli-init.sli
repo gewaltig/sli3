@@ -1902,6 +1902,20 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 (regexp.sli) run
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PostScript-style 2D graphics            %
+% (newpage / moveto / stroke / fill / ... %
+%  from sli_graphics_module.cpp).         %
+% Only loaded when sli3 was built with    %
+% -DSLI3_GRAPHICS=ON; otherwise the C++   %
+% operators are absent and the script     %
+% would raise UndefinedName on /gfxdemo.  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+statusdict /have_graphics get
+{
+  (graphicslib.sli) run
+} if
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

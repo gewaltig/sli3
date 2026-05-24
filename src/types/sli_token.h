@@ -29,6 +29,7 @@ namespace sli3
     class SLIostream;
     class TypeNode;
     class Regex;
+    class GraphicsContext;
 
     class Token
     {
@@ -214,6 +215,7 @@ namespace sli3
 	    TypeNode *trie_val;
 	    SLIType *type_val;
 	    Regex *regex_val;
+	    GraphicsContext *graphics_val;
 	} data_;
     };
 

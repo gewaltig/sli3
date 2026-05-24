@@ -74,6 +74,7 @@ namespace sli3
     nooptype,
     quittype,
     regextype,         //!< POSIX <regex.h> wrapper, appended for the regex module.
+    graphicscontexttype, //!< Cairo + SDL2 drawing surface, appended for the graphics module.
     num_sli_types, //!< Number of builtin types. User type ids start here
     intvectortype,
     doublevectortype

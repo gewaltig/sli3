@@ -176,6 +176,39 @@ target_compile_options(sli3_core PRIVATE ${SLI3_WARNING_FLAGS})
 add_library(sli3_warnings INTERFACE)
 target_compile_options(sli3_warnings INTERFACE ${SLI3_WARNING_FLAGS})
 
+# --- Optional graphics module (Cairo + SDL2) -------------------------------
+# Adds PostScript-flavored drawing operators (newpage, moveto, stroke,
+# setrgbcolor, …) that render into a live SDL2 window via Cairo. Off →
+# the type slot and the createcommand calls are #ifdef'd out and no
+# graphics .cpp is built, so the binary has no Cairo/SDL dependency.
+option(SLI3_GRAPHICS "Build with Cairo + SDL2 graphics support" ON)
+if(SLI3_GRAPHICS)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(CAIRO REQUIRED cairo)
+  pkg_check_modules(SDL2  REQUIRED sdl2)
+  target_sources(sli3_core PRIVATE
+    src/types/sli_graphicscontexttype.cpp
+    src/containers/sli_graphics.cpp
+    src/builtins/sli_graphics_module.cpp
+  )
+  target_include_directories(sli3_core PUBLIC
+    ${CAIRO_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRS}
+  )
+  target_link_libraries(sli3_core PUBLIC
+    ${CAIRO_LIBRARIES}
+    ${SDL2_LIBRARIES}
+  )
+  target_link_directories(sli3_core PUBLIC
+    ${CAIRO_LIBRARY_DIRS}
+    ${SDL2_LIBRARY_DIRS}
+  )
+  target_compile_definitions(sli3_core PUBLIC SLI3_HAS_GRAPHICS=1)
+  message(STATUS "sli3: graphics enabled (cairo ${CAIRO_VERSION}, sdl2 ${SDL2_VERSION})")
+else()
+  message(STATUS "sli3: graphics disabled (-DSLI3_GRAPHICS=OFF)")
+endif()
+
 # Optional sanitizer build: -DSLI3_SANITIZE=ON enables ASAN+UBSan.
 # Surfaces self-assign UAFs (Stage 1.1), null-payload UB (Stage 1.2),
 # and the math-op UB (Stage 5: LONG_MIN, divide-by-zero, ...).
@@ -250,3 +283,12 @@ sli3_add_test(test_dispatch_abi        tests/test_dispatch_abi.cpp)
 sli3_add_test(test_access              tests/test_access.cpp)
 sli3_add_test(test_regex_module        tests/test_regex_module.cpp)
 sli3_add_test(test_signal_trap         tests/test_signal_trap.cpp)
+
+if(SLI3_GRAPHICS)
+  # The graphics test boots the full interpreter (so globaldict /
+  # errordict / etc. exist) and drives the Cairo + SDL2 path under
+  # SDL_VIDEODRIVER=dummy. Needs SLIDATADIR so sli-init.sli loads.
+  sli3_add_test(test_graphics_module   tests/test_graphics_module.cpp)
+  set_tests_properties(test_graphics_module PROPERTIES
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SLIDATADIR=${CMAKE_CURRENT_SOURCE_DIR}/lib")
+endif()

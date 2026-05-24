@@ -1,0 +1,49 @@
+/*
+ *  graphicslib.sli  PostScript-flavored 2D drawing.
+ *
+ *  C++ operators come from src/builtins/sli_graphics_module.cpp:
+ *    newpage       ( w h -> gc )      open SDL2 window with Cairo surface
+ *    closepage     ( gc -> -  )       tear down the window
+ *    currentpage   ( -> gc    )       recall the active surface
+ *    newpath, moveto, lineto, rlineto, closepath
+ *    rect ( x y w h -> - )            add rectangle to path
+ *    arc  ( cx cy r a1 a2 -> - )      add arc to path (angles in degrees)
+ *    circle ( cx cy r -> - )          add closed circle to path
+ *    stroke, fill, erasepage
+ *    setrgbcolor ( r g b -> - )       components in [0,1]
+ *    setgray ( g -> - )
+ *    setlinewidth ( w -> - )
+ *    gsave, grestore
+ *    translate ( dx dy -> - )
+ *    scale     ( sx sy -> - )
+ *    rotate    ( deg -> - )           rotation in degrees, PostScript-style
+ *    showpage      ( -> - )           present + pump events
+ *    flushpage     ( -> - )           present only
+ *    wait          ( s -> - )         pump events for at most s seconds
+ *    windowclosed  ( -> bool )        true if user closed the window
+ *
+ *  IMPORTANT: there is intentionally no blocking /interact. On macOS,
+ *  sli3 launched from a terminal is not a Cocoa app, so the SDL
+ *  window's close button may not deliver an event back to us  an
+ *  unbounded blocking loop would freeze the REPL forever. Always use
+ *  /wait with a finite second count.
+ *
+ *  PostScript bottom-left origin is set once on /newpage; SLI code can
+ *  use page coordinates directly.
+ */
+
+% /gfxdemo  sanity demo. Opens a 400 x 400 window with a red square
+% and a blue circle, holds it for 4 seconds (or until the user clicks
+% the close button), then tears the window down and returns to the REPL.
+/gfxdemo
+{
+  (gfxdemo: opening 400x400 window for 4 seconds.) =
+  400 400 newpage pop
+  1 0 0 setrgbcolor
+  50 50 100 100 rect fill
+  0 0 1 setrgbcolor
+  200 200 80 circle fill
+  showpage
+  4 wait
+  currentpage closepage
+} def

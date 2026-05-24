@@ -19,6 +19,10 @@
 #include "sli_parser.h"
 #include "sli_regex_module.h"
 #include "sli_regextype.h"
+#ifdef SLI3_HAS_GRAPHICS
+#include "sli_graphics_module.h"
+#include "sli_graphicscontexttype.h"
+#endif
 #include "sli_signal.h"
 #include "sli_stack.h"
 #include "sli_startup.h"
@@ -315,6 +319,10 @@ void SLIInterpreter::init_types() {
       new OstreamType(this, "ostreamtype", sli3::ostreamtype));
   reg(sli3::regextype,
       new RegexType(this, "regextype", sli3::regextype));
+#ifdef SLI3_HAS_GRAPHICS
+  reg(sli3::graphicscontexttype,
+      new GraphicsContextType(this, "graphicscontexttype", sli3::graphicscontexttype));
+#endif
 }
 
 namespace {
@@ -392,6 +400,9 @@ void SLIInterpreter::init_internal_functions(int argc, char** argv) {
   init_state_ops(this);
   init_access_ops(this);
   init_regex_module(this);
+#ifdef SLI3_HAS_GRAPHICS
+  init_sligraphics(this);
+#endif
   init_trace(this);
   // GNUreadline / GNUaddhistory must be registered BEFORE sli-init.sli
   // loads — the script's /executive definition gates on
