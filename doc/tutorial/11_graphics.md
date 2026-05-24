@@ -703,7 +703,9 @@ module ships more, briefly:
   `currentdash`, `currentpoint`, `currentfont`.
 - **Matrix operators**: `currentmatrix`, `setmatrix`, `concat`,
   `initmatrix`, `transform`, `itransform` — direct CTM manipulation.
-- **Window ergonomics**: `setwindowtitle`, `resize`, `pagesize`.
+- **Window ergonomics**: `setwindowtitle`, `resize`, `pagesize`, `setwindowpos`, `setfullscreen`.
+- **Text alignment helpers** in `graphicslib.sli`: `showcentered` and `showright` use `stringwidth` + `rmoveto` to center / right-align at the current point.
+- **`cleartransparent`**: companion to `erasepage` that clears the surface to fully transparent (alpha = 0) instead of opaque white. Useful when the output will be composited over something else.
 - **Multiple pages**: `setpage` switches the "current page" to any
   open one, so you can juggle several windows or offscreen surfaces.
 
@@ -754,6 +756,12 @@ SLI ] compositdemo       % the same shape painted under three operators
 SLI ] fontdemo           % 11 typefaces, 5 sizes, slant + weight variants
 SLI ] fontdemopng        % the font specimen, written to sli3-fontdemo.png
 SLI ] fontdemopng2x      % the same specimen, 2x hi-DPI to sli3-fontdemo-2x.png
+SLI ] clockdemo          % analog clock face at 10:10:30
+SLI ] clockdemopng       % the clock, written to sli3-clockdemo.png
+SLI ] fractaldemo        % Sierpinski triangle, depth 5
+SLI ] fractaldemopng     % the fractal, written to sli3-fractaldemo.png
+SLI ] plotdemo           % two-series line chart with markers + gradient fill
+SLI ] plotdemopng        % the chart, written to sli3-plotdemo.png
 SLI ] (path/to/foo.png) viewpng   % open a window showing foo.png at its native size
 ```
 

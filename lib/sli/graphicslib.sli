@@ -20,9 +20,11 @@
  *    pagesize      ( -> w h )            current page width / height
  *    setwindowtitle ( title -> - )       WINDOW only
  *    resize        ( w h -> - )          WINDOW only
+ *    setwindowpos  ( x y -> - )          WINDOW only -- move the window
+ *    setfullscreen ( bool -> - )         WINDOW only -- toggle fullscreen
  *
  *  Path construction
- *    newpath, moveto, lineto, rlineto, closepath
+ *    newpath, moveto, lineto, rmoveto, rlineto, closepath
  *    curveto       ( x1 y1 x2 y2 x3 y3 -> - )    PS cubic Bezier
  *    rcurveto      ( dx1 ... dy3 -> - )          relative version
  *    arc           ( cx cy r a1 a2 -> - )        positive direction (degrees)
@@ -33,7 +35,7 @@
  *    circle        ( cx cy r -> - )
  *
  *  Painting + clipping
- *    stroke, fill, erasepage
+ *    stroke, fill, erasepage, cleartransparent
  *    clip          ( -> - )       non-zero winding clip with current path
  *    eoclip        ( -> - )       even-odd clip
  *    currentpoint  ( -> x y )
@@ -93,6 +95,10 @@
  *    textextents   ( string -> dict )    /XBearing /YBearing /Width
  *                                        /Height /XAdvance /YAdvance
  *    charpath      ( string [bool] -> - )
+ *    showcentered  ( string -> - )       horizontally centered on
+ *                                        the current point
+ *    showright     ( string -> - )       right-aligned at the
+ *                                        current point
  *
  *  Display
  * *    showpage      ( -> - )    WINDOW: present+pump; PDF/SVG: new page; OFFSCREEN: no-op
@@ -176,6 +182,29 @@ put
 /gfxoutpath        % filename -> fullpath
 {
   gfxoutdir (/) join_s exch join_s
+} def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Text alignment helpers.
+%%
+%% Each takes a string and shows it relative to the current point.
+%% The current font / color / etc. are unchanged.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/showcentered      % (text) -> -
+{
+  /:t exch def
+  :t stringwidth pop   % drop the y advance, keep x
+  -2 div 0 rmoveto
+  :t show
+} def
+
+/showright         % (text) -> -
+{
+  /:t exch def
+  :t stringwidth pop
+  neg 0 rmoveto
+  :t show
 } def
 
 % /gfxdemo  sanity demo. Opens a 400 x 400 window with a red square
@@ -634,6 +663,372 @@ put
   330 30 moveto (difference) show
 
   (sli3-compositdemo.png) gfxoutpath currentpage writepng
+  currentpage closepage
+} def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% /clockdemo -- analog clock face at 10:10:30.
+%%
+%% Shows: gsave / grestore scoping, translate + rotate to position
+%% hour ticks and hands, showcentered helper for hour numerals.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/:render-clockdemo
+{
+  /:cx 200 def
+  /:cy 200 def
+
+  color /white get setrgbcolor 0 0 400 400 rect fill
+
+  % Outer rim.
+  color /black get setrgbcolor
+  5 setlinewidth
+  :cx :cy 160 circle stroke
+
+  % Twelve hour ticks. Quarter-hour ticks (12 / 3 / 6 / 9) get
+  % drawn thicker. Rotate the CTM to the tick's angle, draw a
+  % short radial segment along the new +x axis, then unwind.
+  1 setlinecap
+  0 1 11
+  {
+    /:i exch def
+    gsave
+      :cx :cy translate
+      90 :i 30 mul sub rotate
+      :i 3 mod 0 eq
+      { 6 setlinewidth 128 0 moveto 152 0 lineto }
+      { 3 setlinewidth 140 0 moveto 152 0 lineto }
+      ifelse
+      stroke
+    grestore
+  } for
+
+  % Hour numerals at 12, 3, 6, 9. Rotate outward, then UN-rotate the
+  % glyphs so they stay upright; showcentered horizontally centers.
+  (serif) findfont 22 scalefont setfont
+  color /black get setrgbcolor
+  [ [(12) 0] [(3) 3] [(6) 6] [(9) 9] ]
+  {
+    /:item exch def
+    /:txt :item 0 get def
+    /:h   :item 1 get def
+    gsave
+      :cx :cy translate
+      90 :h 30 mul sub rotate
+      108 0 translate
+      :h 30 mul 90 sub rotate
+      0 -8 moveto
+      :txt showcentered
+    grestore
+  } forall
+
+  % --- Time 10:10:30 ---
+
+  % Second hand: thin red, slight tail behind the center.
+  color /red get setrgbcolor
+  1.2 setlinewidth
+  gsave
+    :cx :cy translate
+    90 30 6 mul sub rotate
+    -22 0 moveto 150 0 lineto stroke
+  grestore
+
+  % Minute hand: black, medium thickness.
+  color /black get setrgbcolor
+  3.5 setlinewidth
+  gsave
+    :cx :cy translate
+    90 10 6 mul sub rotate
+    -16 0 moveto 130 0 lineto stroke
+  grestore
+
+  % Hour hand: black, thick, shorter.
+  6 setlinewidth
+  gsave
+    :cx :cy translate
+    % minute-attuned angle: 90 - (h*30 + m*0.5)
+    90 10 30 mul sub 10 0.5 mul sub rotate
+    -12 0 moveto 85 0 lineto stroke
+  grestore
+
+  % Center cap (two concentric circles).
+  color /black get setrgbcolor :cx :cy 7 circle fill
+  color /red get setrgbcolor   :cx :cy 3 circle fill
+} def
+
+/clockdemo
+{
+  (clockdemo: opening 400x400 window for 6 seconds.) =
+  400 400 newpage pop
+  :render-clockdemo
+  showpage
+  6 wait
+  currentpage closepage
+} def
+
+/clockdemopng
+{
+  (clockdemopng: writing ) =only gfxoutdir =only (/sli3-clockdemo.png) =
+  400 400 2 newhidpioffscreen pop
+  /best setantialias /full sethinting /on sethintmetrics
+  :render-clockdemo
+  (sli3-clockdemo.png) gfxoutpath currentpage writepng
+  currentpage closepage
+} def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% /fractaldemo -- Sierpinski triangle via recursion.
+%%
+%% Shows: recursive proc, base case + 3 sub-calls per step,
+%% sethsbcolor for a hue-by-depth color walk.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/:render-fractaldemo
+{
+  color /white get setrgbcolor 0 0 400 400 rect fill
+
+  % Recursive Sierpinski. (x, y) is the lower-left vertex; s is the
+  % side length; d is the remaining recursion depth. Below depth 0
+  % we paint a filled triangle.
+  %
+  % Each invocation begins a fresh scratch dict so its locals don't
+  % stomp the caller's -- without begin/end here the recursive calls
+  % would all share one /d, /s, /x, /y binding in userdict and the
+  % outer call would see corrupted values on its way back up.
+  /:sierpinski
+  {
+    4 dict begin
+      /d exch def /s exch def /y exch def /x exch def
+      d 0 leq
+      {
+        newpath
+        x y moveto
+        x s add y lineto
+        x s 2 div add y s 0.866 mul add lineto
+        closepath fill
+      }
+      {
+        x                       y                       s 2 div d 1 sub :sierpinski
+        x s 2 div add           y                       s 2 div d 1 sub :sierpinski
+        x s 4 div add           y s 0.866 mul 2 div add s 2 div d 1 sub :sierpinski
+      } ifelse
+    end
+  } def
+
+  (serif) findfont 18 scalefont setfont
+  color /black get setrgbcolor
+  200 370 moveto (Sierpinski triangle, depth 5) showcentered
+
+  color /navy get setrgbcolor
+  40 30 320 5 :sierpinski
+} def
+
+/fractaldemo
+{
+  (fractaldemo: opening 400x400 window for 6 seconds.) =
+  400 400 newpage pop
+  :render-fractaldemo
+  showpage
+  6 wait
+  currentpage closepage
+} def
+
+/fractaldemopng
+{
+  (fractaldemopng: writing ) =only gfxoutdir =only (/sli3-fractaldemo.png) =
+  400 400 2 newhidpioffscreen pop
+  /best setantialias /full sethinting /on sethintmetrics
+  :render-fractaldemo
+  (sli3-fractaldemo.png) gfxoutpath currentpage writepng
+  currentpage closepage
+} def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% /plotdemo -- two-series line chart.
+%%
+%% Pulls in: linearpattern (background gradient + area fill),
+%% setdash (gridlines), polymorphic setrgbcolor with arrays
+%% (palette), translucent fills (alpha), showcentered + showright
+%% (axis labels and title), forall over the data records, named
+%% colors for stylistic accents.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/:render-plotdemo
+{
+  /:pw 700 def /:ph 500 def
+  /:px 70.0 def /:py 70.0 def
+  /:pwi 580.0 def /:phi 350.0 def
+  /:xmin 0.0 def /:xmax 11.0 def
+  /:ymin 0.0 def /:ymax 200.0 def
+
+  % data -> pixel mappings; doubles all the way to dodge int division
+  /:datax { :xmin sub :xmax :xmin sub div :pwi mul :px add } def
+  /:datay { :ymin sub :ymax :ymin sub div :phi mul :py add } def
+
+  /:seriesA [ 80 95 110 130 145 160 175 165 150 140 125 110 ] def
+  /:seriesB [ 60 70 85  100 90  105 115 125 130 145 160 180 ] def
+  /:months  [ (Jan) (Feb) (Mar) (Apr) (May) (Jun)
+              (Jul) (Aug) (Sep) (Oct) (Nov) (Dec) ] def
+
+  % Series palette as 4-element [r g b a] arrays.
+  /:cA       [0.85 0.30 0.20 1.0] def     % warm red
+  /:cAfill0  [0.85 0.30 0.20 0.05] def
+  /:cAfill1  [0.85 0.30 0.20 0.45] def
+  /:cB       [0.20 0.50 0.85 1.0] def     % cool blue
+
+  % Background: faint top-to-bottom gradient.
+  0 0 0 :ph linearpattern
+  dup 0 0.97 0.98 1.00 addcolorstop
+  dup 1 1.00 1.00 1.00 addcolorstop
+  setpattern
+  0 0 :pw :ph rect fill
+
+  % Title + subtitle.
+  (serif) findfont 22 scalefont setfont
+  color /black get setrgbcolor
+  :pw 2 div 460 moveto (Monthly product revenue) showcentered
+  (sans) findfont 12 scalefont setfont
+  color /darkgray get setrgbcolor
+  :pw 2 div 438 moveto (thousand USD, by product line) showcentered
+
+  % Horizontal gridlines at every 50 units. Dashed light gray.
+  color /lightgray get setrgbcolor
+  0.5 setlinewidth
+  [2 3] 0 setdash
+  0 50 :ymax cvi
+  {
+    /:v exch def
+    newpath
+    :px :v :datay moveto
+    :px :pwi add :v :datay lineto
+    stroke
+  } for
+  [] 0 setdash
+
+  % Series A: gradient-filled area under the line.
+  :px :py :px :py :phi add linearpattern
+  dup 0 :cAfill0 0 get :cAfill0 1 get :cAfill0 2 get :cAfill0 3 get addcolorstop
+  dup 1 :cAfill1 0 get :cAfill1 1 get :cAfill1 2 get :cAfill1 3 get addcolorstop
+  setpattern
+  newpath
+  :px :py moveto
+  0 1 11
+  {
+    /:i exch def
+    :i :datax :seriesA :i get :datay lineto
+  } for
+  :pwi :px add :py lineto
+  closepath
+  fill
+
+  % Series A line.
+  :cA setrgbcolor
+  2.5 setlinewidth
+  1 setlinejoin
+  newpath
+  0 :datax :seriesA 0 get :datay moveto
+  1 1 11
+  {
+    /:i exch def
+    :i :datax :seriesA :i get :datay lineto
+  } for
+  stroke
+
+  % Series A markers (filled circle + thin white ring).
+  0 1 11
+  {
+    /:i exch def
+    /:mx :i :datax def
+    /:my :seriesA :i get :datay def
+    :cA setrgbcolor :mx :my 4.5 circle fill
+    color /white get setrgbcolor :mx :my 2 circle fill
+    :cA setrgbcolor :mx :my 1.6 circle fill
+  } for
+
+  % Series B line + markers.
+  :cB setrgbcolor
+  2.5 setlinewidth
+  newpath
+  0 :datax :seriesB 0 get :datay moveto
+  1 1 11
+  {
+    /:i exch def
+    :i :datax :seriesB :i get :datay lineto
+  } for
+  stroke
+
+  0 1 11
+  {
+    /:i exch def
+    /:mx :i :datax def
+    /:my :seriesB :i get :datay def
+    :cB setrgbcolor :mx :my 4.5 circle fill
+    color /white get setrgbcolor :mx :my 2 circle fill
+    :cB setrgbcolor :mx :my 1.6 circle fill
+  } for
+
+  % Axes drawn AFTER the data so they look bold over the fills.
+  color /darkgray get setrgbcolor
+  1.5 setlinewidth
+  newpath :px :py moveto :px :py :phi add lineto stroke
+  newpath :px :py moveto :px :pwi add :py lineto stroke
+
+  % X axis tick labels.
+  (sans) findfont 10 scalefont setfont
+  color /black get setrgbcolor
+  0 1 11
+  {
+    /:i exch def
+    :i :datax 54 moveto :months :i get showcentered
+  } for
+
+  % Y axis tick labels.
+  0 50 :ymax cvi
+  {
+    /:v exch def
+    :px 8 sub :v :datay 4 sub moveto
+    :v cvs showright
+  } for
+
+  % Legend (top-right of plot area).
+  /:lx 510.0 def /:ly 408.0 def
+  color /white get setrgbcolor :lx 10 sub :ly 36 sub 140 56 rect fill
+  color /lightgray get setrgbcolor 0.5 setlinewidth
+  :lx 10 sub :ly 36 sub 140 56 rect stroke
+
+  (sans) findfont 11 scalefont setfont
+  :cA setrgbcolor 3 setlinewidth
+  newpath :lx :ly moveto :lx 28 add :ly lineto stroke
+  :lx 14 add :ly 4.5 circle fill
+  color /white get setrgbcolor :lx 14 add :ly 2 circle fill
+  :cA setrgbcolor :lx 14 add :ly 1.6 circle fill
+  color /black get setrgbcolor :lx 36 add :ly 4 sub moveto (Product A) show
+
+  :cB setrgbcolor
+  newpath :lx :ly 20 sub moveto :lx 28 add :ly 20 sub lineto stroke
+  :lx 14 add :ly 20 sub 4.5 circle fill
+  color /white get setrgbcolor :lx 14 add :ly 20 sub 2 circle fill
+  :cB setrgbcolor :lx 14 add :ly 20 sub 1.6 circle fill
+  color /black get setrgbcolor :lx 36 add :ly 24 sub moveto (Product B) show
+} def
+
+/plotdemo
+{
+  (plotdemo: opening 700x500 window for 6 seconds.) =
+  700 500 newpage pop
+  :render-plotdemo
+  showpage
+  6 wait
+  currentpage closepage
+} def
+
+/plotdemopng
+{
+  (plotdemopng: writing ) =only gfxoutdir =only (/sli3-plotdemo.png) =
+  700 500 2 newhidpioffscreen pop
+  /best setantialias /full sethinting /on sethintmetrics
+  :render-plotdemo
+  (sli3-plotdemo.png) gfxoutpath currentpage writepng
   currentpage closepage
 } def
 

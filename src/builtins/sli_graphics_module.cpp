@@ -1074,6 +1074,27 @@ public:
     }
 };
 
+// Like /erasepage but paints with CAIRO_OPERATOR_CLEAR -- writes
+// fully transparent pixels (alpha = 0) over the whole surface
+// instead of opaque white. Useful when the result will be
+// composited over something else (e.g. an HTML page) or when you
+// want a transparent background in writepng output.
+class ClearTransparentFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        GraphicsContext* g = require_current_gc(i, Name("cleartransparent"));
+        if (!g) return;
+        cairo_t* cr = g->cr();
+        cairo_save(cr);
+        cairo_identity_matrix(cr);
+        cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+        cairo_paint(cr);
+        cairo_restore(cr);
+    }
+};
+
 //------------------------------------------------------------------------
 // State
 //------------------------------------------------------------------------
@@ -1914,6 +1935,64 @@ public:
     }
 };
 
+// `x y setwindowpos -> -`. WINDOW only; moves the OS window.
+class SetWindowPosFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(2);
+        if (!is_numeric(i->pick(1)) || !is_numeric(i->pick(0)))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("setwindowpos"));
+        if (!g) return;
+        if (g->backend() != GraphicsContext::Backend::WINDOW
+            || !g->sdl_window())
+        {
+            i->raiseerror(Name("setwindowpos"),
+                          Name("UnsupportedSurfaceError"));
+            return;
+        }
+        long x = static_cast<long>(as_double(i->pick(1)));
+        long y = static_cast<long>(as_double(i->pick(0)));
+        SDL_SetWindowPosition(g->sdl_window(),
+                              static_cast<int>(x), static_cast<int>(y));
+        i->pop(2);
+    }
+};
+
+// `bool setfullscreen -> -`. true = fullscreen-desktop, false =
+// windowed. WINDOW only.
+class SetFullscreenFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        if (!i->pick(0).is_of_type(sli3::booltype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("setfullscreen"));
+        if (!g) return;
+        if (g->backend() != GraphicsContext::Backend::WINDOW
+            || !g->sdl_window())
+        {
+            i->raiseerror(Name("setfullscreen"),
+                          Name("UnsupportedSurfaceError"));
+            return;
+        }
+        bool on = i->pick(0).data_.bool_val;
+        Uint32 flags = on ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
+        SDL_SetWindowFullscreen(g->sdl_window(), flags);
+        i->pop(1);
+    }
+};
+
 // `pagesize -> w h` -- width and height of the current page in user
 // units. Works for every backend.
 class PageSizeFunction : public SLIFunction
@@ -2665,6 +2744,7 @@ NewPathFunction      newpath_fn;
 ClosePathFunction    closepath_fn;
 XYFunction<cairo_move_to>     moveto_fn   {Name("moveto")};
 XYFunction<cairo_line_to>     lineto_fn   {Name("lineto")};
+XYFunction<cairo_rel_move_to> rmoveto_fn  {Name("rmoveto")};
 XYFunction<cairo_rel_line_to> rlineto_fn  {Name("rlineto")};
 XYFunction<cairo_translate>   translate_fn{Name("translate")};
 XYFunction<cairo_scale>       scale_fn    {Name("scale")};
@@ -2687,6 +2767,8 @@ CurrentDashFunction      currentdash_fn;
 SetWindowTitleFunction   setwindowtitle_fn;
 ResizeFunction           resize_fn;
 PageSizeFunction         pagesize_fn;
+SetWindowPosFunction     setwindowpos_fn;
+SetFullscreenFunction    setfullscreen_fn;
 TextExtentsFunction      textextents_fn;
 RectFunction         rect_fn;
 ArcFunction          arc_fn;
@@ -2694,6 +2776,7 @@ CircleFunction       circle_fn;
 StrokeFunction       stroke_fn;
 FillFunction         fill_fn;
 ErasePageFunction    erasepage_fn;
+ClearTransparentFunction cleartransparent_fn;
 SetRgbColorFunction  setrgbcolor_fn;
 SetGrayFunction      setgray_fn;
 SetHsbColorFunction  sethsbcolor_fn;
@@ -2844,13 +2927,16 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("setpattern",    &setpattern_fn);
     i->createcommand("pagesize",     &pagesize_fn);
     i->createcommand("setwindowtitle", &setwindowtitle_fn);
-    i->createcommand("resize",       &resize_fn);
+    i->createcommand("resize",         &resize_fn);
+    i->createcommand("setwindowpos",   &setwindowpos_fn);
+    i->createcommand("setfullscreen",  &setfullscreen_fn);
 
     // Path construction
     i->createcommand("newpath",      &newpath_fn);
     i->createcommand("closepath",    &closepath_fn);
     i->createcommand("moveto",       &moveto_fn);
     i->createcommand("lineto",       &lineto_fn);
+    i->createcommand("rmoveto",      &rmoveto_fn);
     i->createcommand("rlineto",      &rlineto_fn);
     i->createcommand("curveto",      &curveto_fn);
     i->createcommand("rcurveto",     &rcurveto_fn);
@@ -2866,6 +2952,7 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("stroke",       &stroke_fn);
     i->createcommand("fill",         &fill_fn);
     i->createcommand("erasepage",    &erasepage_fn);
+    i->createcommand("cleartransparent", &cleartransparent_fn);
     i->createcommand("clip",         &clip_fn);
     i->createcommand("eoclip",       &eoclip_fn);
     i->createcommand("currentpoint", &currentpoint_fn);
