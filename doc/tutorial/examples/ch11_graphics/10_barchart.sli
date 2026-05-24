@@ -1,0 +1,51 @@
+% Chapter 11 -- a small bar chart.
+%
+% Combines color lookup, paths, text, and a forall loop over a
+% nested array of (label, value, color-name) records.
+%
+% Output:
+%   /tmp/sli3-ch11-10-barchart.png  (PNG, 500x300)
+
+500 300 newoffscreen pop
+color /white get setrgbcolor 0 0 500 300 rect fill
+
+% Title
+(sans) findfont 16 scalefont setfont
+color /black get setrgbcolor
+20 270 moveto (Quarterly sales) show
+
+% Axes
+2 setlinewidth
+color /darkgray get setrgbcolor
+40 40 moveto 460 40 lineto stroke
+40 40 moveto  40 240 lineto stroke
+
+% Data: forall accumulator pattern. We push the column index 0
+% under the array; the body sees `idx item` on entry, consumes
+% both, and pushes idx+1 as the new accumulator.
+0
+[ [(Q1) 80 /red] [(Q2) 130 /orange] [(Q3) 110 /green] [(Q4) 170 /blue] ]
+{
+  /:item exch def           % element on top -> :item
+  /:idx  exch def           % accumulator below -> :idx
+  /:label :item 0 get def
+  /:value :item 1 get def
+  /:cname :item 2 get def
+  /:x 70 :idx 100 mul add def
+
+  % Bar
+  color :cname get setrgbcolor
+  :x 40 60 :value rect fill
+
+  % Label below the bar
+  (sans) findfont 11 scalefont setfont
+  color /black get setrgbcolor
+  :x 24 moveto :label show
+
+  :idx 1 add                % new accumulator
+} forall
+pop                          % drop final accumulator
+
+(/tmp/sli3-ch11-10-barchart.png) currentpage writepng
+currentpage closepage
+quit

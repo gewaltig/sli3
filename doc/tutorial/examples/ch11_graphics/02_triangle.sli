@@ -1,0 +1,33 @@
+% Chapter 11 -- paths.
+%
+% Build a triangle from three line segments, paint it twice: once
+% stroked (outline only) and once filled.
+%
+% Output:
+%   /tmp/sli3-ch11-02-triangle.png  (PNG, 300x180)
+
+300 180 newoffscreen pop
+color /white get setrgbcolor 0 0 300 180 rect fill
+
+% Left triangle: stroked outline only.
+color /black get setrgbcolor
+3 setlinewidth
+newpath
+ 30  20 moveto
+130  20 lineto
+ 80 150 lineto
+closepath
+stroke
+
+% Right triangle: filled interior.
+color /teal get setrgbcolor
+newpath
+170  20 moveto
+270  20 lineto
+220 150 lineto
+closepath
+fill
+
+(/tmp/sli3-ch11-02-triangle.png) currentpage writepng
+currentpage closepage
+quit

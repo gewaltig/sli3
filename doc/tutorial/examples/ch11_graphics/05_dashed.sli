@@ -1,0 +1,28 @@
+% Chapter 11 -- line settings.
+%
+% Three horizontal lines with different dash patterns to show how
+% setdash interprets its array argument.
+%
+% Output:
+%   /tmp/sli3-ch11-05-dashed.png  (PNG, 300x140)
+
+300 140 newoffscreen pop
+color /white get setrgbcolor 0 0 300 140 rect fill
+color /darkgray get setrgbcolor
+2 setlinewidth
+
+% Solid
+[] 0 setdash
+20 110 moveto 280 110 lineto stroke
+
+% Long dashes
+[12 6] 0 setdash
+20 70 moveto 280 70 lineto stroke
+
+% Dot-dash
+[2 4 8 4] 0 setdash
+20 30 moveto 280 30 lineto stroke
+
+(/tmp/sli3-ch11-05-dashed.png) currentpage writepng
+currentpage closepage
+quit

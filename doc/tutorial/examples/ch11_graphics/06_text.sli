@@ -1,0 +1,25 @@
+% Chapter 11 -- text in three fonts.
+%
+% findfont builds a font dictionary from a family name; scalefont
+% sets its size; setfont installs it; show paints text at the
+% current point.
+%
+% Output:
+%   /tmp/sli3-ch11-06-text.png  (PNG, 400x200)
+
+400 200 newoffscreen pop
+color /white get setrgbcolor 0 0 400 200 rect fill
+color /black get setrgbcolor
+
+(sans)      findfont 18 scalefont setfont
+20 150 moveto (Hello, sli3 -- sans) show
+
+(serif)     findfont 18 scalefont setfont
+20 100 moveto (Hello, sli3 -- serif) show
+
+(monospace) findfont 18 scalefont setfont
+20  50 moveto (Hello, sli3 -- monospace) show
+
+(/tmp/sli3-ch11-06-text.png) currentpage writepng
+currentpage closepage
+quit

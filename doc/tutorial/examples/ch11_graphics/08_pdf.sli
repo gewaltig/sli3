@@ -1,0 +1,28 @@
+% Chapter 11 -- multi-page PDF output.
+%
+% newpdf takes a file path and dimensions. showpage on a PDF
+% backend ends the current page and starts a new one. closepage
+% flushes the file.
+%
+% Output:
+%   /tmp/sli3-ch11-08-multi.pdf  (PDF, 2 pages, 200x200 each)
+
+(/tmp/sli3-ch11-08-multi.pdf) 200 200 newpdf pop
+
+% Page 1: red square
+color /red get setrgbcolor
+50 50 100 100 rect fill
+(sans) findfont 16 scalefont setfont
+color /black get setrgbcolor
+60 30 moveto (page 1) show
+showpage
+
+% Page 2: blue circle
+color /blue get setrgbcolor
+100 100 60 circle fill
+(sans) findfont 16 scalefont setfont
+color /black get setrgbcolor
+60 30 moveto (page 2) show
+
+currentpage closepage
+quit

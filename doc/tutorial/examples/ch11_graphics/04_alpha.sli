@@ -1,0 +1,17 @@
+% Chapter 11 -- transparency.
+%
+% Three half-alpha rectangles. Overlapping areas blend.
+%
+% Output:
+%   /tmp/sli3-ch11-04-alpha.png  (PNG, 240x160)
+
+240 160 newoffscreen pop
+color /white get setrgbcolor 0 0 240 160 rect fill
+
+[1 0 0 0.5]   setrgbcolor  20  20 120 80 rect fill
+[0 0 1 0.5]   setrgbcolor  80  60 120 80 rect fill
+[0 0.7 0 0.5] setrgbcolor  50  80 120 80 rect fill
+
+(/tmp/sli3-ch11-04-alpha.png) currentpage writepng
+currentpage closepage
+quit

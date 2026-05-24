@@ -1,0 +1,14 @@
+% Chapter 11 -- a first picture.
+%
+% Open a 200x150 offscreen surface, fill it with a red rectangle,
+% write the result as a PNG.
+%
+% Output:
+%   /tmp/sli3-ch11-01-rect.png  (PNG, 200x150)
+
+200 150 newoffscreen pop
+1 0 0 setrgbcolor
+20 20 160 110 rect fill
+(/tmp/sli3-ch11-01-rect.png) currentpage writepng
+currentpage closepage
+quit

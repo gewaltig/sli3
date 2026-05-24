@@ -1,0 +1,37 @@
+% Chapter 11 -- transformations and gsave/grestore.
+%
+% Six copies of the same star procedure, each translated to the
+% center of the page and rotated by a multiple of 60 degrees.
+% gsave / grestore keep each iteration's transformations from
+% leaking into the next.
+%
+% Output:
+%   /tmp/sli3-ch11-07-stars.png  (PNG, 300x300)
+
+300 300 newoffscreen pop
+color /white get setrgbcolor 0 0 300 300 rect fill
+
+/star
+{
+  newpath
+   0   30 moveto       9   9 lineto    29   9 lineto
+  14  -5 lineto       21 -24 lineto    0 -12 lineto
+ -21 -24 lineto      -14  -5 lineto  -29   9 lineto
+  -9   9 lineto       closepath
+  fill
+} def
+
+color /orange get setrgbcolor
+0 1 5
+{
+  gsave
+    150 150 translate           % move to the page center
+    60 mul rotate               % rotate by 0, 60, 120, ... 300
+    0 60 translate              % step outward along the new Y axis
+    star
+  grestore
+} for
+
+(/tmp/sli3-ch11-07-stars.png) currentpage writepng
+currentpage closepage
+quit

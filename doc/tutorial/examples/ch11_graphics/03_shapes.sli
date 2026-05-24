@@ -1,0 +1,29 @@
+% Chapter 11 -- built-in shapes.
+%
+% rect, circle, and arc each add to the current path; stroke or
+% fill paints. Three shapes side by side, each a different color
+% from the color dictionary.
+%
+% Output:
+%   /tmp/sli3-ch11-03-shapes.png  (PNG, 300x150)
+
+300 150 newoffscreen pop
+color /white get setrgbcolor 0 0 300 150 rect fill
+
+% Filled rectangle
+color /red get setrgbcolor
+ 20 25 80 100 rect fill
+
+% Stroked circle
+color /navy get setrgbcolor
+3 setlinewidth
+150 75 45 circle stroke
+
+% Half arc (90 to 270 degrees -- left half of a circle)
+color /purple get setrgbcolor
+4 setlinewidth
+250 75 45 90 270 arc stroke
+
+(/tmp/sli3-ch11-03-shapes.png) currentpage writepng
+currentpage closepage
+quit

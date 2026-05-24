@@ -1,6 +1,6 @@
 # Tutorial outline
 
-This is the working outline that drives chapters 00–10. It also records
+This is the working outline that drives chapters 00–11. It also records
 which operators each chapter introduces and which harvested examples need
 hand-authored replacements (the **gaps**).
 
@@ -19,6 +19,7 @@ hand-authored replacements (the **gaps**).
 | 08 | `08_types.md` | Types and conversion | `type`, `cvi`, `cvd`, `cvs` |
 | 09 | `09_printing.md` | Printing output and inspecting state | `=`, `==`, `=only`, `stack`, `pstack`, `endl`, `<-`, `<--` |
 | 10 | `10_examples.md` | Three end-to-end programs | (reuses everything from 01–09) |
+| 11 | `11_graphics.md` | The graphics module (optional). Live windows, offscreen PNG, PDF, SVG. Paths, shapes, colors, transparency, text, transforms. | Surface lifecycle: `newpage`, `newoffscreen`, `newpdf`, `newsvg`, `closepage`, `currentpage`, `setpage`, `writepng`, `loadpng`, `drawimage`, `pagesize`, `setwindowtitle`, `resize`. Paths: `newpath`, `moveto`, `lineto`, `rlineto`, `closepath`, `rect`, `circle`, `arc`, `arcn`, `arct`, `curveto`, `rcurveto`. Painting: `stroke`, `fill`, `erasepage`, `clip`, `eoclip`, `clippath`, `currentpoint`, `pathbbox`, `pathforall`, `flattenpath`. Color: `setrgbcolor`, `setrgbacolor`, `setgray`, `sethsbcolor`, `currentrgbcolor`, `currentrgbacolor`, `color`. Line state: `setlinewidth`, `setlinecap`, `setlinejoin`, `setmiterlimit`, `setdash`, `currentlinewidth`, `currentlinecap`, `currentlinejoin`, `currentdash`. State + transforms: `gsave`, `grestore`, `translate`, `scale`, `rotate`, `currentmatrix`, `setmatrix`, `concat`, `initmatrix`, `transform`, `itransform`. Text: `findfont`, `scalefont`, `setfont`, `currentfont`, `show`, `stringwidth`, `textextents`, `charpath`. Display: `showpage`, `flushpage`, `wait`, `windowclosed`. |
 
 ## Gaps (operators in the core set without a directly-usable harvested example)
 
