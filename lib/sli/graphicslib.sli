@@ -188,6 +188,154 @@
   currentpage closepage
 } def
 
+% /:render-testpage  shared body for /testpage (live window) and
+% /testpagepng (file output). Draws into the current page assuming
+% it's 600 x 800 in PS-style coords.
+/:render-testpage
+{
+  % --- Title row -------------------------------------------------
+  (serif) findfont 28 scalefont setfont
+  color /black get setrgbcolor
+  50 760 moveto (sli3 graphics test page) show
+
+  (sans) findfont 14 scalefont setfont
+  color /darkgray get setrgbcolor
+  50 735 moveto (Cairo + SDL2 specimen) show
+
+  color /lightgray get setrgbcolor
+  2 setlinewidth
+  50 720 moveto 550 720 lineto stroke
+
+  % --- Color swatches --------------------------------------------
+  color /black get setrgbcolor
+  (sans) findfont 11 scalefont setfont
+  50 700 moveto (color dictionary) show
+
+  /:swatch  % cname slabel idx -> -
+  {
+    /:i exch def /:s exch def /:c exch def
+    /:x 50 :i 60 mul add def
+    gsave
+      color :c get setrgbcolor
+      :x 660 50 30 rect fill
+      color /black get setrgbcolor
+      (sans) findfont 10 scalefont setfont
+      :x 648 moveto :s show
+    grestore
+  } def
+  /red    (red)    0 :swatch
+  /orange (orange) 1 :swatch
+  /yellow (yellow) 2 :swatch
+  /green  (green)  3 :swatch
+  /blue   (blue)   4 :swatch
+  /purple (purple) 5 :swatch
+  /pink   (pink)   6 :swatch
+  /teal   (teal)   7 :swatch
+
+  % --- Typography samples ----------------------------------------
+  color /black get setrgbcolor
+  (sans) findfont 11 scalefont setfont
+  50 600 moveto (typography samples (three families, two sizes each)) show
+
+  /:fline  % family size y -> -
+  {
+    /:y exch def /:z exch def /:f exch def
+    gsave
+      :f findfont :z scalefont setfont
+      color /black get setrgbcolor
+      50 :y moveto
+      (The quick brown fox jumps over the lazy dog.) show
+    grestore
+  } def
+  (sans)      10 580 :fline
+  (sans)      18 555 :fline
+  (serif)     10 525 :fline
+  (serif)     18 500 :fline
+  (monospace) 10 470 :fline
+  (monospace) 18 445 :fline
+
+  % --- Shapes and paths ------------------------------------------
+  color /black get setrgbcolor
+  (sans) findfont 11 scalefont setfont
+  50 405 moveto (shapes, paths, and transparency) show
+
+  % Stroked circle
+  3 setlinewidth color /navy get setrgbcolor
+  100 340 40 circle stroke
+
+  % Filled cubic-Bezier blob
+  color /orange get setrgbcolor
+  newpath
+  220 320 moveto
+  240 380 320 380 340 320 curveto
+  340 280 220 280 220 320 curveto
+  closepath fill
+
+  % Translucent overlapping rectangles (alpha = 0.5 each)
+  [1 0 0 0.5]   setrgbcolor 380 305 60 50 rect fill
+  [0 0 1 0.5]   setrgbcolor 410 285 60 50 rect fill
+  [0 0.7 0 0.5] setrgbcolor 395 325 60 50 rect fill
+
+  % Dashed separator
+  color /darkgray get setrgbcolor
+  1.5 setlinewidth
+  [6 3] 0 setdash
+  50 230 moveto 550 230 lineto stroke
+  [] 0 setdash
+
+  % --- Curves and fillets ----------------------------------------
+  color /black get setrgbcolor
+  (sans) findfont 11 scalefont setfont
+  50 205 moveto (curves, arcs, and corner fillets) show
+
+  % Rounded rectangle via arct (radius 16)
+  color /teal get setrgbcolor
+  2 setlinewidth
+  newpath
+  80 140 moveto
+  80   80  200  80 16 arct
+  200  80  200 140 16 arct
+  200 140  80  140 16 arct
+  80  140  80   80 16 arct
+  closepath stroke
+
+  % Arc family at three positions
+  color /purple get setrgbcolor 3 setlinewidth
+  280 110 30 0 270 arc stroke      % open arc
+  370 110 30 0 360 arc stroke      % full circle via arc
+  color /red get setrgbcolor
+  460 110 30 90 360 arcn stroke    % negative-direction arc
+
+  % --- Footer ----------------------------------------------------
+  (sans) findfont 9 scalefont setfont
+  color /gray get setrgbcolor
+  50 20 moveto
+  (sli3 graphics module -- /testpagepng writes /tmp/sli3-testpage.png) show
+} def
+
+% /testpage  live-window variant. Opens a 600x800 window, paints the
+% specimen, holds for 6 seconds, then tears the window down.
+/testpage
+{
+  (testpage: opening 600x800 window for 6 seconds.) =
+  600 800 newpage pop
+  :render-testpage
+  showpage
+  6 wait
+  currentpage closepage
+} def
+
+% /testpagepng  same content, written to /tmp/sli3-testpage.png. No
+% window opens, so this is the variant CI / scripts should call.
+/testpagepng
+{
+  (testpagepng: writing /tmp/sli3-testpage.png) =
+  600 800 newoffscreen pop
+  :render-testpage
+  (/tmp/sli3-testpage.png) currentpage writepng
+  currentpage closepage
+} def
+
 % /pdfdemo  emit a two-page PDF showing how /showpage starts a new
 % page in file backends.
 /pdfdemo
