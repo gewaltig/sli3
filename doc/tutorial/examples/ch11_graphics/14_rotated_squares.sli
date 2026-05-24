@@ -1,0 +1,43 @@
+% Chapter 11 -- ten squares rotated around a shared corner.
+%
+% Each square's lower-left corner sits at the rotation center
+% (200, 200). The i-th square is rotated by i * 36 degrees, so the
+% ten squares together cover a full 360-degree turn -- a pinwheel.
+%
+% Color comes from /sethsbcolor: hue = i / 10 in [0, 1) walks the full
+% rainbow at full saturation and brightness. /gsave / /grestore scope
+% each iteration's transformation so they don't accumulate.
+%
+% Output:
+%   /tmp/sli3-ch11-14-rotated.png  (PNG, 400x400)
+
+400 400 newoffscreen pop
+color /white get setrgbcolor 0 0 400 400 rect fill
+
+/:cx   200 def
+/:cy   200 def
+/:size 100 def
+
+0 1 9
+{
+  /:i exch def
+  gsave
+    % Rainbow hue: i/10 cycles full circle. Use 10.0 to force double
+    % arithmetic; integer /div would truncate every step to 0.
+    :i 10.0 div 1 1 sethsbcolor
+
+    % Translate to the rotation center, then rotate. Cairo applies
+    % the later op FIRST to user-space coords, so the square's
+    % points get rotated around (0, 0) and THEN translated to
+    % (cx, cy) -- the shared lower-left corner.
+    :cx :cy translate
+    :i 36 mul rotate
+
+    % Square with its lower-left at the (now-rotated) origin.
+    0 0 :size :size rect fill
+  grestore
+} for
+
+(/tmp/sli3-ch11-14-rotated.png) currentpage writepng
+currentpage closepage
+quit
