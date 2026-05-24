@@ -664,6 +664,8 @@ SLI ] testpage           % the full specimen: fonts, shapes, alpha
 SLI ] testpagepng        % the specimen, written to /tmp/sli3-testpage.png
 SLI ] gradientdemo       % linear + radial gradients
 SLI ] compositdemo       % the same shape painted under three operators
+SLI ] fontdemo           % 11 typefaces, 5 sizes, slant + weight variants
+SLI ] fontdemopng        % the font specimen, written to /tmp/sli3-fontdemo.png
 ```
 
 `/testpage` is the best place to look for a quick visual summary of

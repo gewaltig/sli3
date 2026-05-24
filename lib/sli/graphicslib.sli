@@ -204,6 +204,147 @@
   currentpage closepage
 } def
 
+% /:render-fontdemo  shared body for /fontdemo (live window) and
+% /fontdemopng (file output). Three sections on a 600x800 page:
+%   1. Generic family names that always resolve (sans, serif,
+%      monospace).
+%   2. Named system fonts (Helvetica, Times, Courier, Menlo, Avenir,
+%      Georgia, Palatino, Comic Sans MS). On macOS these are all in
+%      the default install; on other systems Cairo silently falls
+%      back if a name is missing, so the page renders cleanly but
+%      some rows may share a typeface.
+%   3. The same family (sans) rendered at five sizes from 8 to 36 pt.
+/:render-fontdemo
+{
+  % Title
+  (serif) findfont 28 scalefont setfont
+  color /black get setrgbcolor
+  50 760 moveto (sli3 font specimen) show
+
+  (sans) findfont 14 scalefont setfont
+  color /darkgray get setrgbcolor
+  50 735 moveto (Cairo toy text API; one pangram per family) show
+
+  color /lightgray get setrgbcolor
+  2 setlinewidth
+  50 720 moveto 550 720 lineto stroke
+
+  % Helper: family y -> -. Renders the pangram at 18 pt in `family`,
+  % prefixed with the family name itself for easy comparison.
+  /:famline
+  {
+    /:y exch def /:fam exch def
+    gsave
+      :fam findfont 18 scalefont setfont
+      color /black get setrgbcolor
+      50 :y moveto
+      :fam show ( -- The quick brown fox jumps over the lazy dog.) show
+    grestore
+  } def
+
+  % Section 1: generic families
+  (sans) findfont 11 scalefont setfont
+  color /black get setrgbcolor
+  50 695 moveto (Generic families) show
+
+  (sans)      670 :famline
+  (serif)     640 :famline
+  (monospace) 610 :famline
+
+  % Section 2: named system fonts. Eight common macOS faces; users
+  % can swap any of these for the output of `listfonts`.
+  color /black get setrgbcolor
+  (sans) findfont 11 scalefont setfont
+  50 575 moveto (Named system fonts) show
+
+  (Helvetica)     550 :famline
+  (Times)         525 :famline
+  (Courier)       500 :famline
+  (Menlo)         475 :famline
+  (Avenir)        450 :famline
+  (Georgia)       425 :famline
+  (Palatino)      400 :famline
+  (Comic Sans MS) 375 :famline
+
+  % Section 3: sans at five sizes. The line content is the size label
+  % itself, rendered AT that size, so the row's vertical footprint
+  % shows how much space each size needs.
+  color /black get setrgbcolor
+  (sans) findfont 11 scalefont setfont
+  50 335 moveto (Size variations (sans)) show
+
+  /:sizeline
+  {
+    /:y exch def /:sz exch def
+    gsave
+      (sans) findfont :sz scalefont setfont
+      color /black get setrgbcolor
+      50 :y moveto
+      :sz cvi cvs show ( pt -- The quick brown fox) show
+    grestore
+  } def
+
+  8  310 :sizeline
+  12 290 :sizeline
+  18 265 :sizeline
+  24 230 :sizeline
+  36 180 :sizeline
+
+  % Section 4: slant + weight variants. Sans at 16 pt; we mutate the
+  % /Slant and /Weight entries of the font dict in place.
+  color /black get setrgbcolor
+  (sans) findfont 11 scalefont setfont
+  50 130 moveto (Slant and weight (sans, 16 pt)) show
+
+  /:variantline
+  {
+    /:y exch def /:weight exch def /:slant exch def /:label exch def
+    gsave
+      /:fd (sans) findfont 16 scalefont def
+      :fd /Slant  :slant put
+      :fd /Weight :weight put
+      :fd setfont
+      color /black get setrgbcolor
+      50 :y moveto
+      :label show ( -- The quick brown fox.) show
+    grestore
+  } def
+
+  (normal/normal) /normal /normal 105 :variantline
+  (bold/normal)   /normal /bold    85 :variantline
+  (normal/italic) /italic /normal  65 :variantline
+  (bold/italic)   /italic /bold    45 :variantline
+
+  % Footer
+  (sans) findfont 9 scalefont setfont
+  color /gray get setrgbcolor
+  50 20 moveto
+  (/fontdemopng writes /tmp/sli3-fontdemo.png -- /listfonts enumerates all installed families) show
+} def
+
+% /fontdemo  live-window variant. Opens a 600x800 window, paints the
+% font specimen, holds for 6 seconds, then tears the window down.
+/fontdemo
+{
+  (fontdemo: opening 600x800 window for 6 seconds.) =
+  600 800 newpage pop
+  :render-fontdemo
+  showpage
+  6 wait
+  currentpage closepage
+} def
+
+% /fontdemopng  same specimen, written to /tmp/sli3-fontdemo.png. The
+% variant CI / scripts should call -- no window, deterministic.
+/fontdemopng
+{
+  (fontdemopng: writing /tmp/sli3-fontdemo.png) =
+  600 800 newoffscreen pop
+  :render-fontdemo
+  (/tmp/sli3-fontdemo.png) currentpage writepng
+  currentpage closepage
+} def
+
 % /:render-testpage  shared body for /testpage (live window) and
 % /testpagepng (file output). Draws into the current page assuming
 % it's 600 x 800 in PS-style coords.
