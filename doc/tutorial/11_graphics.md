@@ -663,6 +663,7 @@ SLI ] imagedemo          % builds a source PNG, reloads it, composites
 SLI ] testpage           % the full specimen: fonts, shapes, alpha
 SLI ] testpagepng        % the specimen, written to /tmp/sli3-testpage.png
 SLI ] gradientdemo       % linear + radial gradients
+SLI ] compositdemo       % the same shape painted under three operators
 ```
 
 `/testpage` is the best place to look for a quick visual summary of
