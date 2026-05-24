@@ -37,7 +37,11 @@ void GraphicsContextType::deserialize(Reader&, Token& t) const
     // raises through the standard "missing context" guard).
     try
     {
-        auto* g = new GraphicsContext(1, 1, std::string("sli3:invalid"));
+        // Offscreen — no SDL needed, so this works in headless / CI
+        // contexts where SDL_VIDEO can't init. The wrapper is closed
+        // immediately so valid() == false and any subsequent draw op
+        // raises NoCurrentPageError via require_current_gc.
+        auto* g = GraphicsContext::open_offscreen(1, 1);
         g->close();
         t.data_.graphics_val = g;
     }

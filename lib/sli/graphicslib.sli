@@ -1,35 +1,71 @@
 /*
  *  graphicslib.sli  PostScript-flavored 2D drawing.
  *
- *  C++ operators come from src/builtins/sli_graphics_module.cpp:
- *    newpage       ( w h -> gc )      open SDL2 window with Cairo surface
- *    closepage     ( gc -> -  )       tear down the window
- *    currentpage   ( -> gc    )       recall the active surface
+ *  C++ operators come from src/builtins/sli_graphics_module.cpp.
+ *
+ *  Surface lifecycle
+ *    newpage       ( w h -> gc )         open SDL2 window
+ *    newoffscreen  ( w h -> gc )         windowless Cairo image surface
+ *    newpdf        ( path w h -> gc )    multi-page PDF backend
+ *    newsvg        ( path w h -> gc )    single-page SVG backend
+ *    closepage     ( gc -> -  )          tear down + flush file backends
+ *    currentpage   ( -> gc    )          recall the active surface
+ *    setpage       ( gc -> -  )          switch the active target
+ *    writepng      ( path gc -> - )      save image surface as PNG
+ *
+ *  Path construction
  *    newpath, moveto, lineto, rlineto, closepath
- *    rect ( x y w h -> - )            add rectangle to path
- *    arc  ( cx cy r a1 a2 -> - )      add arc to path (angles in degrees)
- *    circle ( cx cy r -> - )          add closed circle to path
+ *    curveto       ( x1 y1 x2 y2 x3 y3 -> - )    PS cubic Bezier
+ *    rcurveto      ( dx1 ... dy3 -> - )          relative version
+ *    arc           ( cx cy r a1 a2 -> - )        positive direction (degrees)
+ *    arcn          ( cx cy r a1 a2 -> - )        negative direction
+ *    rect          ( x y w h -> - )
+ *    circle        ( cx cy r -> - )
+ *
+ *  Painting + clipping
  *    stroke, fill, erasepage
- *    setrgbcolor ( r g b -> - )       components in [0,1]
- *    setgray ( g -> - )
- *    setlinewidth ( w -> - )
- *    gsave, grestore
- *    translate ( dx dy -> - )
- *    scale     ( sx sy -> - )
- *    rotate    ( deg -> - )           rotation in degrees, PostScript-style
- *    showpage      ( -> - )           present + pump events
- *    flushpage     ( -> - )           present only
- *    wait          ( s -> - )         pump events for at most s seconds
- *    windowclosed  ( -> bool )        true if user closed the window
+ *    clip          ( -> - )       non-zero winding clip with current path
+ *    eoclip        ( -> - )       even-odd clip
+ *    currentpoint  ( -> x y )
+ *    pathbbox      ( -> llx lly urx ury )
  *
- *  IMPORTANT: there is intentionally no blocking /interact. On macOS,
- *  sli3 launched from a terminal is not a Cocoa app, so the SDL
- *  window's close button may not deliver an event back to us  an
- *  unbounded blocking loop would freeze the REPL forever. Always use
- *  /wait with a finite second count.
+ *  Color
+ *    setrgbcolor   ( r g b -> - )       components in [0,1]
+ *    setgray       ( g -> - )
+ *    sethsbcolor   ( h s b -> - )       HSB -> RGB conversion
+ *    setrgbacolor  ( r g b a -> - )     RGBA (GS extension)
  *
- *  PostScript bottom-left origin is set once on /newpage; SLI code can
- *  use page coordinates directly.
+ *  Line state
+ *    setlinewidth  ( w -> - )
+ *    setlinecap    ( n -> - )           0=butt 1=round 2=square
+ *    setlinejoin   ( n -> - )           0=miter 1=round 2=bevel
+ *    setmiterlimit ( x -> - )
+ *    setdash       ( [d0 d1 ...] offset -> - )
+ *
+ *  State + transforms
+ *    gsave, grestore, translate, scale, rotate
+ *
+ *  Text (Cairo "toy" font API; a font is a Dictionary)
+ *    findfont      ( name|string -> font-dict )
+ *    scalefont     ( font size -> font-dict )
+ *    setfont       ( font -> - )
+ *    currentfont   ( -> font-dict )
+ *    show          ( string -> - )
+ *    stringwidth   ( string -> dx dy )
+ *    charpath      ( string [bool] -> - )
+ *
+ *  Display
+ *    showpage      ( -> - )    WINDOW: present+pump; PDF/SVG: new page; OFFSCREEN: no-op
+ *    flushpage     ( -> - )    same as showpage today
+ *    wait          ( s -> - )  pump events for at most s seconds (WINDOW only)
+ *    windowclosed  ( -> bool ) true if user closed the window
+ *
+ *  IMPORTANT: there is intentionally no blocking /interact. Always use
+ *  /wait with a finite second count. See the leading comment in
+ *  src/containers/sli_graphics.cpp for the macOS rationale.
+ *
+ *  PostScript bottom-left origin is set once at newpage / newoffscreen
+ *  / newpdf / newsvg; SLI code uses page coordinates directly.
  */
 
 % /gfxdemo  sanity demo. Opens a 400 x 400 window with a red square
@@ -45,5 +81,69 @@
   200 200 80 circle fill
   showpage
   4 wait
+  currentpage closepage
+} def
+
+% /textdemo  render a text label, a curve, and a clipped polygon in a
+% live window. Demonstrates findfont / setfont / show / curveto / clip.
+/textdemo
+{
+  (textdemo: opening 400x400 window for 4 seconds.) =
+  400 400 newpage pop
+  % Title text at 24pt sans-serif
+  (sans) findfont 24 scalefont setfont
+  0 0 0 setrgbcolor
+  50 350 moveto
+  (Hello, sli3) show
+  % A cubic Bezier curve
+  0.2 0.6 0.9 setrgbcolor
+  3 setlinewidth
+  50 200 moveto
+  100 320 300 80 350 200 curveto
+  stroke
+  % A clipped circle: rectangular clip restricts the fill
+  gsave
+    newpath 100 50 200 80 rect clip
+    1 0.3 0 setrgbcolor
+    200 90 60 circle fill
+  grestore
+  showpage
+  4 wait
+  currentpage closepage
+} def
+
+% /offscreendemo  draw the same scene as gfxdemo into an offscreen
+% surface, save it as a PNG (no window opens), and report the path.
+/offscreendemo
+{
+  (offscreendemo: writing /tmp/sli3-gfxdemo.png) =
+  400 400 newoffscreen pop
+  1 0 0 setrgbcolor
+  50 50 100 100 rect fill
+  0 0 1 setrgbcolor
+  200 200 80 circle fill
+  (sans) findfont 18 scalefont setfont
+  0 0 0 setrgbcolor
+  50 370 moveto (sli3 offscreen demo) show
+  (/tmp/sli3-gfxdemo.png) currentpage writepng
+  currentpage closepage
+} def
+
+% /pdfdemo  emit a two-page PDF showing how /showpage starts a new
+% page in file backends.
+/pdfdemo
+{
+  (pdfdemo: writing /tmp/sli3-gfxdemo.pdf) =
+  (/tmp/sli3-gfxdemo.pdf) 300 300 newpdf pop
+  (sans) findfont 24 scalefont setfont
+  0 0 0 setrgbcolor
+  50 250 moveto (page 1) show
+  0.2 0.6 0.9 setrgbcolor
+  50 50 200 100 rect fill
+  showpage  % flush page 1, start page 2
+  0 0 0 setrgbcolor
+  50 250 moveto (page 2) show
+  1 0.3 0 setrgbcolor
+  150 150 80 circle fill
   currentpage closepage
 } def

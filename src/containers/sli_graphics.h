@@ -19,48 +19,54 @@ namespace sli3
 {
 
 /**
- * Reference-counted wrapper around the SDL window + Cairo surface that
- * a /newpage call brings up. Owns: an SDL window, its renderer, a
- * streaming ARGB texture sized to the requested page, a Cairo image
- * surface whose pixel buffer is the texture's backing memory, and a
- * cairo_t drawing context with PostScript's bottom-left origin
- * (`cairo_translate(cr, 0, h); cairo_scale(cr, 1, -1);` applied once).
+ * Reference-counted wrapper around a Cairo drawing surface, routed to
+ * one of four backends:
+ *
+ *   - WINDOW    : live SDL2 window + streaming texture (the /newpage
+ *                 default; what the original MVP was). present()
+ *                 uploads the surface to the texture and pumps Cocoa
+ *                 events; pump_for blocks bounded.
+ *   - OFFSCREEN : pure Cairo image surface, no SDL. present() is a
+ *                 no-op. Backs /newoffscreen, useful for batch /
+ *                 CI workflows where there is no display.
+ *   - PDF, SVG  : file-backed Cairo surface (cairo_pdf_surface_create /
+ *                 cairo_svg_surface_create). present() calls
+ *                 cairo_show_page (starts a new page in the file).
+ *                 close() flushes via cairo_surface_finish.
+ *
+ * All four backends share the same drawing-context interface (cr()),
+ * so every drawing operator works uniformly regardless of where the
+ * output goes. Only the lifecycle ops (/newpage variants, /showpage,
+ * /closepage, /writepng) branch on backend.
+ *
+ * The Cairo CTM is configured for PostScript bottom-left origin
+ * (cairo_translate(0,h); cairo_scale(1,-1)) once at construction;
+ * SLI code uses page coordinates directly.
  *
  * Single-threaded: every method must run on the same thread that
- * called the constructor (matches sli3's single-threaded model). All
- * SDL + Cairo calls happen here so the operator layer never sees the
- * underlying APIs.
+ * called the factory (matches sli3's single-threaded model). Refcount
+ * is intrusive (non-atomic). remove_reference returns the new count
+ * and self-deletes at zero.
  *
- * Refcount is intrusive (non-atomic). GraphicsContextType drives
- * add_reference / remove_reference on Token copy and destruction.
- * remove_reference returns the new count and self-deletes at zero,
- * matching SLIistream / SLIostream.
+ * Lifecycle: factories throw std::runtime_error if any backend call
+ * fails (partially-constructed state is cleaned up by ~GraphicsContext
+ * via the unique_ptr the factory holds before release). close() is
+ * idempotent; the destructor calls close() if it hasn't run yet.
  *
- * Lifecycle of the underlying window:
- *   - construction opens the window and primes the Cairo surface;
- *     throws std::runtime_error on any backend failure (SDL_Init,
- *     window/renderer/texture creation, Cairo surface allocation).
- *   - close() tears the window down early but keeps the wrapper alive
- *     so any lingering Token references can fail cleanly via valid().
- *     Idempotent.
- *   - the destructor calls close() if it hasn't run yet.
- *
- * Graphics contexts are not serializable — OS resources don't survive
- * a snapshot. GraphicsContextType::serialize warns and writes no
- * payload; deserialize produces a Token whose backing context has
- * valid() == false.
+ * Graphics contexts are not serializable -- OS resources / file
+ * handles don't survive a snapshot. GraphicsContextType::serialize
+ * warns and writes no payload; deserialize produces a Token whose
+ * backing context has valid() == false.
  */
 class GraphicsContext
 {
 public:
-    /**
-     * Create a window of the given size with the given title and
-     * prime the Cairo drawing context. Background is cleared to
-     * opaque white. Throws std::runtime_error if any backend call
-     * fails (the partially-constructed wrapper releases what it
-     * already acquired before propagating).
-     */
-    GraphicsContext(int width, int height, std::string const& title);
+    enum class Backend { WINDOW, OFFSCREEN, PDF, SVG };
+
+    static GraphicsContext* open_window   (int width, int height, std::string const& title);
+    static GraphicsContext* open_offscreen(int width, int height);
+    static GraphicsContext* open_pdf      (std::string const& path, int width, int height);
+    static GraphicsContext* open_svg      (std::string const& path, int width, int height);
 
     GraphicsContext(GraphicsContext const&) = delete;
     GraphicsContext& operator=(GraphicsContext const&) = delete;
@@ -79,52 +85,75 @@ public:
     }
     std::uint32_t references() const { return refs_; }
 
+    Backend backend() const { return backend_; }
     int width()  const { return width_; }
     int height() const { return height_; }
 
     /** True until close() (or destructor) runs. */
     bool valid() const { return cr_ != nullptr; }
 
-    /** True once the window has been asked to close by the user. */
+    /** True once the user closed the window. Only meaningful for WINDOW. */
     bool window_closed() const { return window_closed_; }
 
     /**
-     * Drawing context — already configured with PostScript-style
+     * True if the backing surface is a pixel buffer (WINDOW or
+     * OFFSCREEN). PDF/SVG surfaces have no readable pixel data, so
+     * /writepng raises rather than trying to dump them.
+     */
+    bool is_image_surface() const
+    {
+        return backend_ == Backend::WINDOW || backend_ == Backend::OFFSCREEN;
+    }
+
+    /**
+     * Drawing context -- already configured with PostScript-style
      * bottom-left origin. Caller must not destroy it. Returns nullptr
      * after close().
      */
     cairo_t* cr() const { return cr_; }
 
     /**
-     * Blit the current surface to the SDL texture and present.
-     * Cooperatively pumps pending events so the window stays
-     * responsive between drawing turns. No-op when closed.
+     * Backend-aware "present this page":
+     *   WINDOW    -- upload the surface to the SDL texture, present,
+     *                pump pending Cocoa events.
+     *   PDF / SVG -- cairo_show_page (start a new page in the file).
+     *   OFFSCREEN -- no-op.
+     * No-op when closed.
      */
     void present();
 
     /**
      * Pump events for at most `max_seconds`, presenting on redraw
-     * signals. Returns early if the window is closed. Bounded by
-     * design — sli3 is a REPL, and an unbounded blocking call
-     * (the previous /interact) is dangerous on macOS where the SDL
-     * window may not deliver its own close events back to a
-     * terminal-launched process.
+     * signals. WINDOW only -- the other backends have no event source.
+     * Bounded by design: an unbounded blocking call is dangerous on
+     * macOS where the SDL window may not deliver its own close events
+     * back to a terminal-launched process.
      */
     void pump_for(double max_seconds);
 
     /**
-     * Tear down the window and Cairo surface. Safe to call multiple
-     * times. After this the wrapper is "invalid" (valid() == false)
-     * but the wrapper memory survives until the refcount reaches
-     * zero so existing Tokens don't dangle.
+     * Tear down the backend. Safe to call multiple times. After this
+     * the wrapper is "invalid" (valid() == false) but the wrapper
+     * memory survives until the refcount reaches zero so existing
+     * Tokens don't dangle.
      */
     void close();
 
+    /**
+     * Write the current image surface to `path` as a PNG. Only valid
+     * for image surfaces (WINDOW / OFFSCREEN); returns false otherwise
+     * or on any Cairo error.
+     */
+    bool write_png(std::string const& path);
+
 private:
+    explicit GraphicsContext(Backend b, int width, int height);
+    void finish_cairo_setup_();   // background fill + PS-style CTM
     void release_resources_();
 
-    int width_  = 0;
-    int height_ = 0;
+    Backend       backend_;
+    int           width_  = 0;
+    int           height_ = 0;
 
     SDL_Window*      window_   = nullptr;
     SDL_Renderer*    renderer_ = nullptr;
