@@ -280,6 +280,11 @@ void GraphicsContext::pump_for(double max_seconds)
     }
 }
 
+CairoPattern::~CairoPattern()
+{
+    if (p_) cairo_pattern_destroy(p_);
+}
+
 bool GraphicsContext::write_png(std::string const& path)
 {
     if (!cr_ || !is_image_surface()) return false;

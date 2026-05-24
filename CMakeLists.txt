@@ -186,22 +186,27 @@ if(SLI3_GRAPHICS)
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(CAIRO REQUIRED cairo)
   pkg_check_modules(SDL2  REQUIRED sdl2)
+  pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
   target_sources(sli3_core PRIVATE
     src/types/sli_graphicscontexttype.cpp
+    src/types/sli_patterntype.cpp
     src/containers/sli_graphics.cpp
     src/builtins/sli_graphics_module.cpp
   )
   target_include_directories(sli3_core PUBLIC
     ${CAIRO_INCLUDE_DIRS}
     ${SDL2_INCLUDE_DIRS}
+    ${FONTCONFIG_INCLUDE_DIRS}
   )
   target_link_libraries(sli3_core PUBLIC
     ${CAIRO_LIBRARIES}
     ${SDL2_LIBRARIES}
+    ${FONTCONFIG_LIBRARIES}
   )
   target_link_directories(sli3_core PUBLIC
     ${CAIRO_LIBRARY_DIRS}
     ${SDL2_LIBRARY_DIRS}
+    ${FONTCONFIG_LIBRARY_DIRS}
   )
   target_compile_definitions(sli3_core PUBLIC SLI3_HAS_GRAPHICS=1)
   message(STATUS "sli3: graphics enabled (cairo ${CAIRO_VERSION}, sdl2 ${SDL2_VERSION})")

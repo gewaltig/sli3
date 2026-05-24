@@ -14,6 +14,7 @@ struct SDL_Renderer;
 struct SDL_Texture;
 typedef struct _cairo cairo_t;
 typedef struct _cairo_surface cairo_surface_t;
+typedef struct _cairo_pattern cairo_pattern_t;
 
 namespace sli3
 {
@@ -194,6 +195,45 @@ private:
     bool window_closed_ = false;
 
     std::uint32_t refs_ = 1;
+};
+
+/**
+ * Reference-counted wrapper around a Cairo source pattern
+ * (cairo_pattern_t). Created by /linearpattern, /radialpattern, and
+ * the surface-pattern path; consumed by /setpattern + the existing
+ * stroke / fill / drawimage ops via cairo_set_source.
+ *
+ * Intrusive refcount in the same shape as GraphicsContext / SLIistream
+ * so the Token + SLIType refcount machinery can drive it.
+ */
+class CairoPattern
+{
+public:
+    explicit CairoPattern(cairo_pattern_t* p) : p_(p), refs_(1) {}
+
+    CairoPattern(CairoPattern const&) = delete;
+    CairoPattern& operator=(CairoPattern const&) = delete;
+
+    ~CairoPattern();
+
+    cairo_pattern_t* get()  const { return p_; }
+    bool             valid() const { return p_ != nullptr; }
+
+    std::uint32_t add_reference() { return ++refs_; }
+    std::uint32_t remove_reference()
+    {
+        if (--refs_ == 0)
+        {
+            delete this;
+            return 0;
+        }
+        return refs_;
+    }
+    std::uint32_t references() const { return refs_; }
+
+private:
+    cairo_pattern_t* p_   = nullptr;
+    std::uint32_t    refs_ = 1;
 };
 
 }  // namespace sli3

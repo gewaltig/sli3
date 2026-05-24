@@ -22,6 +22,7 @@
 #ifdef SLI3_HAS_GRAPHICS
 #include "sli_graphics_module.h"
 #include "sli_graphicscontexttype.h"
+#include "sli_patterntype.h"
 #endif
 #include "sli_signal.h"
 #include "sli_stack.h"
@@ -322,6 +323,8 @@ void SLIInterpreter::init_types() {
 #ifdef SLI3_HAS_GRAPHICS
   reg(sli3::graphicscontexttype,
       new GraphicsContextType(this, "graphicscontexttype", sli3::graphicscontexttype));
+  reg(sli3::patterntype,
+      new PatternType(this, "patterntype", sli3::patterntype));
 #endif
 }
 

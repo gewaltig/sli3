@@ -1,0 +1,36 @@
+% Chapter 11 -- linear and radial gradients.
+%
+% A pattern accumulates color stops, then setpattern installs it as
+% the current source for stroke and fill. The dup before each
+% addcolorstop keeps the same pattern on the stack across all its
+% configuration calls; setpattern consumes the final copy.
+%
+% Output:
+%   /tmp/sli3-ch11-11-gradient.png  (PNG, 400x250)
+
+400 250 newoffscreen pop
+color /white get setrgbcolor 0 0 400 250 rect fill
+
+% Horizontal red -> orange -> yellow gradient
+0 0 400 0 linearpattern
+dup 0.0 1.0 0.0 0.0 addcolorstop
+dup 0.5 1.0 0.6 0.0 addcolorstop
+dup 1.0 1.0 1.0 0.0 addcolorstop
+setpattern
+20 150 360 60 rect fill
+
+% Radial bubble: opaque white center, transparent blue edge
+200 70 0 200 70 70 radialpattern
+dup 0.0 1.0 1.0 1.0 1.0 addcolorstop
+dup 1.0 0.2 0.2 0.8 0.0 addcolorstop
+setpattern
+200 70 70 circle fill
+
+% Label in plain black
+(sans) findfont 14 scalefont setfont
+color /black get setrgbcolor
+20 225 moveto (linearpattern + radialpattern) show
+
+(/tmp/sli3-ch11-11-gradient.png) currentpage writepng
+currentpage closepage
+quit

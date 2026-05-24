@@ -92,10 +92,20 @@
  *    charpath      ( string [bool] -> - )
  *
  *  Display
- *    showpage      ( -> - )    WINDOW: present+pump; PDF/SVG: new page; OFFSCREEN: no-op
+ * *    showpage      ( -> - )    WINDOW: present+pump; PDF/SVG: new page; OFFSCREEN: no-op
  *    flushpage     ( -> - )    same as showpage today
  *    wait          ( s -> - )  pump events for at most s seconds (WINDOW only)
  *    windowclosed  ( -> bool ) true if user closed the window
+ *
+ *  Gradients and patterns
+ *    linearpattern ( x0 y0 x1 y1 -> pattern )
+ *    radialpattern ( cx0 cy0 r0 cx1 cy1 r1 -> pattern )
+ *    addcolorstop  ( pattern off r g b -> - | pattern off r g b a -> - )
+ *    setpattern    ( pattern -> - )    install as current source
+ *
+ *  Font enumeration
+ *    listfonts     ( -> [strings...] ) all installed font families
+ *                                      via FontConfig
  *
  *  IMPORTANT: there is intentionally no blocking /interact. Always use
  *  /wait with a finite second count. See the leading comment in
@@ -333,6 +343,38 @@
   600 800 newoffscreen pop
   :render-testpage
   (/tmp/sli3-testpage.png) currentpage writepng
+  currentpage closepage
+} def
+
+% /gradientdemo  builds linear and radial gradients, paints a 400x250
+% offscreen surface with them, and saves /tmp/sli3-gradient.png.
+/gradientdemo
+{
+  (gradientdemo: writing /tmp/sli3-gradient.png) =
+  400 250 newoffscreen pop
+  color /white get setrgbcolor 0 0 400 250 rect fill
+
+  % Horizontal linear gradient: red -> orange -> yellow
+  0 0 400 0 linearpattern
+  dup 0.0 1.0 0.0 0.0 addcolorstop
+  dup 0.5 1.0 0.6 0.0 addcolorstop
+  dup 1.0 1.0 1.0 0.0 addcolorstop
+  setpattern
+  20 150 360 60 rect fill
+
+  % Radial gradient: white center fading to translucent blue
+  200 70 0 200 70 70 radialpattern
+  dup 0.0 1.0 1.0 1.0 1.0 addcolorstop
+  dup 1.0 0.2 0.2 0.8 0.0 addcolorstop
+  setpattern
+  200 70 70 circle fill
+
+  % Label
+  (sans) findfont 14 scalefont setfont
+  color /black get setrgbcolor
+  20 225 moveto (gradients: linearpattern + radialpattern) show
+
+  (/tmp/sli3-gradient.png) currentpage writepng
   currentpage closepage
 } def
 

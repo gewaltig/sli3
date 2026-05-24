@@ -30,6 +30,7 @@ namespace sli3
     class TypeNode;
     class Regex;
     class GraphicsContext;
+    class CairoPattern;
 
     class Token
     {
@@ -216,6 +217,7 @@ namespace sli3
 	    SLIType *type_val;
 	    Regex *regex_val;
 	    GraphicsContext *graphics_val;
+	    CairoPattern *pattern_val;
 	} data_;
     };
 

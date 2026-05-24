@@ -17,6 +17,7 @@
 #include "sli_graphics.h"
 #include "sli_graphicscontexttype.h"
 #include "sli_interpreter.h"
+#include "sli_patterntype.h"
 #include "sli_name.h"
 #include "sli_string.h"
 #include "sli_token.h"
@@ -24,9 +25,11 @@
 
 #include <cairo/cairo.h>
 #include <SDL2/SDL.h>
+#include <fontconfig/fontconfig.h>
 
 #include <cmath>
 #include <exception>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -453,6 +456,177 @@ public:
         cairo_paint(cr);
         cairo_restore(cr);
         i->pop(5);
+    }
+};
+
+//------------------------------------------------------------------------
+// Gradients and source patterns. The wrapper CairoPattern lives in
+// sli_graphics.h alongside GraphicsContext; PatternType drives the
+// Token refcount, see sli_patterntype.{h,cpp}.
+//------------------------------------------------------------------------
+
+namespace
+{
+
+// Wrap a freshly-built cairo_pattern_t as a Token. Steals the
+// reference (the wrapper takes ownership; on the cairo side the
+// refcount starts at 1 and we don't touch it).
+Token wrap_pattern_(SLIInterpreter* i, cairo_pattern_t* raw)
+{
+    Token t(i->get_type(sli3::patterntype));
+    t.data_.pattern_val = new CairoPattern(raw);
+    return t;
+}
+
+}  // namespace
+
+// `x0 y0 x1 y1 linearpattern -> pattern`. Builds a linear gradient
+// from (x0, y0) to (x1, y1). Add color stops with /addcolorstop
+// before /setpattern.
+class LinearPatternFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(4);
+        for (int k = 0; k < 4; ++k)
+            if (!is_numeric(i->pick(k)))
+            {
+                i->raiseerror(i->ArgumentTypeError);
+                return;
+            }
+        double x0 = as_double(i->pick(3));
+        double y0 = as_double(i->pick(2));
+        double x1 = as_double(i->pick(1));
+        double y1 = as_double(i->pick(0));
+        cairo_pattern_t* p = cairo_pattern_create_linear(x0, y0, x1, y1);
+        if (cairo_pattern_status(p) != CAIRO_STATUS_SUCCESS)
+        {
+            cairo_pattern_destroy(p);
+            i->raiseerror(Name("linearpattern"), Name("PatternError"));
+            return;
+        }
+        i->pop(4);
+        i->push(wrap_pattern_(i, p));
+    }
+};
+
+// `cx0 cy0 r0 cx1 cy1 r1 radialpattern -> pattern`. Builds a radial
+// gradient between two circles (inner and outer). Same color-stop
+// rule as /linearpattern.
+class RadialPatternFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(6);
+        for (int k = 0; k < 6; ++k)
+            if (!is_numeric(i->pick(k)))
+            {
+                i->raiseerror(i->ArgumentTypeError);
+                return;
+            }
+        double cx0 = as_double(i->pick(5));
+        double cy0 = as_double(i->pick(4));
+        double r0  = as_double(i->pick(3));
+        double cx1 = as_double(i->pick(2));
+        double cy1 = as_double(i->pick(1));
+        double r1  = as_double(i->pick(0));
+        cairo_pattern_t* p = cairo_pattern_create_radial(cx0, cy0, r0, cx1, cy1, r1);
+        if (cairo_pattern_status(p) != CAIRO_STATUS_SUCCESS)
+        {
+            cairo_pattern_destroy(p);
+            i->raiseerror(Name("radialpattern"), Name("PatternError"));
+            return;
+        }
+        i->pop(6);
+        i->push(wrap_pattern_(i, p));
+    }
+};
+
+// `pattern offset r g b addcolorstop -> -` or
+// `pattern offset r g b a addcolorstop -> -`. Mutates the pattern
+// in-place (Cairo pattern objects are mutable up until the first
+// time they're used as a source). offset is in [0, 1].
+class AddColorStopFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        // Try the 6-operand alpha form first.
+        if (i->load() >= 6
+            && i->pick(5).is_of_type(sli3::patterntype)
+            && is_numeric(i->pick(4))
+            && is_numeric(i->pick(3))
+            && is_numeric(i->pick(2))
+            && is_numeric(i->pick(1))
+            && is_numeric(i->pick(0)))
+        {
+            CairoPattern* p = i->pick(5).data_.pattern_val;
+            if (!p || !p->valid())
+            {
+                i->raiseerror(Name("addcolorstop"), Name("PatternError"));
+                return;
+            }
+            double off = as_double(i->pick(4));
+            double r   = as_double(i->pick(3));
+            double g   = as_double(i->pick(2));
+            double b   = as_double(i->pick(1));
+            double a   = as_double(i->pick(0));
+            cairo_pattern_add_color_stop_rgba(p->get(), off, r, g, b, a);
+            i->pop(6);
+            return;
+        }
+        // 5-operand (no alpha) form. Alpha defaults to 1.
+        i->require_stack_load(5);
+        if (!i->pick(4).is_of_type(sli3::patterntype)
+            || !is_numeric(i->pick(3))
+            || !is_numeric(i->pick(2))
+            || !is_numeric(i->pick(1))
+            || !is_numeric(i->pick(0)))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        CairoPattern* p = i->pick(4).data_.pattern_val;
+        if (!p || !p->valid())
+        {
+            i->raiseerror(Name("addcolorstop"), Name("PatternError"));
+            return;
+        }
+        double off = as_double(i->pick(3));
+        double r   = as_double(i->pick(2));
+        double g   = as_double(i->pick(1));
+        double b   = as_double(i->pick(0));
+        cairo_pattern_add_color_stop_rgb(p->get(), off, r, g, b);
+        i->pop(5);
+    }
+};
+
+// `pattern setpattern -> -`. Installs the pattern as the current
+// source for subsequent /stroke and /fill ops. Cairo retains its own
+// reference; our wrapper keeps the pattern alive across the call.
+class SetPatternFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        i->require_stack_load(1);
+        if (!i->pick(0).is_of_type(sli3::patterntype))
+        {
+            i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        CairoPattern* p = i->pick(0).data_.pattern_val;
+        if (!p || !p->valid())
+        {
+            i->raiseerror(Name("setpattern"), Name("PatternError"));
+            return;
+        }
+        GraphicsContext* g = require_current_gc(i, Name("setpattern"));
+        if (!g) return;
+        cairo_set_source(g->cr(), p->get());
+        i->pop(1);
     }
 };
 
@@ -1951,6 +2125,49 @@ public:
     }
 };
 
+// `listfonts -> [array of strings]`. Returns every installed font
+// family known to FontConfig, deduplicated and lexicographically
+// sorted. On macOS where Cairo's toy text API actually goes through
+// CoreText, the FontConfig list is usually the same set, but caveat
+// emptor: not every name reported here will necessarily resolve via
+// /findfont without falling back to a default.
+class ListFontsFunction : public SLIFunction
+{
+public:
+    void execute(SLIInterpreter* i) const override
+    {
+        if (!FcInit())
+        {
+            i->raiseerror(Name("listfonts"), Name("FontConfigError"));
+            return;
+        }
+        FcPattern* pat   = FcPatternCreate();
+        FcObjectSet* os  = FcObjectSetBuild(FC_FAMILY, (char*) nullptr);
+        FcFontSet* fs    = FcFontList(nullptr, pat, os);
+
+        std::set<std::string> families;
+        if (fs)
+        {
+            for (int k = 0; k < fs->nfont; ++k)
+            {
+                FcChar8* name = nullptr;
+                if (FcPatternGetString(fs->fonts[k], FC_FAMILY, 0, &name)
+                    == FcResultMatch && name)
+                    families.emplace(reinterpret_cast<char const*>(name));
+            }
+            FcFontSetDestroy(fs);
+        }
+        FcObjectSetDestroy(os);
+        FcPatternDestroy(pat);
+
+        TokenArray* out = new TokenArray;
+        out->reserve(families.size());
+        for (auto const& f : families)
+            out->push_back(i->new_token<sli3::stringtype, std::string>(f));
+        i->push(i->new_token<sli3::arraytype, TokenArray*>(out));
+    }
+};
+
 // `(text) charpath -> -`. Appends the text's glyphs to the current
 // path (cairo_text_path). PS's optional bool arg controls fill vs
 // stroke variant; cairo's toy API has no such distinction so we
@@ -2060,6 +2277,10 @@ SetPageFunction      setpage_fn;
 WritePngFunction     writepng_fn;
 LoadPngFunction      loadpng_fn;
 DrawImageFunction    drawimage_fn;
+LinearPatternFunction  linearpattern_fn;
+RadialPatternFunction  radialpattern_fn;
+AddColorStopFunction   addcolorstop_fn;
+SetPatternFunction     setpattern_fn;
 NewPathFunction      newpath_fn;
 ClosePathFunction    closepath_fn;
 XYFunction<cairo_move_to>     moveto_fn   {Name("moveto")};
@@ -2119,6 +2340,7 @@ CurrentFontFunction  currentfont_fn;
 ShowFunction         show_fn;
 StringWidthFunction  stringwidth_fn;
 CharPathFunction     charpath_fn;
+ListFontsFunction    listfonts_fn;
 ShowPageFunction     showpage_fn;
 FlushPageFunction    flushpage_fn;
 WaitFunction         wait_fn;
@@ -2190,6 +2412,12 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("writepng",     &writepng_fn);
     i->createcommand("loadpng",      &loadpng_fn);
     i->createcommand("drawimage",    &drawimage_fn);
+
+    // Gradients / patterns
+    i->createcommand("linearpattern", &linearpattern_fn);
+    i->createcommand("radialpattern", &radialpattern_fn);
+    i->createcommand("addcolorstop",  &addcolorstop_fn);
+    i->createcommand("setpattern",    &setpattern_fn);
     i->createcommand("pagesize",     &pagesize_fn);
     i->createcommand("setwindowtitle", &setwindowtitle_fn);
     i->createcommand("resize",       &resize_fn);
@@ -2271,6 +2499,7 @@ void init_sligraphics(SLIInterpreter* i)
     i->createcommand("show",         &show_fn);
     i->createcommand("stringwidth",  &stringwidth_fn);
     i->createcommand("charpath",     &charpath_fn);
+    i->createcommand("listfonts",    &listfonts_fn);
 
     // Display
     i->createcommand("showpage",     &showpage_fn);

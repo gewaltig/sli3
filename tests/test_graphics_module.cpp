@@ -1004,6 +1004,116 @@ void test_transparency(SLIInterpreter& i)
     run_op(i, "closepage");
 }
 
+// Gradient/pattern round-trip: linear + radial constructors, add a
+// color stop, install via setpattern, fill a rect. The actual pixel
+// content isn't checked, just that the chain doesn't crash or leak
+// and writepng produces a valid PNG.
+void test_patterns(SLIInterpreter& i)
+{
+    i.push(int_token(i, 60));
+    i.push(int_token(i, 40));
+    run_op(i, "newoffscreen");
+    i.pop(1);
+
+    // Linear gradient
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 60.0));
+    i.push(double_token(i, 0.0));
+    run_op(i, "linearpattern");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::patterntype));
+    CairoPattern* lp = i.top().data_.pattern_val;
+    CHECK(lp != nullptr && lp->valid());
+
+    // Add two color stops (one with alpha, one without).
+    i.index(0);  // dup
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 0.0));
+    run_op(i, "addcolorstop");          // 5-arg: pattern off r g b
+    i.index(0);
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 0.5));
+    run_op(i, "addcolorstop");          // 6-arg: pattern off r g b a
+
+    // setpattern consumes the pattern.
+    run_op(i, "setpattern");
+    CHECK(i.load() == 0);
+
+    // Paint with it.
+    i.push(int_token(i, 0));
+    i.push(int_token(i, 0));
+    i.push(int_token(i, 60));
+    i.push(int_token(i, 40));
+    run_op(i, "rect");
+    run_op(i, "fill");
+
+    // Radial gradient round-trip
+    i.push(double_token(i, 30.0));
+    i.push(double_token(i, 20.0));
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 30.0));
+    i.push(double_token(i, 20.0));
+    i.push(double_token(i, 25.0));
+    run_op(i, "radialpattern");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::patterntype));
+    i.index(0);
+    i.push(double_token(i, 0.0));
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 1.0));
+    run_op(i, "addcolorstop");
+    i.index(0);
+    i.push(double_token(i, 1.0));
+    i.push(double_token(i, 0.2));
+    i.push(double_token(i, 0.2));
+    i.push(double_token(i, 0.8));
+    run_op(i, "addcolorstop");
+    run_op(i, "setpattern");
+    i.push(int_token(i, 30));
+    i.push(int_token(i, 20));
+    i.push(int_token(i, 20));
+    run_op(i, "circle");
+    run_op(i, "fill");
+
+    // Final round-trip: writepng must succeed.
+    std::string path = "/tmp/sli3-test-pattern.png";
+    std::remove(path.c_str());
+    i.push(i.new_token<sli3::stringtype, std::string>(path));
+    run_op(i, "currentpage");
+    run_op(i, "writepng");
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    CHECK(f.good());
+    CHECK(f.tellg() > 0);
+    f.close();
+    std::remove(path.c_str());
+
+    i.OStack().clear();
+    run_op(i, "currentpage");
+    run_op(i, "closepage");
+}
+
+// listfonts must return a non-empty array of string-type entries.
+void test_listfonts(SLIInterpreter& i)
+{
+    run_op(i, "listfonts");
+    CHECK(i.load() == 1);
+    CHECK(i.top().is_of_type(sli3::arraytype));
+    TokenArray const* a = i.top().data_.array_val;
+    // FontConfig on any reasonable system reports at least a few
+    // families. We don't pin a specific count, just non-emptiness
+    // and "the entries are strings."
+    CHECK(a->size() > 0);
+    CHECK(a->get(0).is_of_type(sli3::stringtype));
+    i.pop(1);
+}
+
 // writepng on a PDF surface must raise UnsupportedSurfaceError.
 void test_writepng_rejects_pdf(SLIInterpreter& i)
 {
@@ -1069,6 +1179,8 @@ int main()
     test_clippath(i);
     test_flattenpath_and_pathforall(i);
     test_transparency(i);
+    test_patterns(i);
+    test_listfonts(i);
 
     std::cout << "test_graphics_module: OK\n";
     return 0;

@@ -485,6 +485,81 @@ nested array. The `gsave`/`grestore` from the previous example isn't
 needed here because the transformations are all done by the explicit
 `x` calculation, not by CTM changes.
 
+## Gradients
+
+A gradient is a pattern that smoothly transitions between colors.
+Four operators build and install one:
+
+| Op | Stack | Effect |
+|---|---|---|
+| `linearpattern` | `x0 y0 x1 y1 -- pattern` | Linear gradient along the line `(x0,y0)→(x1,y1)`. |
+| `radialpattern` | `cx0 cy0 r0 cx1 cy1 r1 -- pattern` | Radial gradient between two circles. |
+| `addcolorstop` | `pattern off r g b --` or `pattern off r g b a --` | Add a color stop to `pattern` at offset `off` ∈ `[0, 1]`. |
+| `setpattern` | `pattern --` | Install the pattern as the current source. |
+
+Build the gradient first, add stops to it, then install:
+
+```sli
+% Horizontal red-to-orange-to-yellow band, then a soft radial bubble.
+400 250 newoffscreen pop
+color /white get setrgbcolor 0 0 400 250 rect fill
+
+0 0 400 0 linearpattern              % left edge to right edge
+dup 0.0 1.0 0.0 0.0 addcolorstop     % red    at left
+dup 0.5 1.0 0.6 0.0 addcolorstop     % orange in the middle
+dup 1.0 1.0 1.0 0.0 addcolorstop     % yellow at right
+setpattern
+20 150 360 60 rect fill
+
+200 70 0  200 70 70 radialpattern    % point at (200,70) -> circle r=70
+dup 0.0 1.0 1.0 1.0 1.0 addcolorstop % opaque white center
+dup 1.0 0.2 0.2 0.8 0.0 addcolorstop % transparent blue edge
+setpattern
+200 70 70 circle fill
+
+(/tmp/gradient.png) currentpage writepng
+currentpage closepage
+quit
+```
+
+The `dup` before each `addcolorstop` is because `addcolorstop`
+consumes its pattern operand; we duplicate so the *same* pattern
+accumulates all the stops before being handed to `setpattern`. The
+final `setpattern` consumes the last copy.
+
+The 6-component form `pattern off r g b a addcolorstop` carries
+alpha; the 5-component form is opaque. Mix them freely.
+
+The pattern can be used for either `fill` or `stroke`. Patterns are
+refcounted; you can hold one in a variable and reuse it across
+multiple paints.
+
+## Font enumeration
+
+Cairo's text API renders any font name your OS knows about, but it
+won't tell you what those names are. `listfonts` enumerates them via
+FontConfig:
+
+```sli
+listfonts length =          % count of installed font families
+listfonts 0 get =           % the first one
+listfonts {                 % all of them
+  (  ) =only =
+} forall
+```
+
+The list is deduplicated and lexicographically sorted. On a typical
+macOS install you'll see a few hundred names. Pick any of them as
+the argument to `findfont`:
+
+```sli
+(Avenir Next) findfont 20 scalefont setfont
+50 100 moveto (Hello from Avenir Next) show
+```
+
+If the family isn't installed, Cairo silently substitutes a default
+— no error, you just get whatever the system thinks is closest.
+
 ## What else there is
 
 The chapter has covered the operators you reach for most often. The
@@ -523,6 +598,7 @@ SLI ] pdfdemo            % writes /tmp/sli3-gfxdemo.pdf
 SLI ] imagedemo          % builds a source PNG, reloads it, composites
 SLI ] testpage           % the full specimen: fonts, shapes, alpha
 SLI ] testpagepng        % the specimen, written to /tmp/sli3-testpage.png
+SLI ] gradientdemo       % linear + radial gradients
 ```
 
 `/testpage` is the best place to look for a quick visual summary of
