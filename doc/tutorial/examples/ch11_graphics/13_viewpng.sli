@@ -1,0 +1,28 @@
+% Chapter 11 -- /viewpng demo.
+%
+% Builds a 200x150 PNG, then opens a window via /viewpng to display
+% it at the file's native size. The window stays open as
+% /currentpage so you could keep drawing on top -- this script just
+% holds it for two seconds via /wait, then closes.
+%
+% Output:
+%   /tmp/sli3-ch11-13-viewpng.png  (the source PNG that gets viewed)
+
+% 1. Build a small source PNG.
+200 150 newoffscreen pop
+color /cyan get setrgbcolor 0 0 200 150 rect fill
+color /navy get setrgbcolor 3 setlinewidth
+100 75 50 circle stroke
+(sans) findfont 14 scalefont setfont
+color /black get setrgbcolor
+50 30 moveto (viewpng demo) show
+(/tmp/sli3-ch11-13-viewpng.png) currentpage writepng
+currentpage closepage
+
+% 2. Open it in a window via /viewpng.
+(/tmp/sli3-ch11-13-viewpng.png) viewpng
+2 wait
+
+% 3. The user could keep drawing here; this script just closes.
+currentpage closepage
+quit

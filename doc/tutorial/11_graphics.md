@@ -754,6 +754,7 @@ SLI ] compositdemo       % the same shape painted under three operators
 SLI ] fontdemo           % 11 typefaces, 5 sizes, slant + weight variants
 SLI ] fontdemopng        % the font specimen, written to sli3-fontdemo.png
 SLI ] fontdemopng2x      % the same specimen, 2x hi-DPI to sli3-fontdemo-2x.png
+SLI ] (path/to/foo.png) viewpng   % open a window showing foo.png at its native size
 ```
 
 Each filename above is relative to `:gfxoutdir` (default `$HOME`).

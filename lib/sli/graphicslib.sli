@@ -637,6 +637,39 @@ put
   currentpage closepage
 } def
 
+% /viewpng  load a PNG file, open a window at its native size, paint
+% the file into the window, and leave the window as /currentpage so
+% the user can keep drawing on top of it.
+%
+%   Usage:
+%     (path/to/foo.png) viewpng
+%
+%   Stack: ( filename -- )
+%
+%   After /viewpng returns the REPL prompt is back. The window stays
+%   open; gfxstatus /currentpage is the window. Anything you draw next
+%   composites on top of the loaded image. Dismiss with:
+%
+%     currentpage closepage
+%
+%   Caveat: between SLI prompts SDL doesn't pump events, so the
+%   window won't redraw or close while you're typing. To refresh,
+%   call /showpage or /1 wait/ . Or just keep drawing -- every draw
+%   op flushes implicitly.
+/viewpng
+{
+  /:fn exch def
+  :fn loadpng                       % loaded-gc
+  dup setpage                       % currentpage = loaded image
+  pagesize                          % loaded-gc w h
+  /:h exch def /:w exch def         % loaded-gc; :w :h hold the size
+  (viewpng: ) =only :fn =only ( -- ) =only
+  :w =only (x) =only :h =
+  :w :h newpage pop                 % loaded-gc; currentpage = new window
+  0 0 :w :h drawimage               % consumes loaded-gc
+  showpage
+} def
+
 % /pdfdemo  emit a two-page PDF showing how /showpage starts a new
 % page in file backends.
 /pdfdemo
