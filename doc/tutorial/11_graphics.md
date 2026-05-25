@@ -241,11 +241,14 @@ currentpage closepage
 quit
 ```
 
-You can store your own translucent colors in the color dictionary:
+The `color` dictionary itself is read-only, so you can't `put` directly
+into it. To add your own (e.g. translucent) entries, clone it into a
+dictionary you control:
 
 ```sli
-globaldict /color get /red50 [1 0 0 0.5] put
-color /red50 get setrgbcolor
+/mycolor color clonedict def
+mycolor /red50 [1 0 0 0.5] put
+mycolor /red50 get setrgbcolor
 ```
 
 ## Line settings
@@ -316,7 +319,9 @@ quit
 ```
 
 `show` draws at the current point and advances it; if you want the
-next text on a different line, `moveto` again first.
+next text on a different line, `moveto` again first. Calling `show`
+(or `charpath`) without a prior `moveto` raises `NoCurrentPointError`
+— same rule as PostScript.
 
 To know how wide a piece of text will be, ask `stringwidth`:
 

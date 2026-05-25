@@ -57,12 +57,15 @@
  *    sethsbcolor   ( h s b -> - )       opaque, HSB -> RGB
  *    currentrgbcolor  ( -> r g b )      drops alpha
  *    currentrgbacolor ( -> r g b a )    full read-back
- *    color                              dict of named colors. Entries
- *                                       are [r g b] (opaque) or [r g b a]
- *                                       (with alpha). Built-ins are
- *                                       3-element; users add 4-element
- *                                       entries via `globaldict /color
- *                                       get /red50 [1 0 0 0.5] put`.
+ *    color                              read-only dict of named colors
+ *                                       in systemdict. Entries are
+ *                                       3-element [r g b] arrays in
+ *                                       [0,1]; use with
+ *                                       `color /red get setrgbcolor`.
+ *                                       To add custom names, copy the
+ *                                       dict into your own scope:
+ *                                       `/mycolor color clonedict def
+ *                                        mycolor /red50 [1 0 0 0.5] put`.
  *                                       Names: black, white, gray/grey,
  *                                       darkgray, lightgray, red, green
  *                                       (CSS half-bright), lime (pure

@@ -26,10 +26,11 @@ class SLIInterpreter;
 // would hang the REPL forever; the bounded /wait <seconds> pump is
 // the only safe surface.
 //
-// The currently-targeted graphics context lives in globaldict under
-// /currentpage so PS-style code can be written without threading the
-// surface through every operator: `400 400 newpage 1 0 0 setrgbcolor
-// 50 50 100 100 rect fill showpage interact closepage`.
+// The currently-targeted graphics context lives in the `gfxstatus`
+// dict (installed in systemdict at init time) under /currentpage, so
+// PS-style code can be written without threading the surface through
+// every operator: `400 400 newpage 1 0 0 setrgbcolor 50 50 100 100
+// rect fill showpage 2 wait closepage`.
 void init_sligraphics(SLIInterpreter*);
 
 }  // namespace sli3

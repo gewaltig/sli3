@@ -3,8 +3,9 @@
 // Each operator follows the sli3 operator authoring contract
 // (validate first, peek operands, pop on success, pop self from
 // estack on success path). The currently-targeted GraphicsContext
-// lives in globaldict under /currentpage so drawing ops can read
-// PS-style (no explicit context threaded through every call).
+// lives in the `gfxstatus` dict (installed in systemdict at init
+// time) under /currentpage so drawing ops can read PS-style (no
+// explicit context threaded through every call).
 //
 // Coordinate system: PostScript's bottom-left origin. The Y flip
 // is set once on GraphicsContext construction; ops just hand x/y
@@ -76,9 +77,9 @@ Dictionary* get_gfxstatus(SLIInterpreter* i)
     return g.data_.dict_val;
 }
 
-// Read /currentpage from globaldict, returning nullptr if absent or
-// the entry has been invalidated by /closepage. Does NOT raise; the
-// caller decides what to do.
+// Read /currentpage from the gfxstatus dict, returning nullptr if
+// absent or the entry has been invalidated by /closepage. Does NOT
+// raise; the caller decides what to do.
 GraphicsContext* peek_current_gc(SLIInterpreter* i)
 {
     Dictionary* gd = get_gfxstatus(i);
@@ -137,8 +138,14 @@ bool token_to_string(Token const& t, std::string& out)
 
 // HSB -> RGB (PostScript convention, components in [0,1]). Matches the
 // algorithm in GS's gs_setrgbcolor.ps. Saturation/value clamped on input.
+// Non-finite h/s/v collapse to 0 -- otherwise `int(NaN*6.0)` is UB and
+// the `% 6` step can produce a negative index that walks past the
+// switch arms.
 void hsb_to_rgb(double h, double s, double v, double& r, double& g, double& b)
 {
+    if (!std::isfinite(h)) h = 0.0;
+    if (!std::isfinite(s)) s = 0.0;
+    if (!std::isfinite(v)) v = 0.0;
     if (s < 0.0) s = 0.0; else if (s > 1.0) s = 1.0;
     if (v < 0.0) v = 0.0; else if (v > 1.0) v = 1.0;
     h -= std::floor(h);  // wrap to [0,1)
@@ -240,14 +247,16 @@ public:
 
         Token tok(i->get_type(sli3::graphicscontexttype));
         tok.data_.graphics_val = g;
-        // Set /currentpage BEFORE the operand stack is touched so a
-        // subsequent exception leaves a consistent /currentpage <-> ostack
-        // pairing. Token copy bumps the refcount; the original `tok`
-        // (still refcount 1 from `new`) plus the dict copy (refcount 2)
-        // plus the eventual stack push (refcount 3) wash out as ops run.
-        set_current_page(i, tok);
+        // Pop operands and push result FIRST, then install as
+        // /currentpage. If the dict insert throws (OOM in the pmr
+        // pool) the gc is already on the ostack so the caller can
+        // recover via `dup setpage` or `closepage`. If we set
+        // /currentpage first and then the push failed, the stacks
+        // would be inconsistent: the dict slot pointing at a gc the
+        // ostack never received.
         i->pop(2);
         i->push(tok);
+        set_current_page(i, tok);
     }
 };
 
@@ -283,9 +292,9 @@ public:
         }
         Token tok(i->get_type(sli3::graphicscontexttype));
         tok.data_.graphics_val = g;
-        set_current_page(i, tok);
         i->pop(2);
         i->push(tok);
+        set_current_page(i, tok);
     }
 };
 
@@ -322,9 +331,9 @@ public:
         }
         Token tok(i->get_type(sli3::graphicscontexttype));
         tok.data_.graphics_val = g;
-        set_current_page(i, tok);
         i->pop(3);
         i->push(tok);
+        set_current_page(i, tok);
     }
 private:
     Name op_name_;
@@ -405,17 +414,17 @@ public:
         }
         Token tok(i->get_type(sli3::graphicscontexttype));
         tok.data_.graphics_val = g;
-        set_current_page(i, tok);
         i->pop(3);
         i->push(tok);
+        set_current_page(i, tok);
     }
 };
 
 // `(file.png) loadpng -> gc`. Build an OFFSCREEN-backed context whose
 // initial pixels are the PNG file's content; width/height come from
-// the file. The result does NOT replace /:currentpage -- caller
-// chooses (drawimage onto current page, setpage to draw on top, or
-// just writepng to round-trip).
+// the file. The result does NOT replace gfxstatus /currentpage --
+// caller chooses (drawimage onto current page, setpage to draw on
+// top, or just writepng to round-trip).
 class LoadPngFunction : public SLIFunction
 {
 public:
@@ -483,6 +492,11 @@ public:
         }
         int iw = cairo_image_surface_get_width(src->surface());
         int ih = cairo_image_surface_get_height(src->surface());
+        if (iw <= 0 || ih <= 0)
+        {
+            i->raiseerror(Name("drawimage"), Name("UnsupportedSurfaceError"));
+            return;
+        }
 
         cairo_t* cr = tgt->cr();
         cairo_save(cr);
@@ -516,11 +530,23 @@ namespace
 
 // Wrap a freshly-built cairo_pattern_t as a Token. Steals the
 // reference (the wrapper takes ownership; on the cairo side the
-// refcount starts at 1 and we don't touch it).
+// refcount starts at 1 and we don't touch it). If `new CairoPattern`
+// throws (bad_alloc), the raw cairo_pattern_t would leak unless we
+// destroy it here.
 Token wrap_pattern_(SLIInterpreter* i, cairo_pattern_t* raw)
 {
+    CairoPattern* w = nullptr;
+    try
+    {
+        w = new CairoPattern(raw);
+    }
+    catch (...)
+    {
+        cairo_pattern_destroy(raw);
+        throw;
+    }
     Token t(i->get_type(sli3::patterntype));
-    t.data_.pattern_val = new CairoPattern(raw);
+    t.data_.pattern_val = w;
     return t;
 }
 
@@ -688,6 +714,15 @@ public:
         if (!i->pick(0).is_of_type(sli3::graphicscontexttype))
         {
             i->raiseerror(i->ArgumentTypeError);
+            return;
+        }
+        GraphicsContext* g = i->pick(0).data_.graphics_val;
+        // Reject a closed gc here so the user sees `setpage` named in
+        // the error rather than a confusing NoCurrentPageError from
+        // the next drawing op (peek_current_gc filters !valid()).
+        if (!g || !g->valid())
+        {
+            i->raiseerror(Name("setpage"), Name("ClosedContextError"));
             return;
         }
         set_current_page(i, i->pick(0));
@@ -1369,9 +1404,33 @@ public:
         if (!g) return;
         std::vector<double> dashes;
         dashes.reserve(arr->size());
+        bool any_positive = false;
         for (Token const* t = arr->begin(); t != arr->end(); ++t)
-            dashes.push_back(as_double(*t));
+        {
+            double v = as_double(*t);
+            // Cairo requires every dash value >= 0 and (if any entries
+            // are given) at least one strictly positive. Violation
+            // leaves the cr_ in CAIRO_STATUS_INVALID_DASH for the
+            // rest of its life, silently dropping every later draw.
+            if (!std::isfinite(v) || v < 0.0)
+            {
+                i->raiseerror(Name("setdash"), Name("DashShapeError"));
+                return;
+            }
+            if (v > 0.0) any_positive = true;
+            dashes.push_back(v);
+        }
+        if (!dashes.empty() && !any_positive)
+        {
+            i->raiseerror(Name("setdash"), Name("DashShapeError"));
+            return;
+        }
         double offset = as_double(i->pick(0));
+        if (!std::isfinite(offset))
+        {
+            i->raiseerror(Name("setdash"), Name("DashShapeError"));
+            return;
+        }
         cairo_set_dash(g->cr(),
                        dashes.empty() ? nullptr : dashes.data(),
                        static_cast<int>(dashes.size()),
@@ -1402,7 +1461,10 @@ public:
     }
 };
 
-// `clip -> -` -- non-zero winding clip with the current path.
+// `clip -> -` -- non-zero winding clip with the current path. The
+// fill rule is saved/restored around the cairo_clip call so this op
+// has no side effect on subsequent /fill / /eofill behaviour
+// (mirrors /eoclip's save/restore).
 class ClipFunction : public SLIFunction
 {
 public:
@@ -1410,8 +1472,11 @@ public:
     {
         GraphicsContext* g = require_current_gc(i, Name("clip"));
         if (!g) return;
-        cairo_set_fill_rule(g->cr(), CAIRO_FILL_RULE_WINDING);
-        cairo_clip(g->cr());
+        cairo_t* cr = g->cr();
+        cairo_fill_rule_t saved = cairo_get_fill_rule(cr);
+        cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+        cairo_clip(cr);
+        cairo_set_fill_rule(cr, saved);
     }
 };
 
@@ -2059,7 +2124,7 @@ public:
 // Text -- PS-style font dicts driving the Cairo "toy" text API.
 // A font is a Dictionary with /Family /Slant /Weight /Size. setfont
 // applies the dict to the cairo_t and records it under
-// globaldict /:currentfont so currentfont can recover it.
+// gfxstatus /currentfont so currentfont can recover it.
 //------------------------------------------------------------------------
 
 namespace
@@ -2136,7 +2201,7 @@ public:
 
 // `font setfont -> -`. Applies family/slant/weight via
 // cairo_select_font_face and /Size via cairo_set_font_size. Stores
-// the dict in globaldict /:currentfont so currentfont can recover it.
+// the dict in gfxstatus /currentfont so currentfont can recover it.
 class SetFontFunction : public SLIFunction
 {
 public:
@@ -2162,6 +2227,15 @@ public:
         dict_get_name(d, Name("Weight"), weight_n);
         double size = 12.0;
         dict_get_double(d, Name("Size"), size);
+        // Cairo requires a strictly positive, finite font size. Passing
+        // 0, a negative, NaN or infinity puts cr_ into a sticky error
+        // status which silently drops every subsequent draw, so reject
+        // here with a clear error instead.
+        if (!std::isfinite(size) || size <= 0.0)
+        {
+            i->raiseerror(Name("setfont"), Name("InvalidFontDictError"));
+            return;
+        }
         cairo_select_font_face(g->cr(), family.c_str(),
                                slant_from_name_(slant_n),
                                weight_from_name_(weight_n));
@@ -2209,9 +2283,13 @@ public:
         // device-space (top-left) Y so text glyphs come out right way
         // up at the user's current point, then put the CTM back.
         cairo_t* cr = g->cr();
+        if (!cairo_has_current_point(cr))
+        {
+            i->raiseerror(Name("show"), Name("NoCurrentPointError"));
+            return;
+        }
         double x = 0, y = 0;
-        if (cairo_has_current_point(cr))
-            cairo_get_current_point(cr, &x, &y);
+        cairo_get_current_point(cr, &x, &y);
         std::string const& s = i->pick(0).data_.string_val->str();
         cairo_save(cr);
         cairo_translate(cr, x, y);
@@ -2647,9 +2725,13 @@ public:
         GraphicsContext* g = require_current_gc(i, Name("charpath"));
         if (!g) return;
         cairo_t* cr = g->cr();
+        if (!cairo_has_current_point(cr))
+        {
+            i->raiseerror(Name("charpath"), Name("NoCurrentPointError"));
+            return;
+        }
         double x = 0, y = 0;
-        if (cairo_has_current_point(cr))
-            cairo_get_current_point(cr, &x, &y);
+        cairo_get_current_point(cr, &x, &y);
         std::string const& s = i->pick(sidx).data_.string_val->str();
         cairo_save(cr);
         cairo_translate(cr, x, y);
